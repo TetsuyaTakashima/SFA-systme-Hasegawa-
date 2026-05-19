@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>架電履歴・集計 | 文化施設 営業管理</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell history-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Call Analytics</p>
+          <h1>架電履歴・集計</h1>
+        </div>
+        <div class="topbar-actions">
+          <label class="current-user-mini">
+            利用ユーザー
+            <select id="currentUserSelect"></select>
+          </label>
+          <span class="role-pill" id="currentUserRole">スタッフ</span>
+          <a class="secondary-link" href="./list.html">営業先一覧</a>
+          <a class="secondary-link" href="./index.html">管理画面</a>
+          <button class="secondary-button" id="logoutButton" type="button">ログアウト</button>
+        </div>
+      </header>
+
+      <main class="workspace">
+        <section class="access-panel" id="historyAccessDenied" hidden>
+          <h2>管理者のみ閲覧できます</h2>
+          <p>架電履歴と集計は管理ユーザーだけが確認できます。</p>
+        </section>
+
+        <section id="historyContent" class="history-content" hidden>
+          <section class="summary-grid" aria-label="架電集計">
+            <div class="metric-panel">
+              <span>履歴件数</span>
+              <strong id="historyMetricTotal">0</strong>
+            </div>
+            <div class="metric-panel">
+              <span>今日の更新</span>
+              <strong id="historyMetricToday">0</strong>
+            </div>
+            <div class="metric-panel">
+              <span>更新施設</span>
+              <strong id="historyMetricVenues">0</strong>
+            </div>
+            <div class="metric-panel">
+              <span>架電者</span>
+              <strong id="historyMetricCallers">0</strong>
+            </div>
+          </section>
+
+          <section class="analytics-grid">
+            <section class="analytics-panel" aria-labelledby="callerSummaryTitle">
+              <div class="panel-head compact">
+                <h2 id="callerSummaryTitle">架電者別</h2>
+              </div>
+              <div class="panel-body" id="callerSummary"></div>
+            </section>
+
+            <section class="analytics-panel" aria-labelledby="statusSummaryTitle">
+              <div class="panel-head compact">
+                <h2 id="statusSummaryTitle">更新項目別</h2>
+              </div>
+              <div class="panel-body" id="statusSummary"></div>
+            </section>
+          </section>
+
+          <section class="list-panel full-list" aria-labelledby="historyTableTitle">
+            <div class="panel-head">
+              <h2 id="historyTableTitle">架電履歴一覧</h2>
+              <label class="checkbox-line compact-checkbox">
+                <input id="historyImportantOnly" type="checkbox" />
+                <span>重要項目のみ</span>
+              </label>
+            </div>
+            <div class="table-wrap history-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>日時</th>
+                    <th>施設名</th>
+                    <th>架電者</th>
+                    <th>項目</th>
+                    <th>変更前</th>
+                    <th>変更後</th>
+                  </tr>
+                </thead>
+                <tbody id="historyTableBody"></tbody>
+              </table>
+            </div>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

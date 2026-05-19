@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>文化施設 営業管理</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Public Cultural Venue CRM</p>
+          <h1>文化施設 営業管理</h1>
+        </div>
+        <div class="topbar-actions">
+          <a class="secondary-link" href="./list.html">営業先一覧</a>
+          <a class="secondary-link" id="adminHistoryLink" href="./history.html" hidden>履歴・集計</a>
+          <button class="icon-button" id="exportCsvButton" type="button" title="CSVを書き出す" aria-label="CSVを書き出す">
+            <span aria-hidden="true">CSV</span>
+          </button>
+          <button class="secondary-button" id="logoutButton" type="button">ログアウト</button>
+        </div>
+      </header>
+
+      <main class="workspace">
+        <section class="summary-grid" aria-label="営業状況サマリー">
+          <div class="metric-panel">
+            <span>登録施設</span>
+            <strong id="metricTotal">0</strong>
+          </div>
+          <div class="metric-panel">
+            <span>未着手</span>
+            <strong id="metricTodo">0</strong>
+          </div>
+          <div class="metric-panel">
+            <span>提案中</span>
+            <strong id="metricProposal">0</strong>
+          </div>
+          <div class="metric-panel urgent">
+            <span>要フォロー</span>
+            <strong id="metricDue">0</strong>
+          </div>
+        </section>
+
+        <section class="tab-workspace" aria-label="管理メニュー">
+          <div class="management-menu-bar">
+            <label class="management-menu-field" for="managementSectionSelect">
+              管理メニュー
+              <select id="managementSectionSelect">
+                <option value="userTab">ユーザー管理</option>
+                <option value="statusTab" data-admin-only>状態項目管理</option>
+                <option value="temperatureTab" data-admin-only>温度感設定</option>
+                <option value="importTab">CSV取り込み</option>
+              </select>
+            </label>
+          </div>
+
+          <section class="tab-panel is-active" id="userTab" role="tabpanel" aria-label="ユーザー管理">
+            <section class="account-panel" aria-labelledby="accountTitle">
+              <div class="panel-head compact">
+                <div>
+                  <p class="eyebrow">Account</p>
+                  <h2 id="accountTitle">ユーザー管理</h2>
+                </div>
+                <span class="role-pill" id="currentUserRole">スタッフ</span>
+              </div>
+              <div class="panel-body">
+                <label class="single-field">
+                  利用ユーザー
+                  <select id="currentUserSelect"></select>
+                </label>
+                <div id="userAdminTools" class="admin-tools" hidden>
+                  <form id="userForm" class="user-form">
+                    <label>名前<input name="userName" required /></label>
+                    <label>ログインID<input name="userLoginId" autocomplete="username" required /></label>
+                    <label>パスワード<input name="userPassword" type="password" autocomplete="new-password" minlength="4" required /></label>
+                    <button class="primary-button" type="submit">追加</button>
+                  </form>
+                  <div class="user-list" id="userList"></div>
+                </div>
+              </div>
+            </section>
+          </section>
+
+          <section class="tab-panel" id="statusTab" role="tabpanel" aria-label="状態項目管理" data-admin-only-section hidden>
+            <section class="account-panel" aria-labelledby="statusAdminTitle">
+              <div class="panel-head compact">
+                <div>
+                  <p class="eyebrow">Status Master</p>
+                  <h2 id="statusAdminTitle">状態項目管理</h2>
+                </div>
+              </div>
+              <div class="panel-body">
+                <form id="statusForm" class="status-form">
+                  <label>状態名<input name="statusName" maxlength="24" placeholder="例: 再架電予定" /></label>
+                  <label>色<input name="statusColor" type="color" value="#3d7a52" /></label>
+                  <label class="checkbox-line status-form-checkbox">
+                    <input name="statusClosed" type="checkbox" />
+                    <span>架電対象外</span>
+                  </label>
+                  <button class="primary-button" type="submit">追加</button>
+                </form>
+                <div class="status-option-list panel-list" id="statusList"></div>
+              </div>
+            </section>
+          </section>
+
+          <section class="tab-panel" id="temperatureTab" role="tabpanel" aria-label="温度感設定" data-admin-only-section hidden>
+            <section class="account-panel" aria-labelledby="temperatureAdminTitle">
+              <div class="panel-head compact">
+                <div>
+                  <p class="eyebrow">Temperature Master</p>
+                  <h2 id="temperatureAdminTitle">温度感設定</h2>
+                </div>
+              </div>
+              <div class="panel-body">
+                <div class="temperature-option-list" id="temperatureList"></div>
+              </div>
+            </section>
+          </section>
+
+          <section class="tab-panel" id="importTab" role="tabpanel" aria-label="CSV取り込み" hidden>
+            <section class="import-panel" aria-labelledby="importTitle">
+              <div>
+                <h2 id="importTitle">CSV取り込み</h2>
+                <p>施設名、管理運営機関、電話番号、アドレス、住所、担当部署などの列を自動判定して取り込みます。</p>
+              </div>
+              <div class="import-actions">
+                <label class="file-drop" for="csvFile">
+                  <input id="csvFile" type="file" accept=".csv,text/csv" />
+                  <span>CSVを選択</span>
+                </label>
+                <label class="checkbox-line">
+                  <input id="mergeDuplicates" type="checkbox" checked />
+                  <span>重複施設を更新</span>
+                </label>
+                <a class="secondary-link" href="./sample-facilities.csv" download>サンプルCSV</a>
+              </div>
+              <div class="import-preview" id="importPreview" hidden></div>
+            </section>
+          </section>
+        </section>
+
+      </main>
+    </div>
+
+    <dialog id="alertDialog" class="alert-dialog">
+      <form method="dialog">
+        <div class="dialog-head">
+          <div>
+            <p class="eyebrow">Required Checks</p>
+            <h2>要確認リスト <span id="alertDialogCount">0件</span></h2>
+          </div>
+          <button class="ghost-icon" type="button" id="closeAlertDialogButton" title="閉じる" aria-label="閉じる">×</button>
+        </div>
+        <div class="alert-dialog-body">
+          <p class="alert-dialog-note" id="alertDialogLead">通知対象に入っている施設を表示します。</p>
+          <div class="alert-venue-list" id="alertVenueList"></div>
+        </div>
+        <div class="dialog-actions">
+          <span></span>
+          <button class="secondary-button" id="closeAlertListButton" type="button">閉じる</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="venueDialog" class="venue-dialog">
+      <form id="venueForm" method="dialog">
+        <div class="dialog-head">
+          <div>
+            <p class="eyebrow">Venue Profile</p>
+            <h2 id="formTitle">新規施設</h2>
+          </div>
+          <button class="ghost-icon" type="button" id="closeDialogButton" title="閉じる" aria-label="閉じる">×</button>
+        </div>
+
+        <div class="form-grid">
+          <fieldset>
+            <legend>基本情報</legend>
+            <label>施設名<input name="facilityName" required /></label>
+            <label>種別<input name="category" placeholder="文化会館、公会堂、劇場" /></label>
+            <label>管理運営機関<input name="operator" placeholder="市、公益財団法人、指定管理者" /></label>
+            <label>都道府県<input name="prefecture" /></label>
+            <label>市区町村<input name="municipality" /></label>
+            <label class="wide">住所<input name="address" /></label>
+          </fieldset>
+
+          <fieldset>
+            <legend>連絡先</legend>
+            <label>電話番号<input name="phone" inputmode="tel" /></label>
+            <label>FAX<input name="fax" inputmode="tel" /></label>
+            <label>アドレス<input name="email" inputmode="email" /></label>
+            <label>Webサイト<input name="website" inputmode="url" /></label>
+            <label>担当部署<input name="department" /></label>
+            <label>担当者<input name="contactName" /></label>
+          </fieldset>
+
+          <fieldset>
+            <legend>公演・ホール情報</legend>
+            <label>主ホール名<input name="mainHallName" /></label>
+            <label>客席数<input name="seatCount" inputmode="numeric" /></label>
+            <label>大ホール席数<input name="largeHallSeats" inputmode="numeric" /></label>
+            <label>中ホール席数<input name="mediumHallSeats" inputmode="numeric" /></label>
+            <label>小ホール席数<input name="smallHallSeats" inputmode="numeric" /></label>
+            <label>得意ジャンル<input name="genres" placeholder="演劇、音楽、舞踊、伝統芸能" /></label>
+            <label>
+              自主事業
+              <select name="programPolicy">
+                <option value="○">○</option>
+                <option value="△">△</option>
+                <option value="×">×</option>
+              </select>
+            </label>
+            <label class="wide">備考<textarea name="notes" rows="4"></textarea></label>
+          </fieldset>
+
+          <fieldset>
+            <legend>営業状況</legend>
+            <label>
+              状態
+              <select name="status">
+                <option value="未着手">未着手</option>
+                <option value="情報収集中">情報収集中</option>
+                <option value="初回連絡済">初回連絡済</option>
+                <option value="提案中">提案中</option>
+                <option value="見積・調整中">見積・調整中</option>
+                <option value="成約">成約</option>
+                <option value="保留">保留</option>
+                <option value="架電NG">架電NG</option>
+              </select>
+            </label>
+            <label>
+              温度感
+              <select name="priority">
+                <option value="A">A</option>
+                <option value="B">B</option>
+                <option value="C">C</option>
+                <option value="D">D</option>
+                <option value="E">E</option>
+              </select>
+            </label>
+            <label>
+              表示
+              <select name="isHidden">
+                <option value="false">表示</option>
+                <option value="true">非表示</option>
+              </select>
+            </label>
+            <label>
+              担当スタッフ
+              <select name="assignedUserId"></select>
+            </label>
+            <label>最終接触日<input name="lastContactDate" type="date" /></label>
+            <label>検討時期<input name="considerationDate" type="date" /></label>
+            <label>次回架電日<input name="nextActionDate" type="date" /></label>
+            <label>通知日数<input name="notificationLeadDays" type="number" min="0" max="365" placeholder="空欄は既定" /></label>
+            <label class="wide">次回アクション<input name="nextAction" placeholder="文化事業担当へ電話、企画書送付など" /></label>
+          </fieldset>
+        </div>
+
+        <div class="dialog-actions">
+          <button class="danger-button" id="deleteVenueButton" type="button">削除</button>
+          <span></span>
+          <button class="secondary-button" type="button" id="cancelFormButton">キャンセル</button>
+          <button class="primary-button" value="default" type="submit">保存</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="notesDialog" class="notes-dialog">
+      <form id="notesForm" method="dialog">
+        <div class="dialog-head">
+          <div>
+            <p class="eyebrow">Notes</p>
+            <h2 id="notesTitle">備考</h2>
+          </div>
+          <button class="ghost-icon" type="button" id="closeNotesDialogButton" title="閉じる" aria-label="閉じる">×</button>
+        </div>
+        <div class="notes-editor">
+          <label class="checkbox-line notes-important-line">
+            <input id="notesImportantInput" type="checkbox" />
+            <span>重要メモ</span>
+          </label>
+          <label>
+            備考
+            <textarea id="notesTextarea" rows="10" placeholder="架電内容、次回確認事項、先方の反応など"></textarea>
+          </label>
+        </div>
+        <div class="dialog-actions">
+          <span></span>
+          <button class="secondary-button" id="cancelNotesButton" type="button">キャンセル</button>
+          <button class="primary-button" type="submit">保存</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

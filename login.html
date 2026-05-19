@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ログイン | 文化施設 営業管理</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell auth-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Public Cultural Venue CRM</p>
+          <h1>ログイン</h1>
+        </div>
+        <div class="topbar-actions">
+          <a class="secondary-link" href="./index.html">管理画面</a>
+          <a class="secondary-link" href="./list.html">営業先一覧</a>
+        </div>
+      </header>
+
+      <main class="workspace auth-workspace">
+        <section class="auth-panel" aria-labelledby="loginTitle">
+          <div class="panel-head compact">
+            <div>
+              <p class="eyebrow">Sign in</p>
+              <h2 id="loginTitle">ログイン</h2>
+            </div>
+          </div>
+          <form class="auth-form" id="loginForm">
+            <label>
+              ログインID
+              <input name="loginId" autocomplete="username" placeholder="admin" required />
+            </label>
+            <label>
+              パスワード
+              <input name="password" type="password" autocomplete="current-password" required />
+            </label>
+            <button class="primary-button" type="submit">ログイン</button>
+            <p class="auth-help" id="loginHelp" role="status"></p>
+          </form>
+        </section>
+
+        <section class="auth-note">
+          <strong>ローカル確認用ログイン</strong>
+          <span>初期ユーザー: admin / password</span>
+          <span>ユーザー作成は管理者ログイン後の管理画面で行います。</span>
+          <span>本番デプロイ時はSupabase Authへ差し替える設計です。</span>
+        </section>
+      </main>
+    </div>
+
+    <script src="./auth.js"></script>
+  </body>
+</html>
