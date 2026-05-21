@@ -1,0 +1,159 @@
+const SUPABASE_URL = process.env.SUPABASE_URL || "https://oyqbdscgihysjwzykdzq.supabase.co";
+const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+const PUBLIC_KEY = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_PUBLISHABLE_KEY || SERVICE_ROLE_KEY;
+const AUTH_EMAIL_DOMAIN = process.env.AUTH_EMAIL_DOMAIN || "crm.local";
+
+export default async function handler(request, response) {
+  if (request.method === "OPTIONS") {
+    response.status(204).end();
+    return;
+  }
+
+  if (request.method !== "POST") {
+    response.status(405).json({ error: "POSTのみ対応しています。" });
+    return;
+  }
+
+  if (!SERVICE_ROLE_KEY) {
+    response.status(500).json({ error: "SUPABASE_SERVICE_ROLE_KEY が未設定です。" });
+    return;
+  }
+
+  try {
+    const accessToken = getBearerToken(request.headers.authorization || "");
+    if (!accessToken) {
+      response.status(401).json({ error: "ログイン情報を確認できません。" });
+      return;
+    }
+
+    const requester = await getRequester(accessToken);
+    const requesterProfile = await getProfile(requester.id);
+    if (requesterProfile?.role !== "admin" || requesterProfile?.active === false) {
+      response.status(403).json({ error: "管理者のみユーザーを作成できます。" });
+      return;
+    }
+
+    const body = await readBody(request);
+    const name = String(body.name || "").trim();
+    const loginId = normalizeLoginId(body.loginId);
+    const password = String(body.password || "");
+
+    if (!name || !loginId || password.length < 4) {
+      response.status(400).json({ error: "名前、ログインID、4文字以上のパスワードを入力してください。" });
+      return;
+    }
+
+    const email = loginIdToEmail(loginId);
+    const authUser = await createAuthUser(email, password, name, loginId);
+    const profile = await upsertProfile({
+      id: authUser.id,
+      name,
+      login_id: loginId,
+      email,
+      role: "staff",
+      active: true,
+    });
+
+    response.status(200).json({ profile });
+  } catch (error) {
+    response.status(error.status || 500).json({ error: error.message || "ユーザー作成に失敗しました。" });
+  }
+}
+
+async function getRequester(accessToken) {
+  const result = await supabaseFetch("/auth/v1/user", {
+    headers: {
+      apikey: PUBLIC_KEY,
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+  return result;
+}
+
+async function getProfile(userId) {
+  const rows = await supabaseFetch(`/rest/v1/profiles?id=eq.${encodeURIComponent(userId)}&select=id,role,active`, {
+    headers: serviceHeaders(),
+  });
+  return Array.isArray(rows) ? rows[0] : null;
+}
+
+async function createAuthUser(email, password, name, loginId) {
+  return supabaseFetch("/auth/v1/admin/users", {
+    method: "POST",
+    headers: serviceHeaders(),
+    body: JSON.stringify({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: { name, login_id: loginId },
+    }),
+  });
+}
+
+async function upsertProfile(profile) {
+  const rows = await supabaseFetch("/rest/v1/profiles", {
+    method: "POST",
+    headers: {
+      ...serviceHeaders(),
+      Prefer: "resolution=merge-duplicates,return=representation",
+    },
+    body: JSON.stringify(profile),
+  });
+  return Array.isArray(rows) ? rows[0] : rows;
+}
+
+async function supabaseFetch(path, options = {}) {
+  const result = await fetch(`${SUPABASE_URL}${path}`, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+  const text = await result.text();
+  const data = text ? JSON.parse(text) : null;
+  if (!result.ok) {
+    const error = new Error(data?.msg || data?.message || data?.error_description || data?.error || "Supabase API error");
+    error.status = result.status;
+    throw error;
+  }
+  return data;
+}
+
+function serviceHeaders() {
+  return {
+    apikey: SERVICE_ROLE_KEY,
+    Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+  };
+}
+
+function getBearerToken(value) {
+  const match = String(value).match(/^Bearer\s+(.+)$/i);
+  return match ? match[1] : "";
+}
+
+async function readBody(request) {
+  if (request.body && typeof request.body === "object" && !Buffer.isBuffer(request.body)) return request.body;
+  return new Promise((resolve, reject) => {
+    let body = "";
+    request.on("data", (chunk) => {
+      body += chunk;
+    });
+    request.on("end", () => {
+      try {
+        resolve(body ? JSON.parse(body) : {});
+      } catch (error) {
+        reject(error);
+      }
+    });
+    request.on("error", reject);
+  });
+}
+
+function loginIdToEmail(value) {
+  return value.includes("@") ? value : `${value}@${AUTH_EMAIL_DOMAIN}`;
+}
+
+function normalizeLoginId(value = "") {
+  return String(value || "").trim().toLowerCase();
+}

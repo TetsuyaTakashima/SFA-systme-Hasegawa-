@@ -34,11 +34,25 @@ const loginHelp = document.querySelector("#loginHelp");
 loginForm?.addEventListener("submit", handleLogin);
 showSignedInState();
 
-function handleLogin(event) {
+async function handleLogin(event) {
   event.preventDefault();
   const formData = new FormData(loginForm);
   const loginId = normalizeLoginId(formData.get("loginId"));
   const password = String(formData.get("password") ?? "");
+
+  if (isSupabaseEnabled()) {
+    try {
+      setHelp(loginHelp, "ログイン確認中です。", "");
+      const user = await window.crmSupabase.signIn(loginId, password);
+      signIn(user.id);
+      setHelp(loginHelp, `${user.name}としてログインしました。`, "success");
+      window.location.href = getSafeNextPath();
+    } catch (error) {
+      setHelp(loginHelp, friendlyAuthError(error), "error");
+    }
+    return;
+  }
+
   const users = loadUsers();
   const user = users.find((item) => normalizeLoginId(item.loginId || item.email) === loginId && item.active !== false);
 
@@ -52,7 +66,20 @@ function handleLogin(event) {
   window.location.href = getSafeNextPath();
 }
 
-function showSignedInState() {
+async function showSignedInState() {
+  if (isSupabaseEnabled()) {
+    try {
+      const profile = await window.crmSupabase.getCurrentProfile();
+      if (profile?.active) {
+        signIn(profile.id);
+        setHelp(loginHelp, `${profile.name}としてログイン中です。`, "success");
+      }
+    } catch {
+      setHelp(loginHelp, "Supabaseのログイン状態を確認できませんでした。", "error");
+    }
+    return;
+  }
+
   const session = readJsonStorage(AUTH_SESSION_KEY, null);
   const user = loadUsers().find((item) => item.id === session?.userId && item.active !== false);
   if (user) {
@@ -115,6 +142,20 @@ function setHelp(element, message, tone = "") {
 
 function normalizeLoginId(value = "") {
   return String(value ?? "").trim().toLowerCase();
+}
+
+function isSupabaseEnabled() {
+  return Boolean(window.crmSupabase?.isEnabled?.());
+}
+
+function friendlyAuthError(error) {
+  const message = String(error?.message || "");
+  if (message.includes("Invalid login credentials")) {
+    return "ログインIDまたはパスワードが一致しません。初期管理者はSupabase Authの admin@crm.local / password を確認してください。";
+  }
+  if (message.includes("Email not confirmed")) return "メール確認が完了していません。SupabaseのAuth設定を確認してください。";
+  if (message) return message;
+  return "ログインに失敗しました。";
 }
 
 function readJsonStorage(key, fallback) {

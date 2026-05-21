@@ -10,9 +10,9 @@
 - DB: Supabase Postgres
 - 権限: Supabase Row Level Security
 - CSV取り込み: フロントでプレビュー、確定時にSupabaseへupsert
-- ログイン: 現在の `login.html` はローカル確認用。本番ではSupabase Authのメール/パスワード認証に差し替え
-- ユーザー作成: ローカル版は管理者ログイン後の管理画面で作成。本番では管理者による招待またはSupabase Authのサインアップ後に `profiles` を作成
-- 自動保存: 入力変更ごとにSupabaseへ差分保存し、保存中・保存済み・失敗の状態を画面に表示
+- ログイン: `login.html` はSupabase Authへ接続済み。ログインIDは内部的に `ログインID@crm.local` のメール形式へ変換
+- ユーザー作成: 管理者ログイン後の管理画面から、Vercel Functions の `/api/create-user` 経由でSupabase Authユーザーと `profiles` を作成
+- 自動保存: 入力変更ごとにSupabaseへ保存し、保存中・保存済み・失敗の状態を画面に表示
 - 同時編集対策: `updated_at` と `lock_version` を使った楽観ロック、Supabase Realtimeで他ユーザー更新を即時反映
 - 個人設定: 列順、固定列、表示列、通知日数、通知対象、通知解除条件はユーザーごとの設定テーブルへ保存
 - 通知: 開発版はブラウザ通知。本番は施設別の通知日数を参照し、Supabase Edge Functionsの定期実行でメールまたはWeb Pushへ拡張
@@ -68,6 +68,14 @@
 - Supabase Auth: https://supabase.com/docs/guides/auth
 - Supabase Row Level Security: https://supabase.com/docs/guides/database/postgres/row-level-security
 - Supabase Edge Functions: https://supabase.com/docs/guides/functions
+
+## 現在の実装で必要な追加設定
+
+- 既に `docs/supabase-schema.sql` を適用済みの場合は、Supabase SQL Editorで `docs/supabase-after-setup.sql` を実行します。
+- 初期管理者のAuthメールは `admin@crm.local`、`profiles.login_id` は `admin` にします。
+- `admin / password` でログインできない場合は、Supabase SQL Editorで `docs/supabase-admin-check.sql` を実行し、Authユーザーと `profiles` のidが一致しているか確認します。
+- Vercelの環境変数に `SUPABASE_URL` と `SUPABASE_SERVICE_ROLE_KEY` を設定します。`SUPABASE_SERVICE_ROLE_KEY` はユーザー作成APIだけで使う秘密鍵なので、フロント側のファイルには書きません。
+- 必要に応じて `SUPABASE_ANON_KEY` または `SUPABASE_PUBLISHABLE_KEY`、`AUTH_EMAIL_DOMAIN=crm.local` もVercel環境変数へ追加します。
 - Vercel Git連携: https://vercel.com/docs/deployments/git
 - Vercel設定ファイル: https://vercel.com/docs/project-configuration
 - GitHub Actions Secrets: https://docs.github.com/actions/security-guides/using-secrets-in-github-actions

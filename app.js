@@ -460,6 +460,8 @@ let temperatureMeta = loadTemperatureMeta();
 let notificationTimer = null;
 let saveStatusTimer = null;
 let lastUndoSnapshot = null;
+let remoteDataReady = false;
+let remoteSaveNoticeShown = false;
 
 const elements = {
   metricTotal: document.querySelector("#metricTotal"),
@@ -547,8 +549,9 @@ const elements = {
 
 init();
 
-function init() {
-  if (!requireAuthenticatedUser()) return;
+async function init() {
+  if (!(await requireAuthenticatedUser())) return;
+  await initializeRemoteData();
   ensureVenueMetadata();
   ensureColumnSchema();
   setupTabs();
@@ -634,7 +637,25 @@ function on(element, eventName, handler) {
   if (element) element.addEventListener(eventName, handler);
 }
 
-function requireAuthenticatedUser() {
+async function requireAuthenticatedUser() {
+  if (isSupabaseEnabled()) {
+    try {
+      const profile = await window.crmSupabase.getCurrentProfile();
+      if (profile?.active) {
+        currentUserId = profile.id;
+        users = [profile, ...users.filter((user) => user.id !== profile.id)];
+        saveCurrentUserId();
+        return true;
+      }
+    } catch (error) {
+      console.error("Supabase auth check failed", error);
+    }
+    const pageName = getCurrentPageName();
+    const next = encodeURIComponent(`${pageName}${window.location.search || ""}${window.location.hash || ""}`);
+    window.location.href = `./login.html?next=${next}`;
+    return false;
+  }
+
   const session = readJsonStorage(AUTH_SESSION_KEY, null);
   const sessionUser = users.find((user) => user.id === session?.userId && user.active !== false);
   if (sessionUser) {
@@ -649,7 +670,14 @@ function requireAuthenticatedUser() {
   return false;
 }
 
-function logoutCurrentUser() {
+async function logoutCurrentUser() {
+  if (isSupabaseEnabled()) {
+    try {
+      await window.crmSupabase.signOut();
+    } catch (error) {
+      console.error("Supabase sign out failed", error);
+    }
+  }
   window.localStorage.removeItem(AUTH_SESSION_KEY);
   const pageName = getCurrentPageName();
   const next = encodeURIComponent(`${pageName}${window.location.search || ""}${window.location.hash || ""}`);
@@ -658,6 +686,77 @@ function logoutCurrentUser() {
 
 function getCurrentPageName() {
   return window.location.pathname.split("/").pop() || "index.html";
+}
+
+function isSupabaseEnabled() {
+  return Boolean(window.crmSupabase?.isEnabled?.());
+}
+
+function isRemoteDataMode() {
+  return remoteDataReady && isSupabaseEnabled();
+}
+
+async function initializeRemoteData() {
+  if (!isSupabaseEnabled()) return;
+
+  markSaved("Supabase同期中...");
+  try {
+    const workspace = await window.crmSupabase.loadWorkspace(currentUserId);
+    const currentUser = workspace.currentUser || users.find((user) => user.id === currentUserId);
+
+    users = workspace.users.length ? workspace.users.map(normalizeUserAccount) : users;
+    if (currentUser?.id) currentUserId = currentUser.id;
+    saveCurrentUserId();
+
+    statusOptions = normalizeStatusOptions(workspace.statusOptions.length ? workspace.statusOptions : defaultStatuses);
+    statusMeta = normalizeStatusMeta({
+      ...defaultStatusMeta,
+      ...workspace.statusMeta,
+    });
+    temperatureMeta = normalizeTemperatureMeta({
+      ...defaultTemperatureMeta,
+      ...workspace.temperatureMeta,
+    });
+    venues = workspace.venues;
+    callHistory = workspace.callHistory;
+
+    const preferences = workspace.preferences || {};
+    columnOrders = {
+      ...columnOrders,
+      [currentUserId]: Array.isArray(preferences.columnOrder) ? preferences.columnOrder : columnOrders[currentUserId] || [],
+    };
+    pinnedColumns = {
+      ...pinnedColumns,
+      [currentUserId]: Array.isArray(preferences.pinnedColumns) ? preferences.pinnedColumns : pinnedColumns[currentUserId] || [],
+    };
+    visibleColumns = {
+      ...visibleColumns,
+      [currentUserId]: Array.isArray(preferences.visibleColumns) ? preferences.visibleColumns : visibleColumns[currentUserId] || [],
+    };
+    notificationSettings = normalizeNotificationSettings(preferences.notificationSettings || notificationSettings, currentUserId);
+    selectedId = getInitialSelectedId();
+    remoteDataReady = true;
+    cacheCurrentDataLocally();
+    markSaved("Supabase同期済み");
+  } catch (error) {
+    remoteDataReady = false;
+    console.error("Supabase workspace load failed", error);
+    notifyMessage(`Supabase同期に失敗しました: ${error.message || "設定を確認してください。"}`);
+    markSaved("Supabase同期エラー");
+  }
+}
+
+function cacheCurrentDataLocally() {
+  writeJsonStorage(USERS_KEY, users);
+  writeJsonStorage(STORAGE_KEY, venues);
+  writeJsonStorage(CALL_HISTORY_KEY, callHistory);
+  writeJsonStorage(STATUS_OPTIONS_KEY, statusOptions);
+  writeJsonStorage(STATUS_META_KEY, statusMeta);
+  writeJsonStorage(TEMPERATURE_META_KEY, temperatureMeta);
+  writeJsonStorage(COLUMN_ORDER_KEY, columnOrders);
+  writeJsonStorage(PINNED_COLUMNS_KEY, pinnedColumns);
+  writeJsonStorage(VISIBLE_COLUMNS_KEY, visibleColumns);
+  writeJsonStorage(getNotificationSettingsStorageKey(), notificationSettings);
 }
 
 function updateManagementMenuAccess() {
@@ -761,8 +860,9 @@ function loadVenues() {
   return saved;
 }
 
-function saveVenues() {
+function saveVenues(changedVenueIds = null) {
   writeJsonStorage(STORAGE_KEY, venues);
+  queueRemoteVenueSave(changedVenueIds);
 }
 
 function getNotificationSettingsStorageKey(userId = currentUserId) {
@@ -791,6 +891,7 @@ function loadNotificationSettings(userId = currentUserId) {
 
 function saveNotificationSettings(userId = currentUserId) {
   writeJsonStorage(getNotificationSettingsStorageKey(userId), notificationSettings);
+  queueRemotePreferenceSave(userId);
 }
 
 function loadCallHistory() {
@@ -814,6 +915,7 @@ function loadStatusOptions() {
 
 function saveStatusOptions() {
   writeJsonStorage(STATUS_OPTIONS_KEY, statusOptions);
+  queueRemoteStatusOptionsSave();
 }
 
 function loadColumnOrders() {
@@ -823,6 +925,7 @@ function loadColumnOrders() {
 
 function saveColumnOrders() {
   writeJsonStorage(COLUMN_ORDER_KEY, columnOrders);
+  queueRemotePreferenceSave();
 }
 
 function loadPinnedColumns() {
@@ -832,6 +935,7 @@ function loadPinnedColumns() {
 
 function savePinnedColumns() {
   writeJsonStorage(PINNED_COLUMNS_KEY, pinnedColumns);
+  queueRemotePreferenceSave();
 }
 
 function loadVisibleColumns() {
@@ -841,6 +945,7 @@ function loadVisibleColumns() {
 
 function saveVisibleColumns() {
   writeJsonStorage(VISIBLE_COLUMNS_KEY, visibleColumns);
+  queueRemotePreferenceSave();
 }
 
 function ensureColumnSchema() {
@@ -924,6 +1029,7 @@ function loadStatusMeta() {
 
 function saveStatusMeta() {
   writeJsonStorage(STATUS_META_KEY, statusMeta);
+  queueRemoteStatusOptionsSave();
 }
 
 function loadTemperatureMeta() {
@@ -933,6 +1039,7 @@ function loadTemperatureMeta() {
 
 function saveTemperatureMeta() {
   writeJsonStorage(TEMPERATURE_META_KEY, temperatureMeta);
+  queueRemoteTemperatureOptionsSave();
 }
 
 function readJsonStorage(key, fallback) {
@@ -949,6 +1056,81 @@ function writeJsonStorage(key, value) {
     window.localStorage.setItem(key, JSON.stringify(value));
   } catch {
     console.warn("Local storage is unavailable. Data will be kept only while this page is open.");
+  }
+}
+
+function queueRemoteVenueSave(changedVenueIds = null) {
+  if (!isRemoteDataMode()) return;
+  const targetIds = Array.isArray(changedVenueIds) ? new Set(changedVenueIds) : null;
+  const targetVenues = targetIds ? venues.filter((venue) => targetIds.has(venue.id)) : venues;
+  if (!targetVenues.length) return;
+
+  markSaved("Supabase保存中...");
+  window.crmSupabase
+    .upsertVenues(targetVenues, currentUserId)
+    .then(() => markSaved("Supabase保存済み"))
+    .catch((error) => handleRemoteSaveError(error));
+}
+
+function queueRemoteVenueDelete(id) {
+  if (!isRemoteDataMode() || !id) return;
+  markSaved("Supabase削除中...");
+  window.crmSupabase
+    .deleteVenue(id)
+    .then(() => markSaved("Supabase削除済み"))
+    .catch((error) => handleRemoteSaveError(error));
+}
+
+function queueRemoteCallHistorySave(entries) {
+  if (!isRemoteDataMode()) return;
+  window.crmSupabase.insertCallHistories(entries).catch((error) => handleRemoteSaveError(error, false));
+}
+
+function queueRemotePreferenceSave(userId = currentUserId) {
+  if (!isRemoteDataMode() || !userId) return;
+  window.crmSupabase
+    .saveUserPreferences(userId, {
+      columnOrder: columnOrders[userId] || [],
+      pinnedColumns: pinnedColumns[userId] || [],
+      visibleColumns: visibleColumns[userId] || [],
+      notificationSettings,
+    })
+    .catch((error) => handleRemoteSaveError(error, false));
+}
+
+function queueRemoteProfileUpdate(id, updates) {
+  if (!isRemoteDataMode() || !id) return;
+  markSaved("Supabase保存中...");
+  window.crmSupabase
+    .updateProfile(id, updates)
+    .then(() => markSaved("Supabase保存済み"))
+    .catch((error) => handleRemoteSaveError(error));
+}
+
+function queueRemoteStatusOptionsSave() {
+  if (!isRemoteDataMode()) return;
+  window.crmSupabase.upsertStatusOptions(statusOptions, statusMeta).catch((error) => handleRemoteSaveError(error, false));
+}
+
+function queueRemoteStatusOptionDelete(status) {
+  if (!isRemoteDataMode() || !status) return;
+  window.crmSupabase.deleteStatusOption(status).catch((error) => handleRemoteSaveError(error, false));
+}
+
+function queueRemoteTemperatureOptionsSave() {
+  if (!isRemoteDataMode()) return;
+  window.crmSupabase.upsertTemperatureOptions(temperatureMeta).catch((error) => handleRemoteSaveError(error, false));
+}
+
+function handleRemoteSaveError(error, showNotice = true) {
+  console.error("Supabase save failed", error);
+  markSaved("Supabase保存エラー");
+  if (showNotice && !remoteSaveNoticeShown) {
+    remoteSaveNoticeShown = true;
+    notifyMessage(`Supabaseへの保存に失敗しました: ${error.message || "設定を確認してください。"}`);
+    window.setTimeout(() => {
+      remoteSaveNoticeShown = false;
+    }, 5000);
   }
 }
 
@@ -1133,6 +1315,8 @@ function renderUserPanel() {
       elements.currentUserSelect.append(new Option(`${user.name} (${roleLabels[user.role] || user.role})`, user.id));
     });
     elements.currentUserSelect.value = currentValue;
+    elements.currentUserSelect.disabled = isSupabaseEnabled();
+    elements.currentUserSelect.title = isSupabaseEnabled() ? "Supabaseログイン中はログインユーザーで固定されます" : "";
   }
 
   if (elements.currentUserRole) {
@@ -1197,7 +1381,7 @@ function changeCurrentUser() {
   checkCallNotifications(false);
 }
 
-function createUser(event) {
+async function createUser(event) {
   event.preventDefault();
   if (!canManageUsers()) return;
 
@@ -1213,6 +1397,21 @@ function createUser(event) {
 
   if (users.some((user) => normalizeLoginId(user.loginId || user.email) === loginId)) {
     notifyMessage("同じログインIDのユーザーがすでにあります。");
+    return;
+  }
+
+  if (isSupabaseEnabled()) {
+    try {
+      markSaved("ユーザー作成中...");
+      const createdUser = await window.crmSupabase.createUser({ name, loginId, password });
+      users = [...users, normalizeUserAccount(createdUser)];
+      elements.userForm.reset();
+      markSaved("ユーザーを追加しました");
+      render();
+    } catch (error) {
+      notifyMessage(`ユーザー作成に失敗しました: ${error.message || "Vercelの環境変数を確認してください。"}`);
+      markSaved("ユーザー作成エラー");
+    }
     return;
   }
 
@@ -1249,6 +1448,7 @@ function updateUserRole(id, role) {
       : user
   );
   writeJsonStorage(USERS_KEY, users);
+  queueRemoteProfileUpdate(id, { role: roleLabels[role] ? role : "staff" });
   render();
 }
 
@@ -1265,6 +1465,8 @@ function toggleUserActive(id) {
       : user
   );
   writeJsonStorage(USERS_KEY, users);
+  const updatedUser = users.find((user) => user.id === id);
+  queueRemoteProfileUpdate(id, { active: updatedUser?.active !== false });
   render();
 }
 
@@ -1443,6 +1645,7 @@ function renameStatusOption(previousStatus, nextValue, metaUpdates = {}) {
   };
   saveStatusOptions();
   saveStatusMeta();
+  if (renamed) queueRemoteStatusOptionDelete(previousStatus);
   if (renamed) saveVenues();
   markSaved("状態設定を保存しました");
   render();
@@ -1466,6 +1669,7 @@ function deleteStatusOption(status) {
   statusMeta = nextMeta;
   saveStatusOptions();
   saveStatusMeta();
+  queueRemoteStatusOptionDelete(status);
   markSaved("状態を削除しました");
   render();
 }
@@ -2319,7 +2523,7 @@ function updateVenueField(id, field, value) {
   setUndoSnapshot(undoSnapshot);
   if (historyEntry) appendCallHistory(historyEntry);
   handleNotificationStateAfterChange(id, [field]);
-  saveVenues();
+  saveVenues([id]);
   markSaved();
   render();
   flashChangedFields(id, [field]);
@@ -2362,7 +2566,7 @@ function updateVenueFields(id, updates) {
   setUndoSnapshot(undoSnapshot);
   appendCallHistory(historyEntries);
   handleNotificationStateAfterChange(id, changedFieldNames);
-  saveVenues();
+  saveVenues([id]);
   markSaved();
   render();
   flashChangedFields(id, changedFieldNames);
@@ -2404,6 +2608,7 @@ function appendCallHistory(entries) {
   if (!nextEntries.length) return;
   callHistory = [...nextEntries, ...callHistory].slice(0, 1000);
   saveCallHistory();
+  queueRemoteCallHistorySave(nextEntries);
 }
 
 function openNotesDialog(id) {
@@ -2615,6 +2820,7 @@ function saveVenueFromForm(event) {
   const formData = new FormData(elements.venueForm);
   const now = new Date().toISOString();
   const id = elements.venueForm.dataset.editingId;
+  let savedVenueId = id;
   const undoSnapshot = createUndoSnapshot(id ? "施設編集" : "施設追加");
   const nextVenue = {};
 
@@ -2653,9 +2859,10 @@ function saveVenueFromForm(event) {
     };
     venues = [newVenue, ...venues];
     selectedId = newVenue.id;
+    savedVenueId = newVenue.id;
   }
 
-  saveVenues();
+  saveVenues(savedVenueId ? [savedVenueId] : null);
   setUndoSnapshot(undoSnapshot);
   markSaved();
   closeForm();
@@ -2677,7 +2884,8 @@ function deleteSelectedVenue() {
   const undoSnapshot = createUndoSnapshot("施設削除");
   venues = venues.filter((item) => item.id !== id);
   selectedId = venues[0]?.id ?? null;
-  saveVenues();
+  saveVenues([]);
+  queueRemoteVenueDelete(id);
   setUndoSnapshot(undoSnapshot);
   markSaved();
   closeForm();
@@ -2706,7 +2914,7 @@ function duplicateVenue(venue) {
   };
   venues = [clone, ...venues];
   selectedId = clone.id;
-  saveVenues();
+  saveVenues([clone.id]);
   setUndoSnapshot(undoSnapshot);
   markSaved();
   render();
@@ -2785,6 +2993,7 @@ function commitImport() {
   let added = 0;
   let updated = 0;
   const nextVenues = [...venues];
+  const changedImportIds = [];
 
   pendingImport.forEach((venue) => {
     const normalizedVenue = normalizeImportedVenue(venue, now);
@@ -2807,9 +3016,10 @@ function commitImport() {
         createdAt: nextVenues[existingIndex].createdAt,
         updatedAt: now,
       };
+      changedImportIds.push(nextVenues[existingIndex].id);
       updated += 1;
     } else {
-      nextVenues.unshift({
+      const newVenue = {
         ...normalizedVenue,
         status: normalizedVenue.status || statusOptions[0] || "未着手",
         priority: normalizedVenue.priority || "B",
@@ -2817,14 +3027,16 @@ function commitImport() {
         programPolicy: normalizedVenue.programPolicy || "△",
         isHidden: valueExists(normalizedVenue.isHidden) ? normalizedVenue.isHidden : false,
         assignedUserId: normalizedVenue.assignedUserId || currentUserId,
-      });
+      };
+      nextVenues.unshift(newVenue);
+      changedImportIds.push(newVenue.id);
       added += 1;
     }
   });
 
   venues = nextVenues;
   selectedId = venues[0]?.id ?? null;
-  saveVenues();
+  saveVenues(changedImportIds);
   setUndoSnapshot(undoSnapshot);
   markSaved();
   showImportMessage(`${added}件を追加、${updated}件を更新しました。`);

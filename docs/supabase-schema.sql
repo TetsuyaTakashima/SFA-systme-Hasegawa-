@@ -41,6 +41,9 @@ create table public.user_preferences (
   notification_display_mode text not null default 'badge',
   notification_scope text not null default 'assigned',
   notification_dismiss_condition text not null default 'nextActionDate',
+  notification_enabled boolean not null default false,
+  notification_notified jsonb not null default '{}'::jsonb,
+  notification_dismissed jsonb not null default '{}'::jsonb,
   updated_at timestamptz not null default now(),
   check (notification_display_mode in ('badge', 'badgeDays', 'days', 'date')),
   check (notification_scope in ('assigned', 'all')),
@@ -218,3 +221,45 @@ create policy "call histories writable by signed in users"
 on public.call_histories for insert
 to authenticated
 with check (changed_by_user_id = auth.uid() or public.is_admin());
+
+grant usage on schema public to authenticated;
+grant execute on function public.is_admin() to authenticated;
+grant select on public.profiles to authenticated;
+grant insert, update, delete on public.profiles to authenticated;
+grant select on public.venue_status_options to authenticated;
+grant insert, update, delete on public.venue_status_options to authenticated;
+grant select on public.venue_temperature_options to authenticated;
+grant insert, update, delete on public.venue_temperature_options to authenticated;
+grant select, insert, update, delete on public.user_preferences to authenticated;
+grant select, insert, update, delete on public.venues to authenticated;
+grant select, insert, update, delete on public.call_reminders to authenticated;
+grant select, insert on public.call_histories to authenticated;
+
+insert into public.venue_status_options (name, sort_order, color, is_closed)
+values
+  ('未着手', 1, '#3d7a52', false),
+  ('情報収集中', 2, '#1d6a73', false),
+  ('初回連絡済', 3, '#5d6780', false),
+  ('提案中', 4, '#9b6b00', false),
+  ('見積・調整中', 5, '#9b6b00', false),
+  ('成約', 6, '#265f9e', true),
+  ('保留', 7, '#666666', true),
+  ('架電NG', 8, '#5f6865', true)
+on conflict (name) do update set
+  sort_order = excluded.sort_order,
+  color = excluded.color,
+  is_closed = excluded.is_closed,
+  updated_at = now();
+
+insert into public.venue_temperature_options (level, label, sort_order, color)
+values
+  ('A', '高い', 1, '#c63f2d'),
+  ('B', '前向き', 2, '#b86b00'),
+  ('C', '通常', 3, '#5b6f82'),
+  ('D', '低め', 4, '#6c7a70'),
+  ('E', '見送り', 5, '#6b6f73')
+on conflict (level) do update set
+  label = excluded.label,
+  sort_order = excluded.sort_order,
+  color = excluded.color,
+  updated_at = now();
