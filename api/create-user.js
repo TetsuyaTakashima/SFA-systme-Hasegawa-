@@ -56,6 +56,13 @@ export default async function handler(request, response) {
 
     response.status(200).json({ profile });
   } catch (error) {
+    if (String(error.message || "").includes("permission denied for table profiles")) {
+      response.status(403).json({
+        error:
+          "profilesの参照権限がありません。VercelのSUPABASE_SERVICE_ROLE_KEYにSupabaseのservice_roleキーが設定されているか確認してください。",
+      });
+      return;
+    }
     response.status(error.status || 500).json({ error: error.message || "ユーザー作成に失敗しました。" });
   }
 }
