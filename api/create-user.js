@@ -1,5 +1,5 @@
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://oyqbdscgihysjwzykdzq.supabase.co";
-const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+const SERVICE_ROLE_KEY = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 const PUBLIC_KEY = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_PUBLISHABLE_KEY || SERVICE_ROLE_KEY;
 const AUTH_EMAIL_DOMAIN = process.env.AUTH_EMAIL_DOMAIN || "crm.local";
 
@@ -15,7 +15,13 @@ export default async function handler(request, response) {
   }
 
   if (!SERVICE_ROLE_KEY) {
-    response.status(500).json({ error: "SUPABASE_SERVICE_ROLE_KEY が未設定です。" });
+    response.status(500).json({ error: "SUPABASE_SERVICE_ROLE_KEY または SUPABASE_SECRET_KEY が未設定です。" });
+    return;
+  }
+
+  const keyProblem = getElevatedKeyProblem(SERVICE_ROLE_KEY);
+  if (keyProblem) {
+    response.status(500).json({ error: keyProblem });
     return;
   }
 
@@ -163,4 +169,30 @@ function loginIdToEmail(value) {
 
 function normalizeLoginId(value = "") {
   return String(value || "").trim().toLowerCase();
+}
+
+function getElevatedKeyProblem(value = "") {
+  const key = String(value || "").trim();
+  if (!key) return "SUPABASE_SERVICE_ROLE_KEY または SUPABASE_SECRET_KEY が未設定です。";
+  if (key.startsWith("sb_publishable_")) return "SUPABASE_SERVICE_ROLE_KEY に publishable key が設定されています。Supabaseのsecret keyまたはservice_role keyを設定してください。";
+  if (key.startsWith("sb_secret_")) return "";
+  if (!key.includes(".")) return "SUPABASE_SERVICE_ROLE_KEY は service_role key、または SUPABASE_SECRET_KEY は sb_secret_... の値を設定してください。";
+
+  const role = readJwtRole(key);
+  if (role && role !== "service_role") {
+    return `SUPABASE_SERVICE_ROLE_KEY に role=${role} のキーが設定されています。role=service_role のキーを設定してください。`;
+  }
+  return "";
+}
+
+function readJwtRole(jwt = "") {
+  try {
+    const [, payload] = jwt.split(".");
+    if (!payload) return "";
+    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+    return JSON.parse(Buffer.from(padded, "base64").toString("utf8")).role || "";
+  } catch {
+    return "";
+  }
 }
