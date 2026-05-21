@@ -33,7 +33,7 @@ export default async function handler(request, response) {
     }
 
     const requester = await getRequester(accessToken);
-    const requesterProfile = await getProfile(requester.id);
+    const requesterProfile = await getProfile(requester.id, accessToken);
     if (requesterProfile?.role !== "admin" || requesterProfile?.active === false) {
       response.status(403).json({ error: "管理者のみユーザーを作成できます。" });
       return;
@@ -51,14 +51,17 @@ export default async function handler(request, response) {
 
     const email = loginIdToEmail(loginId);
     const authUser = await createAuthUser(email, password, name, loginId);
-    const profile = await upsertProfile({
-      id: authUser.id,
-      name,
-      login_id: loginId,
-      email,
-      role: "staff",
-      active: true,
-    });
+    const profile = await upsertProfile(
+      {
+        id: authUser.id,
+        name,
+        login_id: loginId,
+        email,
+        role: "staff",
+        active: true,
+      },
+      accessToken
+    );
 
     response.status(200).json({ profile });
   } catch (error) {
@@ -83,9 +86,9 @@ async function getRequester(accessToken) {
   return result;
 }
 
-async function getProfile(userId) {
+async function getProfile(userId, accessToken) {
   const rows = await supabaseFetch(`/rest/v1/profiles?id=eq.${encodeURIComponent(userId)}&select=id,role,active`, {
-    headers: serviceHeaders(),
+    headers: userHeaders(accessToken),
   });
   return Array.isArray(rows) ? rows[0] : null;
 }
@@ -103,11 +106,11 @@ async function createAuthUser(email, password, name, loginId) {
   });
 }
 
-async function upsertProfile(profile) {
+async function upsertProfile(profile, accessToken) {
   const rows = await supabaseFetch("/rest/v1/profiles", {
     method: "POST",
     headers: {
-      ...serviceHeaders(),
+      ...userHeaders(accessToken),
       Prefer: "resolution=merge-duplicates,return=representation",
     },
     body: JSON.stringify(profile),
@@ -143,6 +146,13 @@ function serviceHeaders() {
   return {
     apikey: SERVICE_ROLE_KEY,
     Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+  };
+}
+
+function userHeaders(accessToken) {
+  return {
+    apikey: PUBLIC_KEY,
+    Authorization: `Bearer ${accessToken}`,
   };
 }
 
