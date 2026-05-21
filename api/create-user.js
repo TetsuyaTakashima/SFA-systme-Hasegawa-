@@ -134,6 +134,12 @@ async function supabaseFetch(path, options = {}) {
 }
 
 function serviceHeaders() {
+  if (String(SERVICE_ROLE_KEY || "").startsWith("sb_secret_")) {
+    return {
+      apikey: SERVICE_ROLE_KEY,
+    };
+  }
+
   return {
     apikey: SERVICE_ROLE_KEY,
     Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
