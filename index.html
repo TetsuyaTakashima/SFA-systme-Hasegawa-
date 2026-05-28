@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>文化施設 営業管理</title>
-    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./styles.css?v=20260528-3" />
   </head>
   <body>
     <div class="app-shell">
@@ -130,6 +130,12 @@
                 <label class="file-drop" for="csvFile">
                   <input id="csvFile" type="file" accept=".csv,text/csv" />
                   <span>CSVを選択</span>
+                </label>
+                <label class="import-select">
+                  <span>都道府県</span>
+                  <select id="importPrefecture">
+                    <option value="">CSV/自動判定</option>
+                  </select>
                 </label>
                 <label class="checkbox-line">
                   <input id="mergeDuplicates" type="checkbox" checked />
@@ -297,6 +303,6 @@
 
     <script src="./cloud-config.js?v=20260521"></script>
     <script src="./cloud-client.js?v=20260521"></script>
-    <script src="./app.js?v=20260528-2"></script>
+    <script src="./app.js?v=20260528-3"></script>
   </body>
 </html>

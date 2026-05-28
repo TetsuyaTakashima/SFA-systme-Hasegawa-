@@ -657,6 +657,8 @@ let currentUserId = loadCurrentUserId();
 let venues = loadVenues();
 let selectedId = getInitialSelectedId();
 let pendingImport = [];
+let pendingImportSource = [];
+let pendingImportHeaders = [];
 let pendingMap = {};
 let notificationSettings = loadNotificationSettings();
 let callHistory = loadCallHistory();
@@ -679,6 +681,7 @@ const elements = {
   metricDue: document.querySelector("#metricDue"),
   managementSectionSelect: document.querySelector("#managementSectionSelect"),
   csvFile: document.querySelector("#csvFile"),
+  importPrefecture: document.querySelector("#importPrefecture"),
   mergeDuplicates: document.querySelector("#mergeDuplicates"),
   importPreview: document.querySelector("#importPreview"),
   searchInput: document.querySelector("#searchInput"),
@@ -779,6 +782,7 @@ function bindEvents() {
   on(elements.visibilityFilter, "change", render);
   on(elements.sortSelect, "change", render);
   on(elements.csvFile, "change", handleCsvSelection);
+  on(elements.importPrefecture, "change", handleImportPrefectureChange);
   on(elements.newVenueButton, "click", () => openForm());
   on(elements.exportCsvButton, "click", exportCsv);
   on(elements.logoutButton, "click", logoutCurrentUser);
@@ -1017,8 +1021,19 @@ function populateStaticFilters() {
     elements.assigneeFilter.value = validValues.includes(current) ? current : "";
   }
 
+  populateImportPrefectureOptions();
   refreshStatusFormOptions();
   refreshTemperatureFormOptions();
+}
+
+function populateImportPrefectureOptions() {
+  if (!elements.importPrefecture) return;
+  const current = elements.importPrefecture.value;
+  elements.importPrefecture.replaceChildren(new Option("CSV/自動判定", ""));
+  japanPrefectures.forEach((prefecture) => {
+    elements.importPrefecture.append(new Option(prefecture, prefecture));
+  });
+  elements.importPrefecture.value = japanPrefectures.includes(current) ? current : "";
 }
 
 function loadUsers() {
@@ -3260,7 +3275,9 @@ async function handleCsvSelection(event) {
   const headers = parsed[0].map((header) => header.trim());
   const rows = parsed.slice(1).filter((row) => row.some((cell) => valueExists(cell)));
   pendingMap = mapHeaders(headers);
-  pendingImport = rows.map((row) => rowToVenue(headers, row, pendingMap)).filter((venue) => valueExists(venue.facilityName));
+  pendingImportHeaders = headers;
+  pendingImportSource = rows.map((row) => rowToVenue(headers, row, pendingMap)).filter((venue) => valueExists(venue.facilityName));
+  pendingImport = pendingImportSource.map(applyImportPrefectureChoice);
 
   if (!pendingImport.length) {
     showImportMessage("施設名に対応する列が見つかりませんでした。列名に「施設名」または「名称」を含めてください。");
@@ -3268,6 +3285,21 @@ async function handleCsvSelection(event) {
   }
 
   renderImportPreview(headers);
+}
+
+function handleImportPrefectureChange() {
+  if (!pendingImportSource.length) return;
+  pendingImport = pendingImportSource.map(applyImportPrefectureChoice);
+  renderImportPreview(pendingImportHeaders);
+}
+
+function applyImportPrefectureChoice(venue) {
+  const selectedPrefecture = elements.importPrefecture?.value || "";
+  if (!selectedPrefecture || valueExists(venue.prefecture)) return { ...venue };
+  return {
+    ...venue,
+    prefecture: selectedPrefecture,
+  };
 }
 
 function renderImportPreview(headers) {
@@ -3295,6 +3327,7 @@ function renderImportPreview(headers) {
     <div>
       <strong>${pendingImport.length}件を読み込みました。</strong>
       <span class="muted">対応列: ${mappedLabels || "自動対応なし"}</span>
+      ${elements.importPrefecture?.value ? `<span class="muted">都道府県補完: ${escapeHtml(elements.importPrefecture.value)}</span>` : ""}
     </div>
     <table class="preview-table">
       <thead>
@@ -3367,6 +3400,8 @@ function commitImport() {
   markSaved();
   showImportMessage(`${added}件を追加、${updated}件を更新しました。`);
   pendingImport = [];
+  pendingImportSource = [];
+  pendingImportHeaders = [];
   pendingMap = {};
   if (elements.csvFile) elements.csvFile.value = "";
   render();
@@ -3374,6 +3409,8 @@ function commitImport() {
 
 function clearImportPreview() {
   pendingImport = [];
+  pendingImportSource = [];
+  pendingImportHeaders = [];
   pendingMap = {};
   if (elements.csvFile) elements.csvFile.value = "";
   if (elements.importPreview) {
@@ -3408,7 +3445,7 @@ function normalizeImportedVenue(venue, now) {
     : valueExists(venue.rating)
       ? normalizeVenueField("priority", venue.rating)
       : "";
-  const prefecture = normalizePrefecture(venue.prefecture, venue.address, venue.municipality);
+  const prefecture = normalizePrefecture(venue.prefecture, venue.address, venue.municipality, venue.facilityName, venue.operator);
   return normalizeHallScaleValues({
     id: makeId(),
     facilityName: venue.facilityName || "",

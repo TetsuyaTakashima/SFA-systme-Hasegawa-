@@ -887,6 +887,19 @@ h2 {
   font-size: 0.9rem;
 }
 
+.import-select {
+  display: inline-grid;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.import-select select {
+  min-width: 160px;
+  min-height: 40px;
+}
+
 .compact-checkbox {
   min-height: 32px;
   font-size: 0.82rem;
