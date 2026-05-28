@@ -49,6 +49,7 @@
               管理メニュー
               <select id="managementSectionSelect">
                 <option value="userTab">ユーザー管理</option>
+                <option value="notificationTab">通知設定</option>
                 <option value="statusTab" data-admin-only>状態項目管理</option>
                 <option value="temperatureTab" data-admin-only>温度感設定</option>
                 <option value="importTab">CSV取り込み</option>
@@ -79,6 +80,74 @@
                   </form>
                   <div class="user-list" id="userList"></div>
                 </div>
+              </div>
+            </section>
+          </section>
+
+          <section class="tab-panel" id="notificationTab" role="tabpanel" aria-label="通知設定" hidden>
+            <section class="notification-panel" aria-labelledby="notificationTitle">
+              <div class="panel-head compact">
+                <div>
+                  <p class="eyebrow">Call Reminder</p>
+                  <h2 id="notificationTitle">通知設定 <span class="notification-alert-badge" id="notificationBadge" hidden>0</span></h2>
+                </div>
+                <span class="status-pill" id="notificationStatus">通知OFF</span>
+              </div>
+              <div class="panel-body notification-body">
+                <div class="notification-quick-row">
+                  <button class="primary-button" id="enableNotificationsButton" type="button">通知を有効化</button>
+                  <p class="notification-help" id="notificationHelp" role="status"></p>
+                </div>
+                <details class="notification-settings-details" open>
+                  <summary>通知詳細設定</summary>
+                  <div class="notification-controls">
+                    <label>
+                      一覧に表示する日数（既定）
+                      <select id="notificationLeadDays">
+                        <option value="0">当日</option>
+                        <option value="1">1日前</option>
+                        <option value="3">3日前</option>
+                        <option value="7">7日前</option>
+                        <option value="14">14日前</option>
+                      </select>
+                    </label>
+                    <label>
+                      ブラウザ通知する日数（既定）
+                      <select id="notificationPopupLeadDays">
+                        <option value="0">当日</option>
+                        <option value="1">1日前</option>
+                        <option value="3">3日前</option>
+                        <option value="7">7日前</option>
+                        <option value="14">14日前</option>
+                      </select>
+                    </label>
+                    <label>
+                      通知欄の表示
+                      <select id="notificationDisplayMode">
+                        <option value="badge">バッジ</option>
+                        <option value="badgeDays">バッジ＋日数</option>
+                        <option value="days">残り日数</option>
+                        <option value="date">架電日</option>
+                      </select>
+                    </label>
+                    <label>
+                      通知対象
+                      <select id="notificationScope">
+                        <option value="assigned">自分の担当のみ</option>
+                        <option value="all">全施設</option>
+                      </select>
+                    </label>
+                    <label>
+                      通知を消すタイミング
+                      <select id="notificationDismissCondition">
+                        <option value="nextActionDate">次回架電日を変更</option>
+                        <option value="status">状態を変更</option>
+                        <option value="either">どちらかを変更</option>
+                      </select>
+                    </label>
+                  </div>
+                </details>
+                <div id="upcomingCalls" class="upcoming-calls"></div>
               </div>
             </section>
           </section>
@@ -303,6 +372,6 @@
 
     <script src="./cloud-config.js?v=20260521"></script>
     <script src="./cloud-client.js?v=20260521"></script>
-    <script src="./app.js?v=20260528-3"></script>
+    <script src="./app.js?v=20260528-4"></script>
   </body>
 </html>

@@ -3590,7 +3590,7 @@ function startNotificationChecks() {
 }
 
 function renderNotificationPanel(feedbackMessage = "", feedbackTone = "") {
-  if (!elements.notificationStatus && !elements.upcomingCalls) return;
+  if (!elements.notificationStatus && !elements.upcomingCalls && !elements.topAlertCount && !elements.alertDialog) return;
 
   const support = supportsNotifications();
   const permission = support ? window.Notification.permission : "unsupported";
