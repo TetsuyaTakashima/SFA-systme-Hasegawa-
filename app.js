@@ -37,6 +37,55 @@ const roleLabels = {
   admin: "管理",
   staff: "スタッフ",
 };
+const japanPrefectures = [
+  "北海道",
+  "青森県",
+  "岩手県",
+  "宮城県",
+  "秋田県",
+  "山形県",
+  "福島県",
+  "茨城県",
+  "栃木県",
+  "群馬県",
+  "埼玉県",
+  "千葉県",
+  "東京都",
+  "神奈川県",
+  "新潟県",
+  "富山県",
+  "石川県",
+  "福井県",
+  "山梨県",
+  "長野県",
+  "岐阜県",
+  "静岡県",
+  "愛知県",
+  "三重県",
+  "滋賀県",
+  "京都府",
+  "大阪府",
+  "兵庫県",
+  "奈良県",
+  "和歌山県",
+  "鳥取県",
+  "島根県",
+  "岡山県",
+  "広島県",
+  "山口県",
+  "徳島県",
+  "香川県",
+  "愛媛県",
+  "高知県",
+  "福岡県",
+  "佐賀県",
+  "長崎県",
+  "熊本県",
+  "大分県",
+  "宮崎県",
+  "鹿児島県",
+  "沖縄県",
+];
 
 const fieldLabels = {
   facilityName: "施設名",
@@ -78,7 +127,7 @@ const csvAliases = {
   facilityName: ["施設名", "会館名", "ホール名", "劇場名", "名称", "name", "facility", "venue"],
   category: ["種別", "分類", "施設種別", "category", "type"],
   operator: ["管理運営機関", "運営主体", "運営者", "指定管理者", "管理者", "operator"],
-  prefecture: ["都道府県", "県", "prefecture"],
+  prefecture: ["都道府県", "都道府県名", "県", "県名", "prefecture", "pref"],
   municipality: ["市区町村", "自治体", "市町村", "municipality", "city"],
   address: ["住所", "所在地", "address"],
   phone: ["電話", "電話番号", "tel", "phone"],
@@ -1107,6 +1156,15 @@ function queueRemoteProfileUpdate(id, updates) {
     .catch((error) => handleRemoteSaveError(error));
 }
 
+function queueRemoteProfileDelete(id) {
+  if (!isRemoteDataMode() || !id || !window.crmSupabase?.deleteProfile) return;
+  markSaved("Supabase削除中...");
+  window.crmSupabase
+    .deleteProfile(id)
+    .then(() => markSaved("Supabase削除済み"))
+    .catch((error) => handleRemoteSaveError(error));
+}
+
 function queueRemoteStatusOptionsSave() {
   if (!isRemoteDataMode()) return;
   window.crmSupabase.upsertStatusOptions(statusOptions, statusMeta).catch((error) => handleRemoteSaveError(error, false));
@@ -1204,6 +1262,11 @@ function ensureVenueMetadata() {
     }
     if (nextVenue.callUpdatedByUserId === undefined) {
       nextVenue.callUpdatedByUserId = nextVenue.callUpdatedAt ? currentUserId : "";
+      changed = true;
+    }
+    const normalizedPrefecture = getVenuePrefecture(nextVenue);
+    if (normalizedPrefecture && nextVenue.prefecture !== normalizedPrefecture) {
+      nextVenue.prefecture = normalizedPrefecture;
       changed = true;
     }
     const normalizedTemperature = normalizeTemperatureValue(nextVenue.priority || nextVenue.rating);
@@ -1347,6 +1410,8 @@ function renderUserList() {
       const disabled = isCurrent ? "disabled" : "";
       const stateLabel = user.active === false ? "復帰" : "停止";
       const stateClass = user.active === false ? "secondary-button" : "danger-button";
+      const canDelete = user.active === false && !isCurrent;
+      const deleteTitle = isCurrent ? "自分のアカウントは削除できません" : canDelete ? "削除" : "停止後に削除できます";
       return `
         <div class="user-row ${user.active === false ? "is-paused" : ""}">
           <div>
@@ -1358,6 +1423,7 @@ function renderUserList() {
             <option value="admin" ${user.role === "admin" ? "selected" : ""}>管理</option>
           </select>
           <button class="${stateClass}" data-user-toggle="${escapeAttribute(user.id)}" type="button" ${disabled}>${stateLabel}</button>
+          <button class="danger-button" data-user-delete="${escapeAttribute(user.id)}" type="button" ${canDelete ? "" : "disabled"} title="${escapeAttribute(deleteTitle)}">削除</button>
         </div>
       `;
     })
@@ -1369,6 +1435,10 @@ function renderUserList() {
 
   elements.userList.querySelectorAll("[data-user-toggle]").forEach((button) => {
     button.addEventListener("click", () => toggleUserActive(button.dataset.userToggle));
+  });
+
+  elements.userList.querySelectorAll("[data-user-delete]").forEach((button) => {
+    button.addEventListener("click", () => deleteUser(button.dataset.userDelete));
   });
 }
 
@@ -1467,6 +1537,63 @@ function toggleUserActive(id) {
   writeJsonStorage(USERS_KEY, users);
   const updatedUser = users.find((user) => user.id === id);
   queueRemoteProfileUpdate(id, { active: updatedUser?.active !== false });
+  render();
+}
+
+function deleteUser(id) {
+  if (!canManageUsers() || id === currentUserId) return;
+  const target = users.find((user) => user.id === id);
+  if (!target) return;
+  if (target.active !== false) {
+    notifyMessage("ユーザーを削除するには、先に停止してください。");
+    return;
+  }
+
+  const assignedCount = venues.filter((venue) => venue.assignedUserId === id).length;
+  const confirmed = confirm(
+    `${target.name || "このユーザー"}を削除しますか？${
+      assignedCount ? `\n担当中の${assignedCount}件は未割当になります。` : ""
+    }`
+  );
+  if (!confirmed) return;
+
+  const now = new Date().toISOString();
+  const changedVenueIds = [];
+  venues = venues.map((venue) => {
+    const nextVenue = { ...venue };
+    let changed = false;
+    ["assignedUserId", "callUpdatedByUserId", "createdBy", "updatedBy"].forEach((field) => {
+      if (nextVenue[field] === id) {
+        nextVenue[field] = "";
+        changed = true;
+      }
+    });
+    if (changed) {
+      nextVenue.updatedAt = now;
+      changedVenueIds.push(nextVenue.id);
+    }
+    return nextVenue;
+  });
+
+  const historyChanged = callHistory.some((entry) => entry.changedByUserId === id);
+  if (historyChanged) {
+    callHistory = callHistory.map((entry) => (entry.changedByUserId === id ? { ...entry, changedByUserId: "" } : entry));
+    saveCallHistory();
+  }
+
+  users = users.filter((user) => user.id !== id);
+  delete columnOrders[id];
+  delete pinnedColumns[id];
+  delete visibleColumns[id];
+  window.localStorage.removeItem(getNotificationSettingsStorageKey(id));
+
+  writeJsonStorage(USERS_KEY, users);
+  writeJsonStorage(COLUMN_ORDER_KEY, columnOrders);
+  writeJsonStorage(PINNED_COLUMNS_KEY, pinnedColumns);
+  writeJsonStorage(VISIBLE_COLUMNS_KEY, visibleColumns);
+  if (changedVenueIds.length) saveVenues(changedVenueIds);
+  markSaved("ユーザーを削除しました");
+  queueRemoteProfileDelete(id);
   render();
 }
 
@@ -1855,10 +1982,34 @@ function resolveUserId(value) {
   );
 }
 
+function inferPrefectureFromText(...values) {
+  for (const value of values) {
+    if (!valueExists(value)) continue;
+    const text = String(value).replace(/\s+/g, "");
+    const prefecture = japanPrefectures.find((candidate) => text.includes(candidate));
+    if (prefecture) return prefecture;
+  }
+  return "";
+}
+
+function normalizePrefecture(value, ...fallbackValues) {
+  const text = String(value || "").trim();
+  const inferred = inferPrefectureFromText(text, ...fallbackValues);
+  if (inferred) return inferred;
+
+  const normalizedValue = normalize(text).replace(/[都道府県]$/, "");
+  if (!normalizedValue) return "";
+  return japanPrefectures.find((prefecture) => normalize(prefecture).replace(/[都道府県]$/, "") === normalizedValue) || "";
+}
+
+function getVenuePrefecture(venue) {
+  return normalizePrefecture(venue.prefecture, venue.address, venue.municipality);
+}
+
 function refreshPrefectureFilter() {
   if (!elements.prefectureFilter) return;
   const current = elements.prefectureFilter.value;
-  const prefectures = unique(venues.map((venue) => venue.prefecture).filter(Boolean)).sort(localeSort);
+  const prefectures = unique(venues.map(getVenuePrefecture).filter(Boolean)).sort(comparePrefectureNames);
   elements.prefectureFilter.replaceChildren(new Option("すべて", ""));
   prefectures.forEach((prefecture) => elements.prefectureFilter.append(new Option(prefecture, prefecture)));
   elements.prefectureFilter.value = prefectures.includes(current) ? current : "";
@@ -1876,11 +2027,13 @@ function getFilteredVenues() {
   return venues
     .filter((venue) => {
       const hidden = isVenueHidden(venue);
+      const venuePrefecture = getVenuePrefecture(venue);
       const haystack = normalize(
         [
           venue.facilityName,
           venue.category,
           venue.operator,
+          venuePrefecture,
           venue.prefecture,
           venue.municipality,
           venue.address,
@@ -1908,11 +2061,10 @@ function getFilteredVenues() {
           venue.smallHallSeats,
         ].join(" ")
       );
-
       return (
         (!query || haystack.includes(query)) &&
         (!status || venue.status === status) &&
-        (!prefecture || venue.prefecture === prefecture) &&
+        (!prefecture || venuePrefecture === prefecture) &&
         matchesAssigneeFilter(venue, assignee) &&
         (!priority || venue.priority === priority) &&
         (visibility === "all" || (visibility === "hidden" ? hidden : !hidden))
@@ -1949,6 +2101,14 @@ function compareVenues(a, b, sortMode) {
   if (sortMode === "updated") {
     const updatedCompare = (b.callUpdatedAt || "").localeCompare(a.callUpdatedAt || "");
     if (updatedCompare !== 0) return updatedCompare;
+  }
+
+  if (sortMode === "prefecture") {
+    const prefectureCompare = comparePrefectureNames(getVenuePrefecture(a), getVenuePrefecture(b));
+    if (prefectureCompare !== 0) return prefectureCompare;
+    const municipalityCompare = (a.municipality || "").localeCompare(b.municipality || "", "ja");
+    if (municipalityCompare !== 0) return municipalityCompare;
+    return (a.facilityName || "").localeCompare(b.facilityName || "", "ja");
   }
 
   if (sortMode === "name") {
@@ -3082,12 +3242,13 @@ function normalizeImportedVenue(venue, now) {
     : valueExists(venue.rating)
       ? normalizeVenueField("priority", venue.rating)
       : "";
+  const prefecture = normalizePrefecture(venue.prefecture, venue.address, venue.municipality);
   return normalizeHallScaleValues({
     id: makeId(),
     facilityName: venue.facilityName || "",
     category: venue.category || "",
     operator: venue.operator || "",
-    prefecture: venue.prefecture || "",
+    prefecture,
     municipality: venue.municipality || "",
     address: venue.address || "",
     phone: venue.phone || "",
@@ -4087,6 +4248,19 @@ function unique(values) {
 
 function localeSort(a, b) {
   return a.localeCompare(b, "ja");
+}
+
+function comparePrefectureNames(a, b) {
+  const indexA = prefectureSortIndex(a);
+  const indexB = prefectureSortIndex(b);
+  if (indexA !== indexB) return indexA - indexB;
+  return String(a || "").localeCompare(String(b || ""), "ja");
+}
+
+function prefectureSortIndex(value) {
+  const prefecture = normalizePrefecture(value);
+  const index = japanPrefectures.indexOf(prefecture);
+  return index === -1 ? Number.MAX_SAFE_INTEGER : index;
 }
 
 function escapeCsvCell(value) {

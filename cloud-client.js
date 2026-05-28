@@ -177,6 +177,51 @@
     if (error) throw error;
   }
 
+  async function deleteProfile(id) {
+    if (!client || !id) return;
+    const deletedByApi = await deleteProfileViaApi(id);
+    if (deletedByApi) return;
+
+    await clearProfileReference("venues", "assigned_user_id", id);
+    await clearProfileReference("venues", "call_updated_by_user_id", id);
+    await clearProfileReference("venues", "created_by", id, true);
+    await clearProfileReference("venues", "updated_by", id, true);
+    await clearProfileReference("call_histories", "changed_by_user_id", id, true);
+    await deleteProfileRelatedRows("user_preferences", "user_id", id, true);
+
+    const { error } = await client.from("profiles").delete().eq("id", id);
+    if (error) throw error;
+  }
+
+  async function deleteProfileViaApi(id) {
+    if (window.location.protocol === "file:") return false;
+    const session = await getSession().catch(() => null);
+    if (!session?.access_token) return false;
+
+    const response = await fetch("/api/delete-user", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ id }),
+    }).catch(() => null);
+    if (!response || response.status === 404) return false;
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.error || "ユーザー削除に失敗しました。");
+    return true;
+  }
+
+  async function clearProfileReference(table, column, id, optional = false) {
+    const { error } = await client.from(table).update({ [column]: null }).eq(column, id);
+    if (error && !(optional && isMissingSchemaError(error))) throw error;
+  }
+
+  async function deleteProfileRelatedRows(table, column, id, optional = false) {
+    const { error } = await client.from(table).delete().eq(column, id);
+    if (error && !(optional && isMissingSchemaError(error))) throw error;
+  }
+
   async function upsertVenues(venues, currentUserId) {
     const rows = (Array.isArray(venues) ? venues : [venues]).filter(Boolean).map((venue) => venueToRow(venue, currentUserId));
     if (!client || !rows.length) return;
@@ -665,6 +710,12 @@
     return error;
   }
 
+  function isMissingSchemaError(error) {
+    const message = String(error?.message || error?.details || "").toLowerCase();
+    const code = String(error?.code || "").toUpperCase();
+    return ["PGRST204", "42P01", "42703"].includes(code) || message.includes("could not find") || message.includes("does not exist");
+  }
+
   window.crmSupabase = {
     isEnabled,
     getClient,
@@ -676,6 +727,7 @@
     saveUserPreferences,
     createUser,
     updateProfile,
+    deleteProfile,
     upsertVenues,
     deleteVenue,
     insertCallHistories,

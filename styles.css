@@ -466,7 +466,7 @@ h2 {
 .status-option-row,
 .temperature-option-row {
   display: grid;
-  grid-template-columns: minmax(160px, 1fr) 120px auto;
+  grid-template-columns: minmax(160px, 1fr) 120px auto auto;
   gap: 10px;
   align-items: center;
   padding: 10px;
