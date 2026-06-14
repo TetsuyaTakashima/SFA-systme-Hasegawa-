@@ -125,6 +125,42 @@
   .rationale-list li.good{border-left-color:var(--up);}
   .rationale-list li.caution{border-left-color:var(--warn);}
   .rationale-list li.bad{border-left-color:var(--down);}
+  .coach-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:10px;}
+  .coach-card{background:var(--card); border:1px solid var(--border); border-radius:8px; padding:11px; font-size:12px; line-height:1.6;}
+  .coach-card h4{font-size:13px; color:var(--text); margin-bottom:6px;}
+  .coach-card ul{padding-left:18px;}
+  .term-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:8px; margin-top:10px;}
+  .term-box{background:rgba(15,20,25,.45); border:1px solid var(--border); border-radius:8px; padding:9px; font-size:12px; line-height:1.55;}
+  .term-box b{color:var(--accent);}
+  .scenario-row{display:grid; grid-template-columns:84px 1fr; gap:8px; align-items:center; margin-top:5px;}
+  .scenario-bar{height:8px; border-radius:999px; background:var(--border); overflow:hidden;}
+  .scenario-bar span{display:block; height:100%; width:50%; background:var(--accent);}
+  .scenario-bar span.upbar{background:var(--up);}
+  .scenario-bar span.downbar{background:var(--down);}
+  .trade-research-grid{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin-bottom:14px; align-items:start;}
+  .trade-watch-panel{grid-column:1/-1;}
+  .trade-candidate-list{display:grid; gap:8px;}
+  #ptWatchCandidates{grid-template-columns:repeat(auto-fit,minmax(220px,1fr));}
+  #ptPickCandidates,#ptScreenCandidates{grid-template-columns:repeat(auto-fit,minmax(230px,1fr));}
+  .trade-candidate{background:rgba(15,20,25,.48); border:1px solid var(--border); border-radius:8px; padding:10px; font-size:12px; line-height:1.55;}
+  .trade-candidate-head{display:flex; justify-content:space-between; gap:8px; align-items:flex-start;}
+  .trade-candidate-title{font-weight:bold; font-size:14px;}
+  .trade-candidate-meta{color:var(--muted); margin-top:2px;}
+  .trade-candidate-metrics{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; margin-top:8px;}
+  .trade-metric{background:var(--card); border:1px solid var(--border); border-radius:6px; padding:6px;}
+  .trade-metric .label{font-size:10px; color:var(--muted);}
+  .trade-metric .value{font-size:13px; font-weight:bold; margin-top:2px;}
+  .trade-actions{display:flex; gap:6px; flex-wrap:wrap; margin-top:8px;}
+  .trade-actions button{min-height:30px; padding:5px 8px; font-size:12px;}
+  .trade-mini-tools{display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-bottom:10px;}
+  .trade-mini-tools select,.trade-mini-tools input{min-height:32px; font-size:12px;}
+  .trade-layout-settings{margin-bottom:14px;}
+  .trade-widget{position:relative;}
+  .trade-widget[draggable="true"]{cursor:grab;}
+  .trade-widget.dragging{opacity:.45; outline:1px dashed var(--accent);}
+  .trade-widget.trade-hidden{display:none!important;}
+  [data-trade-zone].drag-over{outline:1px dashed rgba(77,163,255,.55); outline-offset:4px;}
+  .trade-main-col,.trade-side-col{display:grid; gap:12px; align-content:start; min-width:0;}
   @media(min-width:1100px){
     .desktop-layout{display:grid; grid-template-columns:minmax(0,1fr) minmax(320px,380px); gap:16px; align-items:start;}
     .desktop-main{grid-column:1; grid-row:1;}
@@ -138,7 +174,7 @@
     .toolbar-card .row > #status{grid-column:1/-1; min-height:0;}
     .toolbar-card .sub{margin-bottom:0;}
   }
-  @media(max-width:980px){.trade-shell{grid-template-columns:1fr;}}
+  @media(max-width:980px){.trade-shell,.trade-research-grid{grid-template-columns:1fr;}.trade-watch-panel{grid-column:auto;}}
   @media(max-width:600px){
     body{padding:12px;}
     .card{padding:12px;}
@@ -170,6 +206,7 @@
     <button id="viewToggle" class="mode-btn trade-switch" type="button" onclick="toggleView()" aria-pressed="false">トレード画面へ</button>
   </div>
 </div>
+<datalist id="symbolSuggestions"></datalist>
 
 <div class="desktop-layout">
   <aside class="desktop-side">
@@ -177,7 +214,7 @@
 <div class="card toolbar-card">
   <h2>操作パネル</h2>
   <div class="row">
-    <input id="inSym" placeholder="ティッカー (例: AAPL)" style="width:150px" maxlength="12">
+    <input id="inSym" placeholder="ティッカー (例: AAPL)" style="width:150px" maxlength="12" list="symbolSuggestions">
     <select id="inSector">
       <option value="情報技術">情報技術</option>
       <option value="通信サービス">通信サービス</option>
@@ -380,10 +417,56 @@
     </div>
   </div>
   <p class="sub" style="margin-top:6px;">仮想資金を使って実際の株価で売買練習ができます。<b>本格モード</b>では複合注文、注文照会、デモ入金、価格アラート、証拠金維持率、ロスカット判定、取引日誌、成績分析が有効になります。</p>
-  <div class="summary-cards" id="ptSummary"></div>
+  <div class="pt-panel trade-layout-settings">
+    <div class="row" style="justify-content:space-between;">
+      <h3>デモ画面設定</h3>
+      <button onclick="resetTradeLayout()">初期配置</button>
+    </div>
+    <div class="widget-toggle-list" id="tradeWidgetToggles"></div>
+  </div>
+  <div class="trade-top-zone" data-trade-zone="top">
+    <div class="trade-widget" data-trade-widget="summary">
+      <div class="summary-cards" id="ptSummary"></div>
+    </div>
+    <div class="pt-panel beginner-only trade-widget" data-trade-widget="coach" id="ptBeginnerCoach"></div>
+  </div>
+
+  <div class="trade-research-grid" data-trade-zone="research">
+    <div class="pt-panel trade-widget trade-watch-panel" data-trade-widget="watch">
+      <h3>ウォッチリストから練習</h3>
+      <div id="ptWatchCandidates" class="trade-candidate-list"></div>
+    </div>
+    <div class="pt-panel trade-widget" data-trade-widget="picks">
+      <h3>注目ピックから練習</h3>
+      <div id="ptPickCandidates" class="trade-candidate-list"></div>
+    </div>
+    <div class="pt-panel trade-widget" data-trade-widget="screener">
+      <div class="row" style="justify-content:space-between; align-items:flex-start;">
+        <h3>銘柄発掘スクリーナーから練習</h3>
+        <button class="primary" onclick="runTradeScreener()">スキャン</button>
+      </div>
+      <div class="trade-mini-tools">
+        <select id="ptScanSector" onchange="rerenderTradeScreener()"><option value="">全セクター</option></select>
+        <select id="ptScanSort" onchange="rerenderTradeScreener()">
+          <option value="score">総合スコア順</option>
+          <option value="exp30">上昇期待順</option>
+          <option value="m3">3ヶ月上昇順</option>
+          <option value="rsiLow">RSI低め順</option>
+        </select>
+        <input id="ptScanMinScore" type="number" placeholder="最低スコア" step="0.5" oninput="rerenderTradeScreener()" style="width:96px;">
+        <label style="font-size:12px; color:var(--muted); cursor:pointer;">
+          <input type="checkbox" id="ptScanPositiveOnly" onchange="rerenderTradeScreener()"> プラス予想のみ
+        </label>
+        <span id="ptScanStatus" style="font-size:12px; color:var(--muted);"></span>
+      </div>
+      <div id="ptScreenCandidates" class="trade-candidate-list"></div>
+      <div id="ptScreenDetail" class="screen-detail" style="display:none;"></div>
+    </div>
+  </div>
 
   <div class="trade-shell">
-    <div class="pt-panel">
+    <div class="trade-main-col" data-trade-zone="main">
+    <div class="pt-panel trade-widget" data-trade-widget="order">
       <h3>発注パネル</h3>
       <div class="quote-board" id="ptQuote"></div>
       <div class="order-grid">
@@ -391,7 +474,10 @@
           <option value="buy">買</option>
           <option value="sell">売</option>
         </select>
-        <input id="ptSym" placeholder="ティッカー" maxlength="10" oninput="renderOrderPreview()">
+        <select id="ptSymQuick" class="wide" onchange="selectQuickTradeSymbol()">
+          <option value="">銘柄を検索/選択</option>
+        </select>
+        <input id="ptSym" placeholder="ティッカー" maxlength="10" oninput="renderOrderPreview()" list="symbolSuggestions">
         <input id="ptQty" type="number" placeholder="株数" min="0" step="any" oninput="renderOrderPreview()">
         <select id="ptType" class="pro-only" onchange="renderPaper()">
           <option value="market">成行</option>
@@ -443,9 +529,10 @@
         </div>
       </div>
     </div>
+    </div>
 
-    <div>
-      <div class="pt-panel pro-only">
+    <div class="trade-side-col" data-trade-zone="side">
+      <div class="pt-panel pro-only trade-widget" data-trade-widget="risk">
         <h3>取引ルール・リスク管理</h3>
         <div class="row" style="font-size:12px; color:var(--muted);">
           1銘柄上限 <input id="ruleMaxPos" type="number" style="width:64px" min="1" max="100" onchange="setRules()">%
@@ -457,7 +544,7 @@
         <ul class="review" id="ptRules" style="margin-top:10px;"></ul>
       </div>
 
-      <div class="pt-panel" style="margin-top:12px;">
+      <div class="pt-panel trade-widget" data-trade-widget="positions">
         <h3>建玉・注文照会</h3>
         <div style="overflow-x:auto;">
           <table id="ptTable" style="display:none;">
@@ -475,11 +562,10 @@
         </div>
       </div>
 
-      <div class="grid2 pro-only" style="margin-top:12px;">
-        <div class="pt-panel">
+      <div class="pt-panel pro-only trade-widget" data-trade-widget="alerts">
           <h3>価格アラート</h3>
           <div class="row">
-            <input id="ptAlertSym" placeholder="ティッカー" maxlength="10" style="width:100px;">
+            <input id="ptAlertSym" placeholder="ティッカー" maxlength="10" style="width:100px;" list="symbolSuggestions">
             <select id="ptAlertCond" style="width:88px;">
               <option value="above">以上</option>
               <option value="below">以下</option>
@@ -488,14 +574,13 @@
             <button onclick="addPriceAlert()">追加</button>
           </div>
           <ul class="review" id="ptAlertList" style="margin-top:10px;"></ul>
-        </div>
-        <div class="pt-panel">
+      </div>
+      <div class="pt-panel pro-only trade-widget" data-trade-widget="events">
           <h3>イベントログ</h3>
           <ul class="review" id="ptEventLog"></ul>
-        </div>
       </div>
 
-      <div class="pt-panel pro-only" style="margin-top:12px;">
+      <div class="pt-panel pro-only trade-widget" data-trade-widget="stats">
         <h3>成績分析</h3>
         <div class="summary-cards" id="ptStats"></div>
         <div class="grid2">
@@ -514,10 +599,12 @@
     </div>
   </div>
 
-  <details style="margin-top:10px;">
-    <summary style="cursor:pointer; font-size:12px; color:var(--muted);">取引履歴（最新20件）</summary>
-    <table style="margin-top:8px;"><tbody id="ptHist"></tbody></table>
-  </details>
+  <div class="pt-panel trade-widget" data-trade-widget="history" style="margin-top:12px;">
+    <details>
+      <summary style="cursor:pointer; font-size:12px; color:var(--muted);">取引履歴（最新20件）</summary>
+      <table style="margin-top:8px;"><tbody id="ptHist"></tbody></table>
+    </details>
+  </div>
   <p class="sub" style="margin-top:8px;">※ 約定・アラート・ロスカットはデータ更新タイミングの価格で判定する簡易シミュレーションです。複合注文は練習用の近似実装であり、実際の証券会社の約定仕様とは異なります。</p>
 </div>
 
@@ -531,6 +618,7 @@ const LS_KEY = 'us_stock_dashboard_v1';
 const MARKET_KEY = 'stock_dashboard_market';
 const BEGINNER_KEY = 'stock_dashboard_beginner';
 const DASHBOARD_LAYOUT_KEY = 'stock_dashboard_layout_v2';
+const TRADE_LAYOUT_KEY = 'stock_trade_layout_v1';
 const DATA_SOURCE_KEY = 'stock_dashboard_data_source';
 const DATA_SOURCES = {
   auto:'自動（Yahoo優先）',
@@ -548,6 +636,20 @@ const DASHBOARD_WIDGETS = [
   {id:'beginner', label:'初心者ガイド', zone:'main'},
   {id:'review', label:'自動レビュー', zone:'side'},
   {id:'diagnosis', label:'ポートフォリオ診断', zone:'side'},
+];
+const TRADE_WIDGETS = [
+  {id:'summary', label:'口座サマリー', zone:'top'},
+  {id:'coach', label:'初心者コーチ', zone:'top'},
+  {id:'watch', label:'ウォッチリスト', zone:'research'},
+  {id:'picks', label:'注目ピック', zone:'research'},
+  {id:'screener', label:'スクリーナー', zone:'research'},
+  {id:'order', label:'発注パネル', zone:'main'},
+  {id:'risk', label:'リスク管理', zone:'side'},
+  {id:'positions', label:'建玉・注文照会', zone:'side'},
+  {id:'alerts', label:'価格アラート', zone:'side'},
+  {id:'events', label:'イベントログ', zone:'side'},
+  {id:'stats', label:'成績分析', zone:'side'},
+  {id:'history', label:'取引履歴', zone:'side'},
 ];
 const MARKET_CONFIGS = {
   us: {
@@ -643,6 +745,44 @@ function newsLinks(sym){
   return `<span class="news-links"><a href="${yahoo}" target="_blank">Yahoo</a>
     <a href="https://news.google.com/search?q=${q}&hl=ja" target="_blank">News</a></span>`;
 }
+function symbolOptionLabel(item){
+  const name = item.name || '';
+  const sector = item.sector || '';
+  const source = item.source ? ` / ${item.source}` : '';
+  return `${displaySymbol(item.sym)}${name?` - ${name}`:''}${sector?` (${sector})`:''}${source}`;
+}
+function symbolSuggestionItems(){
+  const map = new Map();
+  const add = (item, source)=>{
+    if(!item?.sym || map.has(item.sym)) return;
+    map.set(item.sym, {...item, source});
+  };
+  stocks.forEach(s=>add(s, s.shares && s.cost ? '保有/ウォッチ' : 'ウォッチ'));
+  activeUniverse().forEach(u=>add(u, '主要銘柄'));
+  lastScreenerRows.forEach(r=>add(r, 'スクリーナー'));
+  Object.keys(paper?.pos || {}).forEach(sym=>add({sym, sector:'保有建玉'}, '建玉'));
+  return Array.from(map.values()).sort((a,b)=>displaySymbol(a.sym).localeCompare(displaySymbol(b.sym), 'ja'));
+}
+function updateSymbolSuggestions(){
+  const items = symbolSuggestionItems();
+  const data = document.getElementById('symbolSuggestions');
+  if(data){
+    data.innerHTML = items.map(item=>`<option value="${displaySymbol(item.sym)}" label="${symbolOptionLabel(item)}"></option>`).join('');
+  }
+  const quick = document.getElementById('ptSymQuick');
+  if(quick){
+    const current = normalizeSymbol(document.getElementById('ptSym')?.value || '');
+    quick.innerHTML = '<option value="">銘柄を検索/選択</option>' + items.map(item=>{
+      const selected = item.sym===current ? 'selected' : '';
+      return `<option value="${item.sym}" ${selected}>${symbolOptionLabel(item)}</option>`;
+    }).join('');
+  }
+}
+function selectQuickTradeSymbol(){
+  const sym = document.getElementById('ptSymQuick')?.value;
+  if(!sym) return;
+  selectTradeSymbol(sym, document.getElementById('ptSide')?.value || 'buy', '選択式の銘柄候補から指定');
+}
 
 function addStock(){
   const sym = normalizeSymbol(document.getElementById('inSym').value);
@@ -656,6 +796,7 @@ function addStock(){
   document.getElementById('inShares').value='';
   document.getElementById('inCost').value='';
   renderTable();
+  updateSymbolSuggestions();
   refreshOne(sym);
 }
 function removeStock(sym){
@@ -664,6 +805,7 @@ function removeStock(sym){
   delete marketData[sym];
   saveStocks();
   renderAll();
+  updateSymbolSuggestions();
 }
 function setPressed(id, pressed){
   const el = document.getElementById(id);
@@ -708,12 +850,15 @@ function setMarketMode(next){
   lastScreenerTargets = [];
   lastScreenerMeta = null;
   selectedScreenerSym = null;
+  selectedTradeScreenerSym = null;
   const screenTable = document.getElementById('screenTable');
   if(screenTable) screenTable.style.display = 'none';
   const screenBody = document.getElementById('screenBody');
   if(screenBody) screenBody.innerHTML = '';
   const screenDetail = document.getElementById('screenDetail');
   if(screenDetail){ screenDetail.style.display = 'none'; screenDetail.innerHTML = ''; }
+  const ptScreenDetail = document.getElementById('ptScreenDetail');
+  if(ptScreenDetail){ ptScreenDetail.style.display = 'none'; ptScreenDetail.innerHTML = ''; }
   updateMarketUI();
   renderAll();
   refreshAll();
@@ -906,7 +1051,193 @@ function initDashboardCustomization(){
   setupDashboardDrag();
 }
 
+// ===== デモ画面表示設定・ドラッグ並び替え =====
+function defaultTradeLayout(){
+  const order = {top:[], research:[], main:[], side:[]}, visible = {};
+  TRADE_WIDGETS.forEach(w=>{ order[w.zone].push(w.id); visible[w.id] = true; });
+  return {order, visible};
+}
+function loadTradeLayout(){
+  const base = defaultTradeLayout();
+  try{
+    const saved = JSON.parse(localStorage.getItem(TRADE_LAYOUT_KEY) || 'null');
+    if(saved && saved.order && saved.visible){
+      const known = new Set(TRADE_WIDGETS.map(w=>w.id));
+      ['top','research','main','side'].forEach(zone=>{
+        const ordered = (saved.order[zone] || []).filter(id=>known.has(id));
+        const missing = base.order[zone].filter(id=>!ordered.includes(id));
+        base.order[zone] = ordered.concat(missing);
+      });
+      TRADE_WIDGETS.forEach(w=>{
+        if(saved.visible[w.id] === false) base.visible[w.id] = false;
+      });
+    }
+  }catch(e){}
+  return base;
+}
+let tradeLayout = loadTradeLayout();
+function saveTradeLayout(){
+  try{ localStorage.setItem(TRADE_LAYOUT_KEY, JSON.stringify(tradeLayout)); }catch(e){}
+}
+function tradeWidgetEl(id){ return document.querySelector(`[data-trade-widget="${id}"]`); }
+function tradeZoneEl(zone){ return document.querySelector(`[data-trade-zone="${zone}"]`); }
+function decorateTradeWidgets(){
+  document.querySelectorAll('.trade-widget').forEach(el=>{
+    el.setAttribute('draggable', 'true');
+    if(!el.querySelector(':scope > .drag-handle')){
+      const h = document.createElement('span');
+      h.className = 'drag-handle';
+      h.textContent = '↕';
+      h.title = 'ドラッグして表示位置を変更';
+      h.draggable = true;
+      el.appendChild(h);
+    }
+  });
+}
+function renderTradeWidgetToggles(){
+  const box = document.getElementById('tradeWidgetToggles');
+  if(!box) return;
+  box.innerHTML = TRADE_WIDGETS.map(w=>{
+    const checked = tradeLayout.visible[w.id] !== false ? 'checked' : '';
+    return `<label><input type="checkbox" ${checked} onchange="setTradeWidgetVisible('${w.id}', this.checked)"> ${w.label}</label>`;
+  }).join('');
+}
+function applyTradeLayout(){
+  ['top','research','main','side'].forEach(zone=>{
+    const container = tradeZoneEl(zone);
+    if(!container) return;
+    (tradeLayout.order[zone] || []).forEach(id=>{
+      const el = tradeWidgetEl(id);
+      if(el) container.appendChild(el);
+    });
+  });
+  TRADE_WIDGETS.forEach(w=>{
+    const el = tradeWidgetEl(w.id);
+    if(el) el.classList.toggle('trade-hidden', tradeLayout.visible[w.id] === false);
+  });
+  renderTradeWidgetToggles();
+}
+function saveTradeLayoutFromDom(){
+  ['top','research','main','side'].forEach(zone=>{
+    const container = tradeZoneEl(zone);
+    tradeLayout.order[zone] = container
+      ? Array.from(container.children).filter(el=>el.matches?.('.trade-widget')).map(el=>el.dataset.tradeWidget)
+      : tradeLayout.order[zone];
+  });
+  saveTradeLayout();
+}
+function setTradeWidgetVisible(id, visible){
+  tradeLayout.visible[id] = !!visible;
+  const el = tradeWidgetEl(id);
+  if(el) el.classList.toggle('trade-hidden', !visible);
+  saveTradeLayout();
+}
+function resetTradeLayout(){
+  tradeLayout = defaultTradeLayout();
+  saveTradeLayout();
+  applyTradeLayout();
+}
+function tradeDragAfterElement(container, y){
+  const items = Array.from(container.children)
+    .filter(el=>el.matches?.('.trade-widget') && !el.classList.contains('dragging') && !el.classList.contains('trade-hidden'));
+  let closest = {offset:Number.NEGATIVE_INFINITY, element:null};
+  items.forEach(child=>{
+    const box = child.getBoundingClientRect();
+    const offset = y - box.top - box.height/2;
+    if(offset < 0 && offset > closest.offset) closest = {offset, element:child};
+  });
+  return closest.element;
+}
+function setupTradeDrag(){
+  document.querySelectorAll('.trade-widget').forEach(el=>{
+    if(el.dataset.tradeDragReady) return;
+    el.dataset.tradeDragReady = '1';
+    el.addEventListener('dragstart', e=>{
+      el.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', el.dataset.tradeWidget || '');
+    });
+    el.addEventListener('dragend', ()=>{
+      el.classList.remove('dragging');
+      document.querySelectorAll('[data-trade-zone].drag-over').forEach(z=>z.classList.remove('drag-over'));
+      saveTradeLayoutFromDom();
+    });
+  });
+  document.querySelectorAll('[data-trade-zone]').forEach(container=>{
+    if(container.dataset.tradeZoneReady) return;
+    container.dataset.tradeZoneReady = '1';
+    container.addEventListener('dragover', e=>{
+      const dragging = document.querySelector('.trade-widget.dragging');
+      if(!dragging) return;
+      e.preventDefault();
+      container.classList.add('drag-over');
+      const after = tradeDragAfterElement(container, e.clientY);
+      if(after) container.insertBefore(dragging, after);
+      else container.appendChild(dragging);
+    });
+    container.addEventListener('dragleave', e=>{
+      if(!container.contains(e.relatedTarget)) container.classList.remove('drag-over');
+    });
+    container.addEventListener('drop', e=>{
+      e.preventDefault();
+      container.classList.remove('drag-over');
+      saveTradeLayoutFromDom();
+    });
+  });
+  setupPointerTradeDrag();
+}
+let pointerDraggingTradeWidget = null;
+function setupPointerTradeDrag(){
+  document.querySelectorAll('.trade-widget > .drag-handle').forEach(handle=>{
+    if(handle.dataset.tradePointerReady) return;
+    handle.dataset.tradePointerReady = '1';
+    handle.addEventListener('pointerdown', e=>{
+      const widget = handle.closest('.trade-widget');
+      if(!widget) return;
+      pointerDraggingTradeWidget = widget;
+      widget.classList.add('dragging');
+      handle.setPointerCapture?.(e.pointerId);
+      e.preventDefault();
+    });
+  });
+  if(document.body.dataset.tradePointerDragReady) return;
+  document.body.dataset.tradePointerDragReady = '1';
+  document.addEventListener('pointermove', e=>{
+    if(!pointerDraggingTradeWidget) return;
+    const target = document.elementFromPoint(e.clientX, e.clientY);
+    const container = target?.closest?.('[data-trade-zone]');
+    if(!container) return;
+    document.querySelectorAll('[data-trade-zone].drag-over').forEach(z=>z.classList.remove('drag-over'));
+    container.classList.add('drag-over');
+    const after = tradeDragAfterElement(container, e.clientY);
+    if(after) container.insertBefore(pointerDraggingTradeWidget, after);
+    else container.appendChild(pointerDraggingTradeWidget);
+  });
+  document.addEventListener('pointerup', ()=>{
+    if(!pointerDraggingTradeWidget) return;
+    pointerDraggingTradeWidget.classList.remove('dragging');
+    pointerDraggingTradeWidget = null;
+    document.querySelectorAll('[data-trade-zone].drag-over').forEach(z=>z.classList.remove('drag-over'));
+    saveTradeLayoutFromDom();
+  });
+  document.addEventListener('pointercancel', ()=>{
+    if(pointerDraggingTradeWidget) pointerDraggingTradeWidget.classList.remove('dragging');
+    pointerDraggingTradeWidget = null;
+    document.querySelectorAll('[data-trade-zone].drag-over').forEach(z=>z.classList.remove('drag-over'));
+  });
+}
+function initTradeCustomization(){
+  decorateTradeWidgets();
+  applyTradeLayout();
+  setupTradeDrag();
+}
+
 // ===== データ取得 (Yahoo Finance chart API + CORSプロキシのフォールバック) =====
+function fetchWithTimeout(url, options={}, timeoutMs=8000){
+  const ctrl = new AbortController();
+  const timer = setTimeout(()=>ctrl.abort(), timeoutMs);
+  return fetch(url, {...options, signal:ctrl.signal}).finally(()=>clearTimeout(timer));
+}
 async function fetchJson(url){
   const attempts = [
     url,
@@ -920,7 +1251,7 @@ async function fetchJson(url){
   let lastErr;
   for(const u of attempts){
     try{
-      const r = await fetch(u, {cache:'no-store'});
+      const r = await fetchWithTimeout(u, {cache:'no-store'});
       if(r.ok){ return await r.json(); }
       lastErr = new Error('HTTP '+r.status);
     }catch(e){ lastErr = e; }
@@ -940,7 +1271,7 @@ async function fetchText(url){
   let lastErr;
   for(const u of attempts){
     try{
-      const r = await fetch(u, {cache:'no-store'});
+      const r = await fetchWithTimeout(u, {cache:'no-store'});
       if(r.ok){ return await r.text(); }
       lastErr = new Error('HTTP '+r.status);
     }catch(e){ lastErr = e; }
@@ -1208,7 +1539,7 @@ function fmtMoney(v){
 }
 
 // ===== 描画 =====
-function renderAll(){ renderTable(); renderSummary(); renderBeginnerGuide(); renderPerfChart(); renderPicks(); renderSellCheck(); renderPaper(); renderReview(); renderDiagnosis(); decorateDashboardWidgets(); }
+function renderAll(){ renderTable(); renderSummary(); renderBeginnerGuide(); renderPerfChart(); renderPicks(); renderTradeResearch(); renderSellCheck(); renderPaper(); renderTradeBeginnerCoach(); renderReview(); renderDiagnosis(); updateSymbolSuggestions(); decorateDashboardWidgets(); decorateTradeWidgets(); }
 
 function rowMetrics(s){
   const d = marketData[s.sym];
@@ -1376,6 +1707,7 @@ function renderPerfChart(){
 let pickChart = null;
 let lastScreenerRows = [];
 let lastScreenerMeta = null;
+let selectedTradeScreenerSym = null;
 function renderPicks(){
   const ctx = document.getElementById('pickChart');
   const ul = document.getElementById('pickList');
@@ -1462,6 +1794,199 @@ function renderPicks(){
   if(worst && (worst.exp30??0)<-3) items.push({cls:'bad', text:`【勢いが弱い】${displaySymbol(worst.sym)}: 下落トレンドの延長で予想30日 ${worst.exp30.toFixed(1)}%。${worst.held?'保有理由の再確認を。':'エントリーは慎重に。'}`});
   if(!items.length) items.push({cls:'', text:'明確な上昇候補は現在ありません。横ばい圏が中心です。'});
   ul.innerHTML = items.map(i=>`<li class="${i.cls}">${i.text}</li>`).join('');
+}
+
+function tradeWatchRows(){
+  return stocks.map(s=>{
+    const m = rowMetrics(s);
+    const d = marketData[s.sym] || screenData[s.sym];
+    const fc = d ? forecast(d.closes) : null;
+    return {
+      sym:s.sym, sector:s.sector, name:s.name || '', desc:'',
+      source:'watch', inList:true, held:!!(s.shares && s.cost),
+      price:m?.price ?? ptPrice(s.sym), m1:m?.m1 ?? null, m3:m?.m3 ?? null,
+      exp30:fc?.exp30 ?? null, rsi:m?.rsi ?? null, score:m ? momentumScore(m) : null,
+    };
+  });
+}
+function tradePickRows(){
+  const usingScreener = !!lastScreenerMeta && lastScreenerRows.length;
+  const rows = usingScreener
+    ? lastScreenerRows.map(r=>Object.assign({}, r, {
+        source:'screen',
+        inList:stocks.some(s=>s.sym===r.sym),
+        held:stocks.some(s=>s.sym===r.sym && s.shares && s.cost),
+      }))
+    : tradeWatchRows().filter(r=>r.exp30!=null || r.score!=null);
+  rows.sort((a,b)=>usingScreener
+    ? (b.score??-999)-(a.score??-999)
+    : (b.exp30??-999)-(a.exp30??-999));
+  return rows;
+}
+function tradeCandidateReason(r){
+  const parts = [];
+  if(r.score!=null) parts.push(`スコア ${r.score.toFixed(1)}`);
+  if(r.exp30!=null) parts.push(`予想30日 ${pctTextPlain(r.exp30)}`);
+  if(r.m3!=null) parts.push(`3ヶ月 ${pctTextPlain(r.m3)}`);
+  if(r.rsi!=null && r.rsi>=70) parts.push(`RSI ${r.rsi.toFixed(0)}で過熱`);
+  else if(r.rsi!=null && r.rsi<=30) parts.push(`RSI ${r.rsi.toFixed(0)}で売られすぎ`);
+  return parts.join(' / ') || 'データ更新後に判断材料が増えます';
+}
+function selectTradeSymbol(sym, side='buy', note=''){
+  const input = document.getElementById('ptSym');
+  const sideSel = document.getElementById('ptSide');
+  const noteEl = document.getElementById('ptNote');
+  const quick = document.getElementById('ptSymQuick');
+  if(input) input.value = displaySymbol(sym);
+  if(sideSel) sideSel.value = side;
+  if(quick) quick.value = sym;
+  if(noteEl && paper.mode==='pro' && note) noteEl.value = note.slice(0,120);
+  renderOrderPreview();
+  input?.scrollIntoView({behavior:'smooth', block:'center'});
+}
+function tradeCandidateCard(r, opts={}){
+  const inList = stocks.some(s=>s.sym===r.sym);
+  const held = r.held || stocks.some(s=>s.sym===r.sym && s.shares && s.cost);
+  const addBtn = inList ? '<span class="sector-tag">登録済</span>' : `<button onclick="addFromScreener('${r.sym}','${r.sector||'その他'}')">＋ウォッチ</button>`;
+  const detailBtn = opts.detail ? `<button onclick="showTradeScreenerDetail('${r.sym}')">詳細</button>` : '';
+  const sourceNote = opts.note || tradeCandidateReason(r);
+  return `<div class="trade-candidate">
+    <div class="trade-candidate-head">
+      <div>
+        <div class="trade-candidate-title">${displaySymbol(r.sym)} ${held?'<span class="badge buy">保有中</span>':''}</div>
+        <div class="trade-candidate-meta">${[r.name, r.sector].filter(Boolean).join(' / ') || 'ウォッチリスト'}</div>
+      </div>
+      <div>${fmtMoney(r.price)}</div>
+    </div>
+    <div class="trade-candidate-meta">${sourceNote}</div>
+    <div class="trade-candidate-metrics">
+      <div class="trade-metric"><div class="label">1ヶ月</div><div class="value">${fmtPct(r.m1)}</div></div>
+      <div class="trade-metric"><div class="label">3ヶ月</div><div class="value">${fmtPct(r.m3)}</div></div>
+      <div class="trade-metric"><div class="label">予想30日</div><div class="value">${fmtPct(r.exp30)}</div></div>
+    </div>
+    <div class="trade-actions">
+      <button class="primary" onclick="selectTradeSymbol('${r.sym}','buy','${sourceNote}')">買い練習</button>
+      <button onclick="selectTradeSymbol('${r.sym}','sell','${sourceNote}')">売り練習</button>
+      ${detailBtn}
+      ${opts.allowAdd ? addBtn : ''}
+    </div>
+  </div>`;
+}
+function renderTradeResearch(){
+  const watchEl = document.getElementById('ptWatchCandidates');
+  const pickEl = document.getElementById('ptPickCandidates');
+  const screenEl = document.getElementById('ptScreenCandidates');
+  if(!watchEl && !pickEl && !screenEl) return;
+  const watchRows = tradeWatchRows();
+  if(watchEl){
+    watchEl.innerHTML = watchRows.length
+      ? watchRows.slice(0,6).map(r=>tradeCandidateCard(r, {note:r.held?'保有中の銘柄です。売り練習では利確・損切りの判断を確認します。':'分析画面のウォッチリスト銘柄です。'})).join('')
+      : '<p class="table-empty">分析画面でウォッチリストに銘柄を追加すると、ここから発注練習へ送れます。</p>';
+  }
+  if(pickEl){
+    const rows = tradePickRows();
+    pickEl.innerHTML = rows.length
+      ? rows.slice(0,5).map(r=>tradeCandidateCard(r, {allowAdd:r.source==='screen'})).join('')
+      : '<p class="table-empty">データ更新、またはスクリーナー実行後に注目ピックが表示されます。</p>';
+  }
+  if(screenEl){
+    const rows = lastScreenerRows || [];
+    screenEl.innerHTML = rows.length
+      ? rows.slice(0,6).map(r=>tradeCandidateCard(r, {detail:true, allowAdd:true})).join('')
+      : '<p class="table-empty">「スキャン」を押すと、発掘候補からそのままデモ注文の練習に進めます。</p>';
+  }
+}
+function copyTradeScanControlsToMain(){
+  const pairs = [['ptScanSector','scanSector'], ['ptScanSort','scanSort'], ['ptScanMinScore','scanMinScore']];
+  pairs.forEach(([from,to])=>{
+    const a=document.getElementById(from), b=document.getElementById(to);
+    if(a && b) b.value = a.value;
+  });
+  const a=document.getElementById('ptScanPositiveOnly'), b=document.getElementById('scanPositiveOnly');
+  if(a && b) b.checked = a.checked;
+}
+function copyMainScanControlsToTrade(){
+  const pairs = [['scanSector','ptScanSector'], ['scanSort','ptScanSort'], ['scanMinScore','ptScanMinScore']];
+  pairs.forEach(([from,to])=>{
+    const a=document.getElementById(from), b=document.getElementById(to);
+    if(a && b) b.value = a.value;
+  });
+  const a=document.getElementById('scanPositiveOnly'), b=document.getElementById('ptScanPositiveOnly');
+  if(a && b) b.checked = a.checked;
+}
+async function runTradeScreener(){
+  copyTradeScanControlsToMain();
+  const secFilter = document.getElementById('scanSector')?.value || '';
+  const targets = activeUniverse().filter(u=>!secFilter || u.sector===secFilter);
+  lastScreenerTargets = targets;
+  const st = document.getElementById('scanStatus');
+  const ptSt = document.getElementById('ptScanStatus');
+  let done=0;
+  for(const u of targets){
+    const msg = `取得中 ${++done}/${targets.length} (${displaySymbol(u.sym)})`;
+    if(st) st.textContent = msg;
+    if(ptSt) ptSt.textContent = msg;
+    if(!screenData[u.sym]){
+      try{ screenData[u.sym] = await fetchChart(u.sym); }
+      catch(e){ console.warn('screener fail', u.sym, e); }
+      await new Promise(r=>setTimeout(r,200));
+    }
+  }
+  if(st) st.textContent = '';
+  if(ptSt) ptSt.textContent = '';
+  updateSourceBadge();
+  renderScreener(targets);
+}
+function rerenderTradeScreener(){
+  copyTradeScanControlsToMain();
+  rerenderScreener();
+}
+function showTradeScreenerDetail(sym){
+  selectedTradeScreenerSym = sym;
+  const el = document.getElementById('ptScreenDetail');
+  if(!el) return;
+  const r = lastScreenerRows.find(x=>x.sym===sym);
+  if(!r){
+    el.style.display = 'none';
+    el.innerHTML = '';
+    return;
+  }
+  const j = screenerJudgement(r);
+  const inList = stocks.some(s=>s.sym===r.sym);
+  const addBtn = inList ? '<span class="sector-tag">ウォッチリスト登録済</span>' : `<button onclick="addFromScreener('${r.sym}','${r.sector}')">＋ウォッチリストに追加</button>`;
+  const note = tradeCandidateReason(r);
+  el.innerHTML = `
+    <div class="row" style="justify-content:space-between; align-items:flex-start;">
+      <div>
+        <h3>${displaySymbol(r.sym)} ${r.name || ''} <span class="badge ${j.cls==='good'?'buy':(j.cls==='bad'?'sell':'neutral')}">${j.text}</span></h3>
+        <p class="sub" style="margin:0;">${r.sector || 'その他'} / ${r.desc || ''}</p>
+      </div>
+      <div class="row">
+        <button class="primary" onclick="selectTradeSymbol('${r.sym}','buy','${note}')">買い練習へ</button>
+        <button onclick="selectTradeSymbol('${r.sym}','sell','${note}')">売り練習へ</button>
+        ${addBtn}
+        <button onclick="hideTradeScreenerDetail()">閉じる</button>
+      </div>
+    </div>
+    <div class="screen-detail-grid">
+      <div class="screen-detail-metric"><div class="label">株価</div><div class="value">${fmtMoney(r.price)}</div></div>
+      <div class="screen-detail-metric"><div class="label">1ヶ月</div><div class="value ${metricTone(r.m1,0,0)}">${pctTextPlain(r.m1)}</div></div>
+      <div class="screen-detail-metric"><div class="label">3ヶ月</div><div class="value ${metricTone(r.m3,0,0)}">${pctTextPlain(r.m3)}</div></div>
+      <div class="screen-detail-metric"><div class="label">vs ${marketConfig().benchmarkShort}</div><div class="value ${metricTone(r.vsSpx,0,0)}">${pctTextPlain(r.vsSpx)}</div></div>
+      <div class="screen-detail-metric"><div class="label">予想30日</div><div class="value ${metricTone(r.exp30,0,0)}">${pctTextPlain(r.exp30)}</div></div>
+      <div class="screen-detail-metric"><div class="label">RSI</div><div class="value ${r.rsi>=70?'warn':(r.rsi<=30?'warn':'')}">${r.rsi!=null?r.rsi.toFixed(0):'—'}</div></div>
+    </div>
+    <h3 style="margin-top:10px;">根拠</h3>
+    <ul class="rationale-list">
+      ${screenerRationales(r).map(i=>`<li class="${i.cls}">${i.text}</li>`).join('')}
+    </ul>`;
+  el.style.display = 'block';
+  el.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+function hideTradeScreenerDetail(){
+  selectedTradeScreenerSym = null;
+  const el = document.getElementById('ptScreenDetail');
+  if(el){ el.style.display = 'none'; el.innerHTML = ''; }
 }
 
 // ===== 自動レビュー =====
@@ -2166,9 +2691,17 @@ function renderOrderPreview(){
   const sym = normalizeSymbol(document.getElementById('ptSym')?.value);
   const qty = parseFloat(document.getElementById('ptQty')?.value);
   const type = paper.mode==='pro'? (document.getElementById('ptType')?.value || 'market') : 'market';
-  if(!sym || !qty || qty<=0){ el.textContent = 'ティッカーと株数を入力すると、概算約定額・手数料・ルール警告を表示します。'; return; }
+  if(!sym || !qty || qty<=0){
+    el.textContent = 'ティッカーと株数を入力すると、概算約定額・手数料・ルール警告を表示します。';
+    renderTradeBeginnerCoach();
+    return;
+  }
   const p0 = ptPrice(sym);
-  if(p0==null){ el.innerHTML = `${sym} の価格が未取得です。価格更新を押してください。`; return; }
+  if(p0==null){
+    el.innerHTML = `${sym} の価格が未取得です。価格更新を押してください。`;
+    renderTradeBeginnerCoach();
+    return;
+  }
   const fill = applySlippage(p0, side);
   const notional = fill*qty;
   const fee = ptFee(notional);
@@ -2181,6 +2714,132 @@ function renderOrderPreview(){
   if(['oco','ifd','ifdoco'].includes(type)) warnings.push('複合注文は練習用の近似判定です');
   el.innerHTML = `想定価格 ${fmtMoney(fill)} / 約定代金 ${fmtMoney(notional)} / 手数料 ${fmtMoney(fee)} / 資産比 ${weight.toFixed(1)}%`
     + (warnings.length? `<br><span class="warn">${warnings.join('。')}</span>`:'');
+  renderTradeBeginnerCoach();
+}
+function plainPct(v){
+  if(v==null || !Number.isFinite(v)) return 'データ不足';
+  return `${v>0?'+':''}${v.toFixed(1)}%`;
+}
+function beginnerTrendLabel(m){
+  if(!m) return 'まだ判断できません';
+  if((m.m1??0)>5 && (m.m3??0)>8) return '上昇の勢いが強め';
+  if((m.m1??0)<-5 && (m.m3??0)<-8) return '下落の勢いが強め';
+  if((m.m1??0)>0 && (m.m3??0)>0) return 'ゆるい上昇基調';
+  if((m.m1??0)<0 && (m.m3??0)<0) return '弱含み';
+  return '方向感はまだ混在';
+}
+function beginnerRsiText(rsiVal){
+  if(rsiVal==null) return 'RSIはまだ計算できません。';
+  if(rsiVal>=70) return `RSI ${rsiVal.toFixed(0)}。買われすぎ圏なので、すぐ飛びつくより押し目や損切り位置を先に考える練習向きです。`;
+  if(rsiVal<=30) return `RSI ${rsiVal.toFixed(0)}。売られすぎ圏なので反発候補ですが、下落が続く可能性も見ます。`;
+  return `RSI ${rsiVal.toFixed(0)}。過熱しすぎではなく、比較的落ち着いた状態です。`;
+}
+function beginnerOrderAdvice(sym, m){
+  const side = document.getElementById('ptSide')?.value || 'buy';
+  const qty = parseFloat(document.getElementById('ptQty')?.value);
+  const type = paper.mode==='pro'? (document.getElementById('ptType')?.value || 'market') : 'market';
+  const limit = parseFloat(document.getElementById('ptLimit')?.value);
+  const stop = parseFloat(document.getElementById('ptStop')?.value);
+  const p = ptPrice(sym);
+  const lines = [];
+  if(!sym) lines.push('まず銘柄を入れると、その銘柄の値動きに合わせた練習ポイントが出ます。');
+  else if(p==null) lines.push('価格未取得です。「価格更新」を押してから、練習判断を始めます。');
+  if(!qty || qty<=0) lines.push('初心者は最初に株数を小さくして、資産への影響を小さくする練習から始めると理解しやすいです。');
+  if(side==='buy') lines.push('買いの練習では「上がる理由」より先に「外れた時にどこで撤退するか」を決めます。');
+  else lines.push('売りの練習では、保有株の利確・損切りなのか、空売り練習なのかを分けて考えます。');
+  if(type==='market') lines.push('成行はすぐ約定する練習向きですが、想定より少し不利な価格になることがあります。');
+  if(type==='limit') lines.push(`指値は「${limit?fmtMoney(limit):'指定価格'}まで来たら買う/売る」という待つ注文です。約定しないことも練習の一部です。`);
+  if(type==='stop' || type==='stoplimit') lines.push('逆指値は損切り練習に向きます。感情ではなく、先に決めた撤退線で動くための注文です。');
+  if(type==='oco') lines.push('OCOは利確と損切りを同時に置く練習です。初心者には「出口を先に決める」練習としてかなり有効です。');
+  if(type==='ifd' || type==='ifdoco') lines.push('IFD系は新規注文と出口予約をセットにします。慣れるまでは小さい株数で仕組みを確認します。');
+  if(stop && p && side==='buy'){
+    const risk = (stop/p-1)*100;
+    lines.push(`今の価格から逆指値までの下落幅は約${plainPct(risk)}です。これが1回の練習で受け入れるリスクになります。`);
+  }
+  if(m?.m1!=null) lines.push(`この銘柄の1ヶ月変化率は${plainPct(m.m1)}です。短期の勢いと逆方向の注文は、理由をメモしてから練習します。`);
+  return lines;
+}
+function beginnerGlossary(){
+  return [
+    ['株価', 'その株を今いくらで買える/売れるかの目安です。会社の業績、金利、為替、ニュース、需給で動きます。'],
+    ['成行', '価格を指定せず、今すぐ約定を優先する注文です。早い代わりに価格は少しずれることがあります。'],
+    ['指値', '指定した価格以下で買う、または指定した価格以上で売る注文です。待つ注文なので約定しないことがあります。'],
+    ['逆指値', '指定した価格を下回ったら売るなど、損切りやブレイク確認に使う注文です。'],
+    ['OCO', '利確注文と損切り注文を同時に出し、片方が成立したらもう片方を取り消す練習用の出口セットです。'],
+    ['IFD', '新規注文が成立したあとに、決済注文を自動で出すセット注文です。'],
+    ['RSI', '買われすぎ/売られすぎの目安です。70以上は過熱、30以下は売られすぎとして見ます。'],
+    ['50日線', '過去50日平均の価格です。株価が上なら中期の流れは強め、下なら弱めの目安です。'],
+    ['含み損益', 'まだ決済していない保有株のプラス/マイナスです。決済するまでは確定していません。'],
+    ['証拠金維持率', '信用取引の余裕度です。低くなるとロスカットの危険が高まります。'],
+    ['ロスカット', '損失拡大を防ぐため、強制的またはルールに従って決済することです。'],
+    ['スリッページ', '注文時に見ていた価格と、実際の約定価格がずれることです。'],
+  ];
+}
+function renderTradeBeginnerCoach(){
+  const el = document.getElementById('ptBeginnerCoach');
+  if(!el) return;
+  if(!beginnerMode){ el.innerHTML=''; return; }
+  const rawSym = document.getElementById('ptSym')?.value;
+  const sym = normalizeSymbol(rawSym) || stocks[0]?.sym || Object.keys(paper.pos)[0] || '';
+  const d = sym ? (marketData[sym] || screenData[sym]) : null;
+  let m = null, fc = null, smaDev = null;
+  if(d){
+    const closes = d.closes;
+    const price = d.live ?? closes.at(-1);
+    m = {price, d1:pctChange(closes,1), w1:pctChange(closes,5), m1:pctChange(closes,21), m3:pctChange(closes,63), sma50:sma(closes,50), rsi:rsi(closes)};
+    if(m.sma50) smaDev = (price/m.sma50-1)*100;
+    fc = forecast(closes);
+  }
+  const trend = beginnerTrendLabel(m);
+  const advice = beginnerOrderAdvice(sym, m);
+  const scenarioBase = fc?.exp30;
+  const scenarioUp = fc?.hi30;
+  const scenarioDown = fc?.lo30;
+  const terms = beginnerGlossary();
+  el.innerHTML = `
+    <div class="row" style="justify-content:space-between; align-items:flex-start;">
+      <div>
+        <h3>初心者トレードコーチ</h3>
+        <p class="sub" style="margin:0;">発注パネルの入力内容と現在の値動きから、練習ポイントを自動で整理します。</p>
+      </div>
+      <span class="badge neutral">教育用</span>
+    </div>
+    <div class="coach-grid" style="margin-top:10px;">
+      <div class="coach-card">
+        <h4>どう株価が動いているか</h4>
+        <ul>
+          <li>対象: <b>${sym?displaySymbol(sym):'未選択'}</b></li>
+          <li>今の見方: <b>${trend}</b></li>
+          <li>前日 ${plainPct(m?.d1)} / 1ヶ月 ${plainPct(m?.m1)} / 3ヶ月 ${plainPct(m?.m3)}</li>
+          <li>50日線から ${plainPct(smaDev)}。${smaDev==null?'平均線データ待ちです。':(smaDev>=0?'中期の流れは比較的強めです。':'中期の流れは弱めです。')}</li>
+          <li>${beginnerRsiText(m?.rsi)}</li>
+        </ul>
+      </div>
+      <div class="coach-card">
+        <h4>30日シナリオの見方</h4>
+        <div class="scenario-row"><span>弱い場合</span><div><div class="scenario-bar"><span class="downbar" style="width:${Math.min(100, Math.max(8, Math.abs(scenarioDown||0)*4))}%"></span></div><span class="sector-tag">${plainPct(scenarioDown)}</span></div></div>
+        <div class="scenario-row"><span>中心</span><div><div class="scenario-bar"><span style="width:${Math.min(100, Math.max(8, Math.abs(scenarioBase||0)*4))}%"></span></div><span class="sector-tag">${plainPct(scenarioBase)}</span></div></div>
+        <div class="scenario-row"><span>強い場合</span><div><div class="scenario-bar"><span class="upbar" style="width:${Math.min(100, Math.max(8, Math.abs(scenarioUp||0)*4))}%"></span></div><span class="sector-tag">${plainPct(scenarioUp)}</span></div></div>
+        <p class="trade-note" style="margin-top:8px;">予測は過去トレンドの延長です。売買判断ではなく、「上がる/下がる両方の練習シナリオ」を作る材料として使います。</p>
+      </div>
+      <div class="coach-card">
+        <h4>どう動かすかの練習手順</h4>
+        <ul>${advice.map(t=>`<li>${t}</li>`).join('')}</ul>
+      </div>
+      <div class="coach-card">
+        <h4>注文前チェック</h4>
+        <ul>
+          <li>買う理由、売る理由をメモ欄に1行で書けるか。</li>
+          <li>利確ラインと損切りラインを先に決めたか。</li>
+          <li>1回の失敗で総資産に大きなダメージが出ない株数か。</li>
+          <li>決算・大きなニュース・指数全体の方向を確認したか。</li>
+        </ul>
+      </div>
+    </div>
+    <h3 style="margin-top:12px;">固有名詞の解説</h3>
+    <div class="term-grid">
+      ${terms.map(([k,v])=>`<div class="term-box"><b>${k}</b><br>${v}</div>`).join('')}
+    </div>`;
 }
 function renderRuleCheck(total){
   const ul = document.getElementById('ptRules');
@@ -2545,6 +3204,8 @@ function updateMarketUI(){
   if(longHelp) longHelp.textContent = `登録銘柄＋${cfg.benchmarkName}の全履歴（取得できる限り、最大数十年分）をブラウザ内に保存します。一度取得すれば次回以降も保持され、再実行で最新分まで更新されます。`;
   fillSelectOptions(document.getElementById('inSector'), cfg.sectors, false);
   fillSelectOptions(document.getElementById('scanSector'), [...new Set(activeUniverse().map(u=>u.sector))], true);
+  fillSelectOptions(document.getElementById('ptScanSector'), [...new Set(activeUniverse().map(u=>u.sector))], true);
+  updateSymbolSuggestions();
 }
 
 async function runScreener(){
@@ -2564,6 +3225,8 @@ async function runScreener(){
   st.textContent = '';
   updateSourceBadge();
   renderScreener(targets);
+  renderTradeResearch();
+  updateSymbolSuggestions();
 }
 function rerenderScreener(){
   const targets = lastScreenerTargets.length ? lastScreenerTargets : activeUniverse().filter(u=>{
@@ -2716,7 +3379,11 @@ function renderScreener(targets){
   }).join('');
   if(selectedScreenerSym && filtered.some(r=>r.sym===selectedScreenerSym)) showScreenerDetail(selectedScreenerSym);
   else if(selectedScreenerSym) hideScreenerDetail();
+  if(selectedTradeScreenerSym && filtered.some(r=>r.sym===selectedTradeScreenerSym)) showTradeScreenerDetail(selectedTradeScreenerSym);
+  else if(selectedTradeScreenerSym) hideTradeScreenerDetail();
   renderPicks();
+  copyMainScanControlsToTrade();
+  renderTradeResearch();
 }
 
 function addFromScreener(sym, sector){
@@ -2916,6 +3583,7 @@ function renderLongStats(){
 // 初期表示
 updateMarketUI();
 initDashboardCustomization();
+initTradeCustomization();
 renderAll();
 (function(){
   const sel = document.getElementById('autoRefresh');
