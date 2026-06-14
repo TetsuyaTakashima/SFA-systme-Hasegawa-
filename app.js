@@ -682,6 +682,7 @@ const elements = {
   managementSectionSelect: document.querySelector("#managementSectionSelect"),
   csvFile: document.querySelector("#csvFile"),
   importPrefecture: document.querySelector("#importPrefecture"),
+  importRecordType: document.querySelector("#importRecordType"),
   mergeDuplicates: document.querySelector("#mergeDuplicates"),
   importPreview: document.querySelector("#importPreview"),
   searchInput: document.querySelector("#searchInput"),
@@ -689,6 +690,7 @@ const elements = {
   prefectureFilter: document.querySelector("#prefectureFilter"),
   assigneeFilter: document.querySelector("#assigneeFilter"),
   priorityFilter: document.querySelector("#priorityFilter"),
+  recordTypeFilter: document.querySelector("#recordTypeFilter"),
   visibilityFilter: document.querySelector("#visibilityFilter"),
   sortSelect: document.querySelector("#sortSelect"),
   venueTableBody: document.querySelector("#venueTableBody"),
@@ -779,10 +781,12 @@ function bindEvents() {
   on(elements.prefectureFilter, "change", render);
   on(elements.assigneeFilter, "change", render);
   on(elements.priorityFilter, "change", render);
+  on(elements.recordTypeFilter, "change", render);
   on(elements.visibilityFilter, "change", render);
   on(elements.sortSelect, "change", render);
   on(elements.csvFile, "change", handleCsvSelection);
   on(elements.importPrefecture, "change", handleImportPrefectureChange);
+  on(elements.importRecordType, "change", handleImportRecordTypeChange);
   on(elements.newVenueButton, "click", () => openForm());
   on(elements.exportCsvButton, "click", exportCsv);
   on(elements.logoutButton, "click", logoutCurrentUser);
@@ -2187,6 +2191,52 @@ function getVenuePrefecture(venue) {
   return normalizePrefecture(venue.prefecture, venue.address, venue.municipality, venue.facilityName, venue.operator);
 }
 
+function getSelectedImportRecordType() {
+  return elements.importRecordType?.value === "school" ? "school" : "facility";
+}
+
+function ensureSchoolCategory(value = "") {
+  const category = String(value ?? "").trim();
+  if (!category) return "学校";
+  return isSchoolCategory(category) ? category : `学校 / ${category}`;
+}
+
+function isSchoolCategory(value = "") {
+  const category = normalize(value);
+  return [
+    "学校",
+    "高校",
+    "高等",
+    "中学",
+    "小学",
+    "大学",
+    "短大",
+    "高専",
+    "幼稚園",
+    "こども園",
+    "専修",
+    "各種学校",
+    "義務教育",
+    "特別支援",
+  ].some((keyword) => category.includes(normalize(keyword)));
+}
+
+function isSchoolVenue(venue) {
+  const category = normalize(venue?.category);
+  const name = normalize(venue?.facilityName);
+  const notes = normalize(venue?.notes);
+  const text = `${category} ${name} ${notes}`;
+  return isSchoolCategory(text);
+}
+
+function getVenueRecordType(venue) {
+  return isSchoolVenue(venue) ? "school" : "facility";
+}
+
+function getVenueRecordTypeLabel(venue) {
+  return getVenueRecordType(venue) === "school" ? "学校" : "施設";
+}
+
 function refreshPrefectureFilter() {
   if (!elements.prefectureFilter) return;
   const current = elements.prefectureFilter.value;
@@ -2202,6 +2252,7 @@ function getFilteredVenues() {
   const prefecture = elements.prefectureFilter?.value ?? "";
   const assignee = elements.assigneeFilter?.value ?? "";
   const priority = elements.priorityFilter?.value ?? "";
+  const recordType = elements.recordTypeFilter?.value ?? "";
   const visibility = elements.visibilityFilter?.value ?? "visible";
   const sortMode = elements.sortSelect?.value ?? "nextActionDate";
 
@@ -2226,6 +2277,7 @@ function getFilteredVenues() {
           venue.programPolicy,
           venue.status,
           venue.priority ? `温度感${temperatureOptionText(venue.priority)} 優先度${venue.priority} 評価${venue.priority}` : "",
+          getVenueRecordTypeLabel(venue),
           hidden ? "非表示 hidden" : "表示 visible",
           getUserName(venue.assignedUserId),
           getUserName(venue.callUpdatedByUserId),
@@ -2248,6 +2300,7 @@ function getFilteredVenues() {
         (!prefecture || venuePrefecture === prefecture) &&
         matchesAssigneeFilter(venue, assignee) &&
         (!priority || venue.priority === priority) &&
+        (!recordType || getVenueRecordType(venue) === recordType) &&
         (visibility === "all" || (visibility === "hidden" ? hidden : !hidden))
       );
     })
@@ -3293,12 +3346,20 @@ function handleImportPrefectureChange() {
   renderImportPreview(pendingImportHeaders);
 }
 
+function handleImportRecordTypeChange() {
+  if (!pendingImportSource.length) return;
+  pendingImport = pendingImportSource.map(applyImportPrefectureChoice);
+  renderImportPreview(pendingImportHeaders);
+}
+
 function applyImportPrefectureChoice(venue) {
   const selectedPrefecture = elements.importPrefecture?.value || "";
-  if (!selectedPrefecture || valueExists(venue.prefecture)) return { ...venue };
+  const selectedRecordType = getSelectedImportRecordType();
+  const nextVenue = { ...venue };
   return {
-    ...venue,
-    prefecture: selectedPrefecture,
+    ...nextVenue,
+    ...(selectedPrefecture && !valueExists(nextVenue.prefecture) ? { prefecture: selectedPrefecture } : {}),
+    ...(selectedRecordType === "school" ? { category: ensureSchoolCategory(nextVenue.category) } : {}),
   };
 }
 
@@ -3326,6 +3387,7 @@ function renderImportPreview(headers) {
   elements.importPreview.innerHTML = `
     <div>
       <strong>${pendingImport.length}件を読み込みました。</strong>
+      <span class="muted">取り込み種別: ${getSelectedImportRecordType() === "school" ? "学校" : "施設"}</span>
       <span class="muted">対応列: ${mappedLabels || "自動対応なし"}</span>
       ${elements.importPrefecture?.value ? `<span class="muted">都道府県補完: ${escapeHtml(elements.importPrefecture.value)}</span>` : ""}
     </div>
@@ -3736,7 +3798,7 @@ function jumpToVenue(id) {
 
 function resetFiltersForVenueJump() {
   if (elements.searchInput) elements.searchInput.value = "";
-  [elements.statusFilter, elements.prefectureFilter, elements.assigneeFilter, elements.priorityFilter, elements.visibilityFilter].forEach((select) => {
+  [elements.statusFilter, elements.prefectureFilter, elements.assigneeFilter, elements.priorityFilter, elements.recordTypeFilter, elements.visibilityFilter].forEach((select) => {
     if (select) select.value = "";
   });
 }

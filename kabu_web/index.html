@@ -1,0 +1,2937 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>米国株ダッシュボード</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#0f1419; --card:#1a2129; --card2:#212a35; --border:#2c3a47;
+    --text:#e8edf2; --muted:#8a99a8; --accent:#4da3ff;
+    --up:#2ecc71; --down:#ff5c5c; --warn:#f5b041;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{background:var(--bg); color:var(--text); font-family:"Hiragino Sans","Yu Gothic UI","Meiryo",sans-serif; padding:20px; max-width:1480px; margin:0 auto;}
+  h1{font-size:22px; margin-bottom:4px;}
+  h2{font-size:16px; margin-bottom:12px; color:var(--accent);}
+  .sub{color:var(--muted); font-size:12px; margin-bottom:16px;}
+  .card{background:var(--card); border:1px solid var(--border); border-radius:10px; padding:16px; margin-bottom:16px;}
+  .row{display:flex; gap:8px; flex-wrap:wrap; align-items:center;}
+  input,select,button{background:var(--card2); color:var(--text); border:1px solid var(--border); border-radius:6px; padding:8px 10px; font-size:14px;}
+  input:focus,select:focus{outline:1px solid var(--accent);}
+  button{cursor:pointer;}
+  button.primary{background:var(--accent); color:#fff; border:none; font-weight:bold;}
+  button.danger{background:transparent; color:var(--down); border:1px solid var(--down); padding:4px 8px; font-size:12px;}
+  table{width:100%; border-collapse:collapse; font-size:13px;}
+  th,td{padding:8px 6px; text-align:right; border-bottom:1px solid var(--border); white-space:nowrap;}
+  th{color:var(--muted); font-weight:normal; font-size:12px;}
+  th:first-child,td:first-child{text-align:left;}
+  .up{color:var(--up);} .down{color:var(--down);} .warn{color:var(--warn);}
+  .sym{font-weight:bold; font-size:14px;}
+  .sector-tag{font-size:11px; color:var(--muted);}
+  .badge{display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; margin-left:6px;}
+  .badge.buy{background:rgba(46,204,113,.15); color:var(--up);}
+  .badge.sell{background:rgba(255,92,92,.15); color:var(--down);}
+  .badge.neutral{background:rgba(138,153,168,.15); color:var(--muted);}
+  ul.review{list-style:none;}
+  ul.review li{padding:8px 10px; margin-bottom:6px; background:var(--card2); border-radius:6px; font-size:13px; line-height:1.6; border-left:3px solid var(--muted);}
+  ul.review li.good{border-left-color:var(--up);}
+  ul.review li.bad{border-left-color:var(--down);}
+  ul.review li.caution{border-left-color:var(--warn);}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:16px;}
+  @media(max-width:800px){.grid2{grid-template-columns:1fr;}}
+  .summary-cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-bottom:16px;}
+  .scard{background:var(--card2); border-radius:8px; padding:12px;}
+  .scard .label{font-size:11px; color:var(--muted);}
+  .scard .value{font-size:20px; font-weight:bold; margin-top:4px;}
+  .news-links a{color:var(--accent); font-size:12px; margin-right:10px; text-decoration:none;}
+  .news-links a:hover{text-decoration:underline;}
+  #status{font-size:12px; color:var(--muted); margin-left:8px;}
+  .disclaimer{font-size:11px; color:var(--muted); margin-top:20px; line-height:1.6;}
+  .chart-wrap{position:relative; height:340px;}
+  .empty{color:var(--muted); font-size:13px; padding:12px 0;}
+  .trade-shell{display:grid; grid-template-columns:minmax(300px,360px) 1fr; gap:14px; align-items:start;}
+  .trade-shell > *{min-width:0;}
+  .pt-panel{background:var(--card2); border:1px solid var(--border); border-radius:8px; padding:12px; min-width:0;}
+  .pt-panel h3{font-size:13px; color:var(--muted); margin-bottom:10px; font-weight:normal;}
+  .pt-panel .row{align-items:stretch;}
+  .pt-panel input,.pt-panel select,.pt-panel button{min-height:38px;}
+  .pt-panel input,.pt-panel select{min-width:0;}
+  .order-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+  .order-grid > *{min-width:0; width:100%;}
+  .order-grid .wide{grid-column:1/-1;}
+  .quote-board{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:10px;}
+  .quote-board > *{min-width:0;}
+  .quote-cell{background:var(--card); border:1px solid var(--border); border-radius:8px; padding:10px; min-height:62px;}
+  .quote-cell .label{font-size:11px; color:var(--muted);}
+  .quote-cell .value{font-size:18px; font-weight:bold; margin-top:4px;}
+  .mini-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:8px;}
+  .mini-card{background:var(--card); border:1px solid var(--border); border-radius:8px; padding:10px;}
+  .mini-card .label{font-size:11px; color:var(--muted);}
+  .mini-card .value{font-size:16px; font-weight:bold; margin-top:3px;}
+  .risk-bar{height:8px; background:var(--border); border-radius:999px; overflow:hidden; margin-top:6px;}
+  .risk-bar span{display:block; height:100%; width:0; background:var(--up);}
+  .risk-bar span.warn{background:var(--warn);}
+  .risk-bar span.danger{background:var(--down);}
+  .order-preview{font-size:12px; line-height:1.6; color:var(--muted); background:rgba(15,20,25,.55); border:1px solid var(--border); border-radius:8px; padding:10px; margin-top:8px;}
+  .chip-row{display:flex; gap:6px; flex-wrap:wrap;}
+  .chip-row button{padding:6px 8px; min-height:30px; font-size:12px;}
+  .trade-note{font-size:11px; color:var(--muted); line-height:1.5;}
+  .table-empty{color:var(--muted); font-size:12px; padding:10px 0;}
+  .beginner-only{display:none;}
+  body.beginner-mode .beginner-only{display:block;}
+  .beginner-hint{display:block; font-size:11px; color:var(--muted); line-height:1.45; margin-top:3px; white-space:normal;}
+  .guide-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:10px;}
+  .guide-step{background:var(--card2); border:1px solid var(--border); border-radius:8px; padding:10px; font-size:12px; line-height:1.55;}
+  .guide-step b{color:var(--text);}
+  .top-controls{display:flex; justify-content:space-between; gap:10px; align-items:center; margin:12px 0 16px;}
+  .mode-group{display:flex; gap:6px; flex-wrap:wrap; align-items:center;}
+  button.mode-btn{min-height:38px; padding:8px 12px; border-radius:999px; font-size:13px; font-weight:bold;}
+  button.mode-btn.active{background:var(--accent); border-color:var(--accent); color:#fff;}
+  button.mode-btn.market-sub.active{background:rgba(245,176,65,.16); border-color:var(--warn); color:var(--warn);}
+  button.mode-btn.helper.active{background:rgba(46,204,113,.16); border-color:var(--up); color:var(--up);}
+  button.mode-btn.trade-switch.active{background:rgba(77,163,255,.16); border-color:var(--accent); color:var(--accent);}
+  .desktop-layout{display:block;}
+  .desktop-main,.desktop-side{min-width:0;}
+  .desktop-review{display:block;}
+  .desktop-side .card{margin-bottom:12px;}
+  .desktop-side .chart-wrap{height:190px;}
+  .desktop-side table{font-size:12px;}
+  .toolbar-card .row{align-items:stretch;}
+  .toolbar-card input,.toolbar-card select,.toolbar-card button{min-height:38px;}
+  .dashboard-widget{position:relative;}
+  .dashboard-widget[draggable="true"]{cursor:grab;}
+  .dashboard-widget.dragging{opacity:.45; outline:1px dashed var(--accent);}
+  .desktop-main.drag-over,.desktop-side.drag-over{outline:1px dashed rgba(77,163,255,.55); outline-offset:4px;}
+  .drag-handle{position:absolute; top:10px; right:10px; z-index:5; width:28px; height:28px; border:1px solid var(--border);
+    border-radius:6px; display:grid; place-items:center; color:var(--muted); background:rgba(33,42,53,.95); font-size:14px;}
+  .drag-handle:hover{color:var(--text); border-color:var(--accent);}
+  .widget-toggle-list{display:grid; gap:6px;}
+  .widget-toggle-list label{display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text);
+    background:var(--card2); border:1px solid var(--border); border-radius:6px; padding:7px 8px; cursor:pointer;}
+  .widget-toggle-list input{accent-color:var(--accent);}
+  .source-note{font-size:11px; color:var(--muted); line-height:1.45;}
+  .screener-tools{display:flex; gap:8px; flex-wrap:wrap; align-items:center;}
+  .screener-tools input{width:104px;}
+  .screen-detail{margin-top:12px; border:1px solid var(--border); border-radius:8px; padding:14px; background:rgba(33,42,53,.72);}
+  .screen-detail h3{font-size:15px; margin-bottom:8px; color:var(--text);}
+  .screen-detail-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:8px; margin:10px 0;}
+  .screen-detail-metric{background:rgba(15,20,25,.45); border:1px solid var(--border); border-radius:6px; padding:9px;}
+  .screen-detail-metric .label{font-size:11px; color:var(--muted);}
+  .screen-detail-metric .value{font-size:16px; font-weight:bold; margin-top:3px;}
+  .rationale-list{list-style:none; display:grid; gap:6px; margin-top:8px;}
+  .rationale-list li{font-size:12px; line-height:1.55; padding:8px 9px; border-left:3px solid var(--muted); background:rgba(15,20,25,.35); border-radius:6px;}
+  .rationale-list li.good{border-left-color:var(--up);}
+  .rationale-list li.caution{border-left-color:var(--warn);}
+  .rationale-list li.bad{border-left-color:var(--down);}
+  @media(min-width:1100px){
+    .desktop-layout{display:grid; grid-template-columns:minmax(0,1fr) minmax(320px,380px); gap:16px; align-items:start;}
+    .desktop-main{grid-column:1; grid-row:1;}
+    .desktop-side{grid-column:2; grid-row:1; position:sticky; top:16px; align-self:start;}
+    .desktop-main .summary-cards{grid-template-columns:repeat(4,minmax(0,1fr));}
+    .desktop-review .grid2{grid-template-columns:1fr;}
+    .toolbar-card .row{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+    .toolbar-card .row > *{width:100%; min-width:0;}
+    .toolbar-card .row > #marketBadge,
+    .toolbar-card .row > #sourceBadge,
+    .toolbar-card .row > #status{grid-column:1/-1; min-height:0;}
+    .toolbar-card .sub{margin-bottom:0;}
+  }
+  @media(max-width:980px){.trade-shell{grid-template-columns:1fr;}}
+  @media(max-width:600px){
+    body{padding:12px;}
+    .card{padding:12px;}
+    .quote-board,.order-grid{grid-template-columns:1fr;}
+    .summary-cards{grid-template-columns:repeat(2,minmax(0,1fr));}
+    .scard .value{font-size:18px;}
+    .top-controls{align-items:stretch; flex-direction:column;}
+    .mode-group{display:grid; grid-template-columns:repeat(2,minmax(0,1fr));}
+    button.mode-btn{width:100%; padding:8px 10px; font-size:12px;}
+  }
+  .trade-only{display:none;}
+  body.trade-mode .analysis-only{display:none;}
+  body.trade-mode .trade-only{display:block;}
+  body.trade-mode .desktop-layout{display:none;}
+</style>
+</head>
+<body>
+
+<h1 id="pageTitle">📈 米国株ダッシュボード</h1>
+<p class="sub" id="pageSub">ウォッチリスト・保有株の値動きチェック / 自動レビュー / ポートフォリオ診断　<span id="lastUpdate"></span></p>
+
+<div class="top-controls" aria-label="表示切替">
+  <div class="mode-group" role="group" aria-label="市場">
+    <button id="marketUsBtn" class="mode-btn market-main" type="button" onclick="setMarketMode('us')" aria-pressed="true">米国株</button>
+    <button id="marketJpBtn" class="mode-btn market-sub" type="button" onclick="setMarketMode('jp')" aria-pressed="false">日本株</button>
+  </div>
+  <div class="mode-group" role="group" aria-label="補助モード">
+    <button id="beginnerToggle" class="mode-btn helper" type="button" onclick="setBeginnerMode()" aria-pressed="false">初心者モード</button>
+    <button id="viewToggle" class="mode-btn trade-switch" type="button" onclick="toggleView()" aria-pressed="false">トレード画面へ</button>
+  </div>
+</div>
+
+<div class="desktop-layout">
+  <aside class="desktop-side">
+<!-- 銘柄追加 -->
+<div class="card toolbar-card">
+  <h2>操作パネル</h2>
+  <div class="row">
+    <input id="inSym" placeholder="ティッカー (例: AAPL)" style="width:150px" maxlength="12">
+    <select id="inSector">
+      <option value="情報技術">情報技術</option>
+      <option value="通信サービス">通信サービス</option>
+      <option value="一般消費財">一般消費財</option>
+      <option value="生活必需品">生活必需品</option>
+      <option value="ヘルスケア">ヘルスケア</option>
+      <option value="金融">金融</option>
+      <option value="資本財">資本財</option>
+      <option value="エネルギー">エネルギー</option>
+      <option value="素材">素材</option>
+      <option value="公益">公益</option>
+      <option value="不動産">不動産</option>
+      <option value="その他">その他</option>
+    </select>
+    <input id="inShares" type="number" placeholder="株数 (任意)" style="width:110px" min="0" step="any">
+    <input id="inCost" type="number" placeholder="取得単価$ (任意)" style="width:130px" min="0" step="any">
+    <button class="primary" onclick="addStock()">追加</button>
+    <button onclick="refreshAll()">🔄 データ更新</button>
+    <select id="dataSource" onchange="setDataSource()">
+      <option value="auto">株価ソース: 自動</option>
+      <option value="yahoo">Yahoo Finance</option>
+      <option value="stooq">Stooq（米国株）</option>
+    </select>
+    <select id="autoRefresh" onchange="setAutoRefresh()">
+      <option value="0">自動更新: オフ</option>
+      <option value="60">自動更新: 1分ごと</option>
+      <option value="300">自動更新: 5分ごと</option>
+      <option value="900">自動更新: 15分ごと</option>
+    </select>
+    <span id="marketBadge" style="font-size:12px; color:var(--muted);"></span>
+    <span id="sourceBadge" class="source-note"></span>
+    <span id="status"></span>
+  </div>
+  <p class="sub" id="addHelp" style="margin-top:8px;">※ 株数と取得単価を入れると「保有株」として損益計算されます。空欄ならウォッチリスト扱い。</p>
+</div>
+
+<div class="card analysis-only" id="dashboardSettings">
+  <div class="row" style="justify-content:space-between;">
+    <h2>ダッシュボード設定</h2>
+    <button onclick="resetDashboardLayout()">初期配置</button>
+  </div>
+  <p class="sub" style="margin-top:4px;">固定表示したいカードを選び、各カード右上のハンドルをドラッグして表示位置を変えられます。</p>
+  <div class="widget-toggle-list" id="widgetToggles"></div>
+</div>
+
+  <!-- レビュー -->
+  <div class="card analysis-only dashboard-widget" data-widget="review">
+    <h2>📋 自動レビュー</h2>
+    <ul class="review" id="reviewList"><li>「データ更新」を押すとレビューが生成されます。</li></ul>
+  </div>
+  <!-- 診断 -->
+  <div class="card analysis-only dashboard-widget" data-widget="diagnosis">
+    <h2>🔍 ポートフォリオ診断</h2>
+    <div class="chart-wrap"><canvas id="sectorChart"></canvas></div>
+    <ul class="review" id="diagList" style="margin-top:12px;"></ul>
+  </div>
+  </aside>
+
+  <main class="desktop-main">
+<!-- サマリー -->
+<section class="dashboard-widget" data-widget="summary">
+<div class="summary-cards" id="summaryCards"></div>
+</section>
+
+<div class="card beginner-only dashboard-widget" data-widget="beginner" id="beginnerGuide"></div>
+
+<!-- 一覧テーブル -->
+<div class="card dashboard-widget" data-widget="watchlist">
+  <h2>ウォッチリスト / 保有銘柄</h2>
+  <div style="overflow-x:auto;">
+    <table id="mainTable">
+      <thead><tr>
+        <th>銘柄</th><th>株価</th><th>前日比</th><th>1週</th><th>1ヶ月</th><th>3ヶ月</th>
+        <th id="vsHeader">vs S&P500(3M)</th><th>50日線</th><th>RSI</th><th>損益</th><th>ニュース</th><th></th>
+      </tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+  <p class="empty" id="emptyMsg" style="display:none;">銘柄が未登録です。上のフォームからティッカーを追加し、「データ更新」を押してください。</p>
+</div>
+
+<!-- チャート -->
+<div class="card analysis-only dashboard-widget" data-widget="performance">
+  <div class="row" style="justify-content:space-between;">
+    <h2 id="perfTitle">パフォーマンス比較（ウォッチリスト / 6ヶ月・起点=0%）</h2>
+    <label style="font-size:12px; color:var(--muted); cursor:pointer;">
+      <input type="checkbox" id="showForecast" checked onchange="renderPerfChart()"> 30日先の予測線を表示（点線）
+    </label>
+  </div>
+  <div class="chart-wrap"><canvas id="perfChart"></canvas></div>
+  <p class="empty" id="perfEmpty" style="display:none;">ウォッチリストの銘柄データを取得すると比較チャートが表示されます。スクリーナーから追加した銘柄も、ウォッチリスト登録後にここへ反映されます。</p>
+</div>
+
+<!-- 長期データ -->
+<div class="card analysis-only dashboard-widget" data-widget="longdata">
+  <div class="row" style="justify-content:space-between;">
+    <h2>📚 長期データ（上場以来・週足で蓄積）</h2>
+    <div class="row">
+      <button class="primary" onclick="buildLongData()">長期データを取得・蓄積</button>
+      <span id="longStatus" style="font-size:12px; color:var(--muted);"></span>
+    </div>
+  </div>
+  <p class="sub" id="longHelp" style="margin-top:6px;">登録銘柄＋S&P500の全履歴（取得できる限り、最大数十年分）をブラウザ内に保存します。一度取得すれば次回以降も保持され、再実行で最新分まで更新されます。</p>
+  <div class="row" id="longPeriodBtns" style="margin:8px 0;">
+    <button onclick="setLongPeriod(1)">1年</button>
+    <button onclick="setLongPeriod(3)">3年</button>
+    <button onclick="setLongPeriod(5)">5年</button>
+    <button onclick="setLongPeriod(10)">10年</button>
+    <button onclick="setLongPeriod(0)">最大</button>
+    <label style="font-size:12px; color:var(--muted); cursor:pointer; margin-left:8px;">
+      <input type="checkbox" id="longLog" onchange="renderLongChart()"> 対数スケール
+    </label>
+  </div>
+  <div class="chart-wrap"><canvas id="longChart"></canvas></div>
+  <div style="overflow-x:auto; margin-top:12px;">
+    <table id="longTable" style="display:none;">
+      <thead><tr>
+        <th>銘柄</th><th>データ期間</th><th>年率リターン(CAGR)</th><th>年率ボラティリティ</th><th>最大ドローダウン</th><th>直近1年</th>
+      </tr></thead>
+      <tbody id="longBody"></tbody>
+    </table>
+  </div>
+  <p class="sub" style="margin-top:8px;">※ 長期データは短期予測の精度を直接上げるものではなく、「この銘柄は過去にどれだけ下落したことがあるか」「長期で年何%成長してきたか」というリスク・リターンの土台を知るためのものです。最大ドローダウンは想定すべき下落幅の目安になります。</p>
+</div>
+
+<!-- 注目ピック -->
+<div class="card analysis-only dashboard-widget" data-widget="picks">
+  <h2 id="pickTitle">🔮 注目ピック（スクリーナー連動・予想30日変化率）</h2>
+  <div class="chart-wrap" style="height:260px;"><canvas id="pickChart"></canvas></div>
+  <ul class="review" id="pickList" style="margin-top:12px;"></ul>
+  <p class="sub" style="margin-top:8px;">スクリーナー実行後は発掘結果の上位候補を表示します。未実行時はウォッチリスト内でランキングします。予想30日 = 過去60営業日の価格トレンド（対数回帰）の単純延長であり、将来の値動きを保証するものではありません。</p>
+</div>
+
+<!-- 銘柄発掘スクリーナー -->
+<div class="card analysis-only dashboard-widget" data-widget="screener">
+  <div class="row" style="justify-content:space-between;">
+    <h2 id="screenerTitle">⛏️ 銘柄発掘スクリーナー（米国主要50銘柄）</h2>
+    <div class="screener-tools">
+      <select id="scanSector"><option value="">全セクター</option></select>
+      <select id="scanSort" onchange="rerenderScreener()">
+        <option value="score">総合スコア順</option>
+        <option value="exp30">上昇期待順</option>
+        <option value="m3">3ヶ月上昇順</option>
+        <option value="rsiLow">RSI低め順</option>
+      </select>
+      <input id="scanMinScore" type="number" placeholder="最低スコア" step="0.5" oninput="rerenderScreener()">
+      <label style="font-size:12px; color:var(--muted); cursor:pointer;">
+        <input type="checkbox" id="scanPositiveOnly" onchange="rerenderScreener()"> プラス予想のみ
+      </label>
+      <button class="primary" onclick="runScreener()">スキャン実行</button>
+      <span id="scanStatus" style="font-size:12px; color:var(--muted);"></span>
+    </div>
+  </div>
+  <p class="sub" style="margin-top:6px;">主要50銘柄を一括取得し、モメンタムスコア順にランキングします（約20〜40秒）。気になる銘柄はそのままウォッチリストに追加できます。</p>
+  <div style="overflow-x:auto;">
+    <table id="screenTable" style="display:none;">
+      <thead><tr>
+        <th>#</th><th>銘柄</th><th>会社概要</th><th>株価</th><th>1ヶ月</th><th>3ヶ月</th>
+        <th id="screenVsHeader">vs S&P500</th><th>予想30日</th><th>RSI</th><th>スコア</th><th></th>
+      </tr></thead>
+      <tbody id="screenBody"></tbody>
+    </table>
+  </div>
+  <div id="screenDetail" class="screen-detail" style="display:none;"></div>
+</div>
+
+<!-- 売り時チェック -->
+<div class="card analysis-only dashboard-widget" data-widget="sellcheck">
+  <h2>💰 売り時チェック（保有株）</h2>
+  <div style="overflow-x:auto;">
+    <table id="sellTable" style="display:none;">
+      <thead><tr>
+        <th>銘柄</th><th>含み損益</th><th>6ヶ月高値から</th><th>RSI</th><th>50日線</th><th>総合判定</th>
+      </tr></thead>
+      <tbody id="sellBody"></tbody>
+    </table>
+  </div>
+  <ul class="review" id="sellList" style="margin-top:10px;"></ul>
+  <p class="sub" style="margin-top:8px;">判定の目安: 「高値から-10%超」はトレーリングストップ抵触の警告、「RSI 70超＋含み益大」は一部利確の検討材料、「50日線割れ」は中期トレンド悪化のサインです。</p>
+</div>
+  </main>
+</div>
+
+<!-- デモトレード -->
+<div class="card trade-only">
+  <div class="row" style="justify-content:space-between;">
+    <h2>🎮 デモトレード（本格練習モード）</h2>
+    <div class="row">
+      <select id="ptMode" onchange="setPaperMode()">
+        <option value="simple">シンプルモード</option>
+        <option value="pro">本格モード</option>
+      </select>
+      <select id="ptSessionDays" class="pro-only" onchange="setSessionDays()">
+        <option value="30">デモ期限: 30日</option>
+        <option value="60">デモ期限: 60日</option>
+        <option value="0">デモ期限: なし</option>
+      </select>
+      <button onclick="seedDemoPaper()">実データサンプル投入</button>
+      <button class="danger" onclick="paperReset()">リセット / 初期資金変更</button>
+    </div>
+  </div>
+  <p class="sub" style="margin-top:6px;">仮想資金を使って実際の株価で売買練習ができます。<b>本格モード</b>では複合注文、注文照会、デモ入金、価格アラート、証拠金維持率、ロスカット判定、取引日誌、成績分析が有効になります。</p>
+  <div class="summary-cards" id="ptSummary"></div>
+
+  <div class="trade-shell">
+    <div class="pt-panel">
+      <h3>発注パネル</h3>
+      <div class="quote-board" id="ptQuote"></div>
+      <div class="order-grid">
+        <select id="ptSide" onchange="renderOrderPreview()">
+          <option value="buy">買</option>
+          <option value="sell">売</option>
+        </select>
+        <input id="ptSym" placeholder="ティッカー" maxlength="10" oninput="renderOrderPreview()">
+        <input id="ptQty" type="number" placeholder="株数" min="0" step="any" oninput="renderOrderPreview()">
+        <select id="ptType" class="pro-only" onchange="renderPaper()">
+          <option value="market">成行</option>
+          <option value="limit">指値</option>
+          <option value="stop">逆指値</option>
+          <option value="stoplimit">逆指値付指値</option>
+          <option value="oco">OCO（利確/損切り）</option>
+          <option value="ifd">IFD（新規+決済予約）</option>
+          <option value="ifdoco">IFD-OCO（新規+利確/損切り）</option>
+          <option value="trailing">トレーリングストップ</option>
+        </select>
+        <input id="ptLimit" type="number" placeholder="指値 / 利確$" min="0" step="any" class="pro-only" oninput="renderOrderPreview()">
+        <input id="ptStop" type="number" placeholder="逆指値 / 損切り$" min="0" step="any" class="pro-only" oninput="renderOrderPreview()">
+        <input id="ptTrailPct" type="number" placeholder="追跡幅%" min="0.1" step="0.1" class="pro-only" oninput="renderOrderPreview()">
+        <select id="ptTif" class="pro-only" onchange="renderOrderPreview()">
+          <option value="gtc">無期限(GTC)</option>
+          <option value="day">当日限り</option>
+        </select>
+        <input id="ptNote" class="wide pro-only" placeholder="取引メモ・根拠（例: 決算後の押し目 / 50日線反発）" maxlength="120">
+      </div>
+      <div class="chip-row" style="margin-top:8px;">
+        <button onclick="setQtyPreset(25)">余力25%</button>
+        <button onclick="setQtyPreset(50)">余力50%</button>
+        <button onclick="setQtyPreset(100)">余力100%</button>
+        <button onclick="copyTradeSymbol()">一覧の先頭</button>
+      </div>
+      <div class="order-preview" id="ptPreview">ティッカーと株数を入力すると、概算約定額・手数料・ルール警告を表示します。</div>
+      <div class="row" style="margin-top:10px;">
+        <button class="primary" onclick="placeOrder()" style="flex:1;">注文する</button>
+        <button onclick="refreshAll()">価格更新</button>
+      </div>
+
+      <div class="pro-only" style="margin-top:14px;">
+        <h3>口座・取引設定</h3>
+        <div class="order-grid">
+          <input id="ptCashAdjust" type="number" placeholder="デモ入出金$" min="0" step="100">
+          <select id="ptCashAction">
+            <option value="deposit">デモ入金</option>
+            <option value="withdraw">デモ出金</option>
+          </select>
+          <button onclick="adjustDemoCash()">実行</button>
+          <select id="ptLev" onchange="setLeverage()">
+            <option value="1">現物（1倍）</option>
+            <option value="2">信用（2倍）</option>
+            <option value="3">練習用（3倍）</option>
+          </select>
+          <span class="wide trade-note">手数料率 <input id="ptFee" type="number" style="width:70px" min="0" step="0.01" onchange="setFeeRate()">% ／ スリッページ <input id="ptSlip" type="number" style="width:70px" min="0" step="0.01" onchange="setSlippageRate()">%</span>
+          <label class="wide trade-note" style="cursor:pointer;"><input type="checkbox" id="ptShort" onchange="setAllowShort()"> 空売りを許可する</label>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="pt-panel pro-only">
+        <h3>取引ルール・リスク管理</h3>
+        <div class="row" style="font-size:12px; color:var(--muted);">
+          1銘柄上限 <input id="ruleMaxPos" type="number" style="width:64px" min="1" max="100" onchange="setRules()">%
+          現金下限 <input id="ruleMinCash" type="number" style="width:64px" min="0" max="100" onchange="setRules()">%
+          損切り -<input id="ruleStop" type="number" style="width:64px" min="1" max="50" onchange="setRules()">%
+          ロスカット <input id="ruleLiquidation" type="number" style="width:64px" min="5" max="100" onchange="setRules()">%
+        </div>
+        <div id="ptRiskMeter" style="margin-top:10px;"></div>
+        <ul class="review" id="ptRules" style="margin-top:10px;"></ul>
+      </div>
+
+      <div class="pt-panel" style="margin-top:12px;">
+        <h3>建玉・注文照会</h3>
+        <div style="overflow-x:auto;">
+          <table id="ptTable" style="display:none;">
+            <thead><tr><th>銘柄</th><th>建玉</th><th>数量</th><th>平均</th><th>現在値</th><th>評価額</th><th>損益</th><th>リスク</th><th></th></tr></thead>
+            <tbody id="ptBody"></tbody>
+          </table>
+          <p class="table-empty" id="ptPositionEmpty">まだ建玉がありません。</p>
+        </div>
+        <div style="overflow-x:auto; margin-top:12px;" class="pro-only">
+          <table id="ptOrderTable" style="display:none;">
+            <thead><tr><th>銘柄</th><th>売買</th><th>種別</th><th>数量</th><th>逆指値</th><th>指値</th><th>追跡</th><th>現在値</th><th>期限</th><th>発注日時</th><th></th></tr></thead>
+            <tbody id="ptOrderBody"></tbody>
+          </table>
+          <p class="table-empty" id="ptOrderEmpty">未約定注文はありません。</p>
+        </div>
+      </div>
+
+      <div class="grid2 pro-only" style="margin-top:12px;">
+        <div class="pt-panel">
+          <h3>価格アラート</h3>
+          <div class="row">
+            <input id="ptAlertSym" placeholder="ティッカー" maxlength="10" style="width:100px;">
+            <select id="ptAlertCond" style="width:88px;">
+              <option value="above">以上</option>
+              <option value="below">以下</option>
+            </select>
+            <input id="ptAlertPrice" type="number" placeholder="価格$" min="0" step="any" style="width:100px;">
+            <button onclick="addPriceAlert()">追加</button>
+          </div>
+          <ul class="review" id="ptAlertList" style="margin-top:10px;"></ul>
+        </div>
+        <div class="pt-panel">
+          <h3>イベントログ</h3>
+          <ul class="review" id="ptEventLog"></ul>
+        </div>
+      </div>
+
+      <div class="pt-panel pro-only" style="margin-top:12px;">
+        <h3>成績分析</h3>
+        <div class="summary-cards" id="ptStats"></div>
+        <div class="grid2">
+          <div><div class="chart-wrap" style="height:220px;"><canvas id="ptEquityChart"></canvas></div></div>
+          <div style="overflow-x:auto;">
+            <table id="ptSymPl" style="display:none;">
+              <thead><tr><th>銘柄</th><th>決済回数</th><th>実現損益</th></tr></thead>
+              <tbody id="ptSymPlBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="row" style="margin-top:8px;">
+          <button onclick="exportCsv()">取引履歴をCSVエクスポート</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <details style="margin-top:10px;">
+    <summary style="cursor:pointer; font-size:12px; color:var(--muted);">取引履歴（最新20件）</summary>
+    <table style="margin-top:8px;"><tbody id="ptHist"></tbody></table>
+  </details>
+  <p class="sub" style="margin-top:8px;">※ 約定・アラート・ロスカットはデータ更新タイミングの価格で判定する簡易シミュレーションです。複合注文は練習用の近似実装であり、実際の証券会社の約定仕様とは異なります。</p>
+</div>
+
+<p class="disclaimer">
+⚠️ 免責事項: このダッシュボードは情報提供のみを目的としており、投資助言ではありません。表示されるレビュー・シグナル・予測は単純なテクニカル指標と過去トレンドの延長に基づく機械的なものであり、将来の値動きを予測・保証するものではありません。株価データは Yahoo Finance の非公式APIから取得しており、遅延や欠損が発生する場合があります。投資判断はご自身の責任で行ってください。
+</p>
+
+<script>
+// ===== 状態管理 =====
+const LS_KEY = 'us_stock_dashboard_v1';
+const MARKET_KEY = 'stock_dashboard_market';
+const BEGINNER_KEY = 'stock_dashboard_beginner';
+const DASHBOARD_LAYOUT_KEY = 'stock_dashboard_layout_v2';
+const DATA_SOURCE_KEY = 'stock_dashboard_data_source';
+const DATA_SOURCES = {
+  auto:'自動（Yahoo優先）',
+  yahoo:'Yahoo Finance',
+  stooq:'Stooq（米国株優先）',
+};
+const DASHBOARD_WIDGETS = [
+  {id:'summary', label:'サマリー', zone:'main'},
+  {id:'watchlist', label:'ウォッチリスト', zone:'main'},
+  {id:'performance', label:'パフォーマンス比較', zone:'main'},
+  {id:'picks', label:'注目ピック', zone:'main'},
+  {id:'screener', label:'銘柄発掘スクリーナー', zone:'main'},
+  {id:'sellcheck', label:'売り時チェック', zone:'main'},
+  {id:'longdata', label:'長期データ', zone:'main'},
+  {id:'beginner', label:'初心者ガイド', zone:'main'},
+  {id:'review', label:'自動レビュー', zone:'side'},
+  {id:'diagnosis', label:'ポートフォリオ診断', zone:'side'},
+];
+const MARKET_CONFIGS = {
+  us: {
+    title:'米国株ダッシュボード',
+    subtitle:'ウォッチリスト・保有株の値動きチェック / 自動レビュー / ポートフォリオ診断',
+    inputPlaceholder:'ティッカー (例: AAPL)',
+    addHelp:'※ 株数と取得単価を入れると「保有株」として損益計算されます。空欄ならウォッチリスト扱い。',
+    benchmark:'^GSPC',
+    benchmarkName:'S&P500',
+    benchmarkShort:'SPX',
+    currency:'USD',
+    locale:'en-US',
+    currencyDigits:2,
+    marketLabel:'米国市場',
+    screenerTitle:'⛏️ 銘柄発掘スクリーナー（米国主要50銘柄）',
+    sectors:['情報技術','通信サービス','一般消費財','生活必需品','ヘルスケア','金融','資本財','エネルギー','素材','公益','不動産','その他'],
+    samples:[
+      {sym:'AAPL', sector:'情報技術', shares:null, cost:null},
+      {sym:'MSFT', sector:'情報技術', shares:null, cost:null},
+      {sym:'VOO',  sector:'その他',   shares:null, cost:null},
+    ],
+  },
+  jp: {
+    title:'日本株ダッシュボード',
+    subtitle:'日本株ウォッチリスト・保有株チェック / 日経平均比較 / 初心者向けレビュー',
+    inputPlaceholder:'銘柄コード (例: 7203)',
+    addHelp:'※ 日本株は4桁コードを入力すると自動で Yahoo Finance 形式（例: 7203.T）に変換します。',
+    benchmark:'^N225',
+    benchmarkName:'日経平均',
+    benchmarkShort:'日経平均',
+    currency:'JPY',
+    locale:'ja-JP',
+    currencyDigits:0,
+    marketLabel:'日本市場',
+    screenerTitle:'⛏️ 銘柄発掘スクリーナー（日本主要50銘柄）',
+    sectors:['電気機器','輸送用機器','情報・通信','銀行','商社','小売','医薬品','機械','化学','サービス','食品','不動産','通信','その他'],
+    samples:[
+      {sym:'7203.T', sector:'輸送用機器', shares:null, cost:null},
+      {sym:'6758.T', sector:'電気機器', shares:null, cost:null},
+      {sym:'9984.T', sector:'情報・通信', shares:null, cost:null},
+    ],
+  },
+};
+let currentMarket = (function(){
+  try{ return localStorage.getItem(MARKET_KEY) || 'us'; }catch(e){ return 'us'; }
+})();
+if(!MARKET_CONFIGS[currentMarket]) currentMarket = 'us';
+let beginnerMode = (function(){
+  try{ return localStorage.getItem(BEGINNER_KEY)==='1'; }catch(e){ return false; }
+})();
+let currentDataSource = (function(){
+  try{ return localStorage.getItem(DATA_SOURCE_KEY) || 'auto'; }catch(e){ return 'auto'; }
+})();
+if(!DATA_SOURCES[currentDataSource]) currentDataSource = 'auto';
+let stocks = loadStocks();
+let marketData = {};   // sym -> {dates[], closes[]}
+let spxData = null;
+let perfChart = null, sectorChart = null;
+
+function marketConfig(){ return MARKET_CONFIGS[currentMarket] || MARKET_CONFIGS.us; }
+function stockListKey(market=currentMarket){ return market==='us'? LS_KEY : `${LS_KEY}_${market}`; }
+function loadStocks(market=currentMarket){
+  try{
+    const raw = localStorage.getItem(stockListKey(market));
+    if(raw) return JSON.parse(raw);
+  }catch(e){}
+  return MARKET_CONFIGS[market].samples.map(s=>({...s}));
+}
+function saveStocks(){ try{ localStorage.setItem(stockListKey(), JSON.stringify(stocks)); }catch(e){} }
+function toHalfWidth(v){
+  return String(v||'').replace(/[Ａ-Ｚａ-ｚ０-９．－]/g, ch =>
+    String.fromCharCode(ch.charCodeAt(0)-0xFEE0)).replace(/　/g,' ');
+}
+function normalizeSymbol(raw){
+  let sym = toHalfWidth(raw).trim().toUpperCase().replace(/\s+/g,'');
+  if(currentMarket==='jp'){
+    sym = sym.replace(/\.JP$/,'').replace(/\.T$/,'');
+    if(/^\d{4}$/.test(sym)) return sym + '.T';
+  }
+  return sym;
+}
+function displaySymbol(sym){
+  return currentMarket==='jp'? String(sym).replace(/\.T$/,'') : sym;
+}
+function symbolSearchText(sym){
+  return currentMarket==='jp'? displaySymbol(sym) + ' 株価' : sym + ' stock';
+}
+function newsLinks(sym){
+  const q = encodeURIComponent(symbolSearchText(sym));
+  const yahoo = currentMarket==='jp'
+    ? `https://finance.yahoo.co.jp/quote/${encodeURIComponent(sym)}`
+    : `https://finance.yahoo.com/quote/${encodeURIComponent(sym)}/news`;
+  return `<span class="news-links"><a href="${yahoo}" target="_blank">Yahoo</a>
+    <a href="https://news.google.com/search?q=${q}&hl=ja" target="_blank">News</a></span>`;
+}
+
+function addStock(){
+  const sym = normalizeSymbol(document.getElementById('inSym').value);
+  if(!sym){ alert('ティッカーを入力してください'); return; }
+  if(stocks.some(s=>s.sym===sym)){ alert(displaySymbol(sym)+' は既に登録済みです'); return; }
+  const shares = parseFloat(document.getElementById('inShares').value) || null;
+  const cost = parseFloat(document.getElementById('inCost').value) || null;
+  stocks.push({sym, sector:document.getElementById('inSector').value, shares, cost});
+  saveStocks();
+  document.getElementById('inSym').value='';
+  document.getElementById('inShares').value='';
+  document.getElementById('inCost').value='';
+  renderTable();
+  refreshOne(sym);
+}
+function removeStock(sym){
+  if(!confirm(displaySymbol(sym)+' を削除しますか？')) return;
+  stocks = stocks.filter(s=>s.sym!==sym);
+  delete marketData[sym];
+  saveStocks();
+  renderAll();
+}
+function setPressed(id, pressed){
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.classList.toggle('active', !!pressed);
+  el.setAttribute('aria-pressed', pressed ? 'true' : 'false');
+}
+function updateModeControls(){
+  setPressed('marketUsBtn', currentMarket==='us');
+  setPressed('marketJpBtn', currentMarket==='jp');
+  setPressed('beginnerToggle', beginnerMode);
+  setPressed('viewToggle', document.body.classList.contains('trade-mode'));
+}
+function setMarketMode(next){
+  next = next || document.getElementById('marketMode')?.value || currentMarket;
+  if(!MARKET_CONFIGS[next]){
+    updateModeControls();
+    return;
+  }
+  if(next===currentMarket){
+    updateModeControls();
+    return;
+  }
+  saveStocks();
+  savePaper();
+  currentMarket = next;
+  try{ localStorage.setItem(MARKET_KEY, currentMarket); }catch(e){}
+  stocks = loadStocks();
+  paper = loadPaper();
+  marketData = {};
+  screenData = {};
+  spxData = null;
+  refreshRunId++;
+  refreshing = false;
+  setStatus('');
+  if(perfChart){ perfChart.destroy(); perfChart=null; }
+  if(sectorChart){ sectorChart.destroy(); sectorChart=null; }
+  if(pickChart){ pickChart.destroy(); pickChart=null; }
+  if(longChart){ longChart.destroy(); longChart=null; }
+  if(eqChart){ eqChart.destroy(); eqChart=null; }
+  lastScreenerRows = [];
+  lastScreenerTargets = [];
+  lastScreenerMeta = null;
+  selectedScreenerSym = null;
+  const screenTable = document.getElementById('screenTable');
+  if(screenTable) screenTable.style.display = 'none';
+  const screenBody = document.getElementById('screenBody');
+  if(screenBody) screenBody.innerHTML = '';
+  const screenDetail = document.getElementById('screenDetail');
+  if(screenDetail){ screenDetail.style.display = 'none'; screenDetail.innerHTML = ''; }
+  updateMarketUI();
+  renderAll();
+  refreshAll();
+}
+function setBeginnerMode(next){
+  beginnerMode = (typeof next==='boolean') ? next : !beginnerMode;
+  document.body.classList.toggle('beginner-mode', beginnerMode);
+  try{ localStorage.setItem(BEGINNER_KEY, beginnerMode?'1':'0'); }catch(e){}
+  updateModeControls();
+  renderAll();
+}
+
+// ===== ダッシュボード表示設定・ドラッグ並び替え =====
+function defaultDashboardLayout(){
+  const order = {main:[], side:[]}, visible = {};
+  DASHBOARD_WIDGETS.forEach(w=>{ order[w.zone].push(w.id); visible[w.id] = true; });
+  return {order, visible};
+}
+function loadDashboardLayout(){
+  const base = defaultDashboardLayout();
+  try{
+    const saved = JSON.parse(localStorage.getItem(DASHBOARD_LAYOUT_KEY) || 'null');
+    if(saved && saved.order && saved.visible){
+      ['main','side'].forEach(zone=>{
+        const known = new Set(DASHBOARD_WIDGETS.map(w=>w.id));
+        const ordered = (saved.order[zone] || []).filter(id=>known.has(id));
+        const missing = base.order[zone].filter(id=>!ordered.includes(id));
+        base.order[zone] = ordered.concat(missing);
+      });
+      DASHBOARD_WIDGETS.forEach(w=>{
+        if(saved.visible[w.id] === false) base.visible[w.id] = false;
+      });
+    }
+  }catch(e){}
+  return base;
+}
+let dashboardLayout = loadDashboardLayout();
+function saveDashboardLayout(){
+  try{ localStorage.setItem(DASHBOARD_LAYOUT_KEY, JSON.stringify(dashboardLayout)); }catch(e){}
+}
+function widgetEl(id){ return document.querySelector(`[data-widget="${id}"]`); }
+function zoneEl(zone){ return document.querySelector(zone==='side'?'.desktop-side':'.desktop-main'); }
+function decorateDashboardWidgets(){
+  document.querySelectorAll('.dashboard-widget').forEach(el=>{
+    el.setAttribute('draggable', 'true');
+    if(!el.querySelector(':scope > .drag-handle')){
+      const h = document.createElement('span');
+      h.className = 'drag-handle';
+      h.textContent = '↕';
+      h.title = 'ドラッグして表示位置を変更';
+      h.draggable = true;
+      el.appendChild(h);
+    }
+  });
+}
+function renderWidgetToggles(){
+  const box = document.getElementById('widgetToggles');
+  if(!box) return;
+  box.innerHTML = DASHBOARD_WIDGETS.map(w=>{
+    const checked = dashboardLayout.visible[w.id] !== false ? 'checked' : '';
+    return `<label><input type="checkbox" ${checked} onchange="setWidgetVisible('${w.id}', this.checked)"> ${w.label}</label>`;
+  }).join('');
+}
+function applyDashboardLayout(){
+  ['main','side'].forEach(zone=>{
+    const container = zoneEl(zone);
+    if(!container) return;
+    (dashboardLayout.order[zone] || []).forEach(id=>{
+      const el = widgetEl(id);
+      if(el) container.appendChild(el);
+    });
+  });
+  DASHBOARD_WIDGETS.forEach(w=>{
+    const el = widgetEl(w.id);
+    if(el) el.style.display = dashboardLayout.visible[w.id] === false ? 'none' : '';
+  });
+  renderWidgetToggles();
+}
+function saveDashboardLayoutFromDom(){
+  ['main','side'].forEach(zone=>{
+    const container = zoneEl(zone);
+    dashboardLayout.order[zone] = container
+      ? Array.from(container.children).filter(el=>el.matches?.('.dashboard-widget')).map(el=>el.dataset.widget)
+      : dashboardLayout.order[zone];
+  });
+  saveDashboardLayout();
+}
+function setWidgetVisible(id, visible){
+  dashboardLayout.visible[id] = !!visible;
+  const el = widgetEl(id);
+  if(el) el.style.display = visible ? '' : 'none';
+  saveDashboardLayout();
+}
+function resetDashboardLayout(){
+  dashboardLayout = defaultDashboardLayout();
+  saveDashboardLayout();
+  applyDashboardLayout();
+}
+function dragAfterElement(container, y){
+  const items = Array.from(container.children)
+    .filter(el=>el.matches?.('.dashboard-widget') && !el.classList.contains('dragging') && el.style.display !== 'none');
+  let closest = {offset:Number.NEGATIVE_INFINITY, element:null};
+  items.forEach(child=>{
+    const box = child.getBoundingClientRect();
+    const offset = y - box.top - box.height/2;
+    if(offset < 0 && offset > closest.offset) closest = {offset, element:child};
+  });
+  return closest.element;
+}
+function setupDashboardDrag(){
+  document.querySelectorAll('.dashboard-widget').forEach(el=>{
+    el.addEventListener('dragstart', e=>{
+      el.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', el.dataset.widget || '');
+    });
+    el.addEventListener('dragend', ()=>{
+      el.classList.remove('dragging');
+      document.querySelectorAll('.drag-over').forEach(z=>z.classList.remove('drag-over'));
+      saveDashboardLayoutFromDom();
+    });
+  });
+  ['main','side'].forEach(zone=>{
+    const container = zoneEl(zone);
+    if(!container || container.dataset.dragReady) return;
+    container.dataset.dragReady = '1';
+    container.addEventListener('dragover', e=>{
+      const dragging = document.querySelector('.dashboard-widget.dragging');
+      if(!dragging) return;
+      e.preventDefault();
+      container.classList.add('drag-over');
+      const after = dragAfterElement(container, e.clientY);
+      if(after) container.insertBefore(dragging, after);
+      else container.appendChild(dragging);
+    });
+    container.addEventListener('dragleave', e=>{
+      if(!container.contains(e.relatedTarget)) container.classList.remove('drag-over');
+    });
+    container.addEventListener('drop', e=>{
+      e.preventDefault();
+      container.classList.remove('drag-over');
+      saveDashboardLayoutFromDom();
+    });
+  });
+  setupPointerDashboardDrag();
+}
+let pointerDraggingWidget = null;
+function setupPointerDashboardDrag(){
+  document.querySelectorAll('.dashboard-widget > .drag-handle').forEach(handle=>{
+    if(handle.dataset.pointerReady) return;
+    handle.dataset.pointerReady = '1';
+    handle.addEventListener('pointerdown', e=>{
+      const widget = handle.closest('.dashboard-widget');
+      if(!widget) return;
+      pointerDraggingWidget = widget;
+      widget.classList.add('dragging');
+      handle.setPointerCapture?.(e.pointerId);
+      e.preventDefault();
+    });
+  });
+  if(document.body.dataset.pointerDragReady) return;
+  document.body.dataset.pointerDragReady = '1';
+  document.addEventListener('pointermove', e=>{
+    if(!pointerDraggingWidget) return;
+    const target = document.elementFromPoint(e.clientX, e.clientY);
+    const container = target?.closest?.('.desktop-main,.desktop-side');
+    if(!container) return;
+    document.querySelectorAll('.drag-over').forEach(z=>z.classList.remove('drag-over'));
+    container.classList.add('drag-over');
+    const after = dragAfterElement(container, e.clientY);
+    if(after) container.insertBefore(pointerDraggingWidget, after);
+    else container.appendChild(pointerDraggingWidget);
+  });
+  document.addEventListener('pointerup', ()=>{
+    if(!pointerDraggingWidget) return;
+    pointerDraggingWidget.classList.remove('dragging');
+    pointerDraggingWidget = null;
+    document.querySelectorAll('.drag-over').forEach(z=>z.classList.remove('drag-over'));
+    saveDashboardLayoutFromDom();
+  });
+  document.addEventListener('pointercancel', ()=>{
+    if(pointerDraggingWidget) pointerDraggingWidget.classList.remove('dragging');
+    pointerDraggingWidget = null;
+    document.querySelectorAll('.drag-over').forEach(z=>z.classList.remove('drag-over'));
+  });
+}
+function initDashboardCustomization(){
+  decorateDashboardWidgets();
+  applyDashboardLayout();
+  setupDashboardDrag();
+}
+
+// ===== データ取得 (Yahoo Finance chart API + CORSプロキシのフォールバック) =====
+async function fetchJson(url){
+  const attempts = [
+    url,
+    'https://api.allorigins.win/raw?url=' + encodeURIComponent(url),
+    'https://corsproxy.io/?url=' + encodeURIComponent(url),
+  ];
+  // Webアプリとして配信されている場合は自前のAPIプロキシを最優先（Vercel等）
+  if(location.protocol==='https:' || location.protocol==='http:'){
+    attempts.unshift('/api/proxy?url=' + encodeURIComponent(url));
+  }
+  let lastErr;
+  for(const u of attempts){
+    try{
+      const r = await fetch(u, {cache:'no-store'});
+      if(r.ok){ return await r.json(); }
+      lastErr = new Error('HTTP '+r.status);
+    }catch(e){ lastErr = e; }
+  }
+  throw lastErr || new Error('取得失敗');
+}
+
+async function fetchText(url){
+  const attempts = [
+    url,
+    'https://api.allorigins.win/raw?url=' + encodeURIComponent(url),
+    'https://corsproxy.io/?url=' + encodeURIComponent(url),
+  ];
+  if(location.protocol==='https:' || location.protocol==='http:'){
+    attempts.unshift('/api/proxy?url=' + encodeURIComponent(url));
+  }
+  let lastErr;
+  for(const u of attempts){
+    try{
+      const r = await fetch(u, {cache:'no-store'});
+      if(r.ok){ return await r.text(); }
+      lastErr = new Error('HTTP '+r.status);
+    }catch(e){ lastErr = e; }
+  }
+  throw lastErr || new Error('取得失敗');
+}
+
+function sourceLabel(src){ return DATA_SOURCES[src] || src || '不明'; }
+function setDataSource(){
+  const sel = document.getElementById('dataSource');
+  currentDataSource = DATA_SOURCES[sel?.value] ? sel.value : 'auto';
+  try{ localStorage.setItem(DATA_SOURCE_KEY, currentDataSource); }catch(e){}
+  lastScreenerRows = [];
+  lastScreenerMeta = null;
+  updateDataSourceUI();
+  renderAll();
+  refreshAll();
+}
+function updateDataSourceUI(){
+  const sel = document.getElementById('dataSource');
+  if(sel) sel.value = currentDataSource;
+  updateSourceBadge();
+}
+function updateSourceBadge(){
+  const el = document.getElementById('sourceBadge');
+  if(!el) return;
+  const used = [...new Set(Object.values(Object.assign({}, marketData, screenData)).map(d=>d.source).filter(Boolean))];
+  const actual = used.length ? ` / 取得: ${used.map(sourceLabel).join(', ')}` : '';
+  el.textContent = `株価ソース: ${sourceLabel(currentDataSource)}${actual}`;
+}
+
+async function fetchChartYahoo(sym){
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=6mo&interval=1d`;
+  const j = await fetchJson(url);
+  const res = j.chart && j.chart.result && j.chart.result[0];
+  if(!res) throw new Error('データなし: '+sym);
+  const ts = res.timestamp || [];
+  const closesRaw = res.indicators.quote[0].close || [];
+  const dates=[], closes=[];
+  for(let i=0;i<ts.length;i++){
+    if(closesRaw[i]!=null){ dates.push(new Date(ts[i]*1000)); closes.push(closesRaw[i]); }
+  }
+  if(closes.length<10) throw new Error('データ不足: '+sym);
+  const meta = res.meta || {};
+  return {dates, closes,
+    live: (meta.regularMarketPrice!=null? meta.regularMarketPrice : closes[closes.length-1]),
+    liveTime: meta.regularMarketTime? new Date(meta.regularMarketTime*1000) : null,
+    marketState: meta.marketState || null,
+    source:'yahoo'};
+}
+function toStooqSymbol(sym){
+  if(sym === '^GSPC') return '^spx';
+  if(sym === '^N225') return '^nkx';
+  if(/\.T$/.test(sym)) return null;
+  if(sym.startsWith('^')) return null;
+  return sym.toLowerCase().replace(/-/g,'.') + '.us';
+}
+function ymd(d){
+  return `${d.getFullYear()}${pad2(d.getMonth()+1)}${pad2(d.getDate())}`;
+}
+function parseStooqCsv(text, sym){
+  const clean = String(text||'').trim();
+  if(!clean.startsWith('Date,')) throw new Error('Stooq CSV形式ではありません');
+  const lines = clean.split(/\r?\n/).slice(1);
+  const dates=[], closes=[];
+  lines.forEach(line=>{
+    const cols = line.split(',');
+    const c = parseFloat(cols[4]);
+    if(cols[0] && Number.isFinite(c)){
+      dates.push(new Date(cols[0]+'T00:00:00'));
+      closes.push(c);
+    }
+  });
+  if(closes.length<10) throw new Error('Stooqデータ不足: '+sym);
+  return {dates, closes, live:closes[closes.length-1], liveTime:dates[dates.length-1], marketState:null, source:'stooq'};
+}
+async function fetchChartStooq(sym){
+  const stooqSym = toStooqSymbol(sym);
+  if(!stooqSym) throw new Error('Stooq非対応: '+sym);
+  const end = new Date();
+  const start = new Date();
+  start.setMonth(start.getMonth()-8);
+  const url = `https://stooq.com/q/d/l/?s=${encodeURIComponent(stooqSym)}&i=d&d1=${ymd(start)}&d2=${ymd(end)}`;
+  return parseStooqCsv(await fetchText(url), sym);
+}
+async function fetchChart(sym){
+  const order = currentDataSource==='stooq' ? ['stooq','yahoo'] :
+    currentDataSource==='yahoo' ? ['yahoo'] : ['yahoo','stooq'];
+  let lastErr;
+  for(const src of order){
+    try{
+      const data = src==='stooq' ? await fetchChartStooq(sym) : await fetchChartYahoo(sym);
+      data.requestedSource = currentDataSource;
+      return data;
+    }catch(e){ lastErr = e; }
+  }
+  throw lastErr || new Error('取得失敗: '+sym);
+}
+
+async function refreshOne(sym){
+  setStatus(sym+' 取得中...');
+  try{
+    marketData[sym] = await fetchChart(sym);
+    updateSourceBadge();
+    setStatus('');
+  }catch(e){ setStatus('⚠ '+sym+' の取得に失敗 ('+e.message+')'); }
+  renderAll();
+}
+
+let refreshing = false;
+let refreshRunId = 0;
+async function refreshAll(){
+  if(refreshing) return;
+  const runId = ++refreshRunId;
+  const marketAtStart = currentMarket;
+  refreshing = true;
+  try{
+    // 登録銘柄＋デモトレード保有銘柄＋未約定注文＋価格アラートの銘柄をまとめて取得
+    const syms = [...new Set([...stocks.map(s=>s.sym), ...Object.keys(paper.pos),
+      ...paper.orders.map(o=>o.sym), ...(paper.alerts||[]).map(a=>a.sym)])];
+    if(syms.length===0){ renderAll(); return; }
+    setStatus('取得中... (0/'+(syms.length+1)+')');
+    let done=0;
+    try{ spxData = await fetchChart(marketConfig().benchmark); }catch(e){ spxData=null; }
+    if(runId!==refreshRunId || marketAtStart!==currentMarket) return;
+    done++;
+    for(const sym of syms){
+      if(runId!==refreshRunId || marketAtStart!==currentMarket) return;
+      setStatus('取得中... ('+done+'/'+(syms.length+1)+') '+sym);
+      try{ marketData[sym] = await fetchChart(sym); }
+      catch(e){ console.warn(e); }
+      done++;
+      await new Promise(r=>setTimeout(r,250)); // レート制限対策
+    }
+    setStatus('');
+    updateMarketBadge();
+    updateSourceBadge();
+    checkOrders();      // 未約定注文・複合注文の約定判定
+    checkAlerts();      // 価格アラート
+    checkMarginRisk();  // 証拠金維持率・ロスカット判定
+    recordEquity();     // デモトレード資産推移の記録
+    document.getElementById('lastUpdate').textContent = '最終更新: ' + new Date().toLocaleString('ja-JP');
+    renderAll();
+  } finally { if(runId===refreshRunId) refreshing = false; }
+}
+function setStatus(msg){ document.getElementById('status').textContent = msg; }
+
+// ===== 自動更新＋市場ステータス =====
+let autoTimer = null;
+function setAutoRefresh(){
+  const sec = parseInt(document.getElementById('autoRefresh')?.value || '0');
+  try{ localStorage.setItem('us_stock_autorefresh', String(sec)); }catch(e){}
+  if(autoTimer){ clearInterval(autoTimer); autoTimer=null; }
+  if(sec>0) autoTimer = setInterval(()=>refreshAll(), sec*1000);
+}
+// ===== 画面切替（分析 ⇄ トレード） =====
+function toggleView(){
+  const tm = document.body.classList.toggle('trade-mode');
+  try{ localStorage.setItem('us_stock_view', tm? 'trade':'analysis'); }catch(e){}
+  updateViewBtn();
+}
+function updateViewBtn(){
+  const b = document.getElementById('viewToggle');
+  const trade = document.body.classList.contains('trade-mode');
+  if(b) b.textContent = trade ? '分析画面へ' : 'トレード画面へ';
+  updateModeControls();
+}
+function updateMarketBadge(){
+  const el = document.getElementById('marketBadge');
+  if(!el) return;
+  const st = spxData? spxData.marketState : null;
+  const label = marketConfig().marketLabel;
+  const map = {
+    REGULAR:`🟢 ${label}: 取引時間中（株価はほぼリアルタイム）`,
+    PRE:`🌅 ${label}: プレマーケット`,
+    POST:`🌆 ${label}: アフターマーケット`,
+  };
+  el.textContent = map[st] || `⚪ ${label}: 閉場中（直近終値を表示）`;
+}
+
+// ===== 指標計算 =====
+function pctChange(closes, nDays){
+  if(closes.length < nDays+1) return null;
+  const last = closes[closes.length-1];
+  const prev = closes[closes.length-1-nDays];
+  return (last/prev - 1) * 100;
+}
+function sma(closes, n){
+  if(closes.length < n) return null;
+  let s=0; for(let i=closes.length-n;i<closes.length;i++) s+=closes[i];
+  return s/n;
+}
+function rsi(closes, n=14){
+  if(closes.length < n+1) return null;
+  let gain=0, loss=0;
+  for(let i=closes.length-n;i<closes.length;i++){
+    const d = closes[i]-closes[i-1];
+    if(d>0) gain+=d; else loss-=d;
+  }
+  if(gain+loss===0) return 50;
+  const rs = (gain/n)/((loss/n)||1e-9);
+  return 100 - 100/(1+rs);
+}
+// ===== 予測（過去60営業日の対数価格に線形回帰→30日延長＋ボラティリティバンド） =====
+const FC_HORIZON = 30;
+function linReg(ys){
+  const n=ys.length; let sx=0,sy=0,sxy=0,sxx=0;
+  for(let i=0;i<n;i++){ sx+=i; sy+=ys[i]; sxy+=i*ys[i]; sxx+=i*i; }
+  const b=(n*sxy-sx*sy)/(n*sxx-sx*sx);
+  return {a:(sy-b*sx)/n, b};
+}
+function forecast(closes, lookback=60, horizon=FC_HORIZON){
+  const seg = closes.slice(-lookback);
+  if(seg.length<20) return null;
+  const logs = seg.map(c=>Math.log(c));
+  const {a,b} = linReg(logs);
+  // 日次リターンのボラティリティ
+  const rets=[]; for(let i=1;i<seg.length;i++) rets.push(Math.log(seg[i]/seg[i-1]));
+  const mu = rets.reduce((s,r)=>s+r,0)/rets.length;
+  let v=0; rets.forEach(r=>v+=(r-mu)*(r-mu));
+  const vol = Math.sqrt(v/(rets.length-1));
+  const n=seg.length, mid=[], lo=[], hi=[];
+  for(let t=1;t<=horizon;t++){
+    const m = a + b*(n-1+t);
+    const band = vol*Math.sqrt(t); // ±1σ
+    mid.push(Math.exp(m)); lo.push(Math.exp(m-band)); hi.push(Math.exp(m+band));
+  }
+  const last = closes[closes.length-1];
+  return {mid, lo, hi,
+    exp30:(mid[horizon-1]/last-1)*100,
+    lo30:(lo[horizon-1]/last-1)*100,
+    hi30:(hi[horizon-1]/last-1)*100};
+}
+function futureBizDates(lastDate, n){
+  const out=[]; const d=new Date(lastDate);
+  while(out.length<n){
+    d.setDate(d.getDate()+1);
+    if(d.getDay()!==0 && d.getDay()!==6) out.push(new Date(d));
+  }
+  return out;
+}
+// モメンタムスコア（過熱減点付き）
+function momentumScore(m){
+  if(!m) return null;
+  let sc = 0.15*(m.w1??0) + 0.35*(m.m1??0) + 0.30*(m.m3??0);
+  if(m.sma50!=null) sc += 0.20*((m.price/m.sma50-1)*100);
+  if(m.rsi!=null && m.rsi>70) sc -= (m.rsi-70)*0.4;
+  return sc;
+}
+function fmtPct(v, digits=1){
+  if(v==null) return '—';
+  const cls = v>0?'up':(v<0?'down':'');
+  const sign = v>0?'+':'';
+  return `<span class="${cls}">${sign}${v.toFixed(digits)}%</span>`;
+}
+function fmtMoney(v){
+  if(v==null) return '—';
+  const cfg = marketConfig();
+  return new Intl.NumberFormat(cfg.locale, {
+    style:'currency',
+    currency:cfg.currency,
+    minimumFractionDigits:cfg.currencyDigits,
+    maximumFractionDigits:cfg.currencyDigits,
+  }).format(v);
+}
+
+// ===== 描画 =====
+function renderAll(){ renderTable(); renderSummary(); renderBeginnerGuide(); renderPerfChart(); renderPicks(); renderSellCheck(); renderPaper(); renderReview(); renderDiagnosis(); decorateDashboardWidgets(); }
+
+function rowMetrics(s){
+  const d = marketData[s.sym];
+  if(!d) return null;
+  const closes = d.closes;
+  const price = d.live ?? closes[closes.length-1];
+  const m = {
+    price,
+    d1: pctChange(closes,1), w1: pctChange(closes,5),
+    m1: pctChange(closes,21), m3: pctChange(closes,63),
+    sma50: sma(closes,50), rsi: rsi(closes),
+  };
+  m.vsSpx = (m.m3!=null && spxData) ? m.m3 - (pctChange(spxData.closes,63)??0) : null;
+  if(s.shares && s.cost){
+    m.value = s.shares*price;
+    m.pl = (price - s.cost)*s.shares;
+    m.plPct = (price/s.cost - 1)*100;
+  }
+  return m;
+}
+
+function renderTable(){
+  const tbody = document.getElementById('tbody');
+  document.getElementById('emptyMsg').style.display = stocks.length? 'none':'block';
+  tbody.innerHTML = stocks.map(s=>{
+    const m = rowMetrics(s);
+    const news = newsLinks(s.sym);
+    if(!m){
+      return `<tr><td><span class="sym">${displaySymbol(s.sym)}</span><br><span class="sector-tag">${s.sector}</span></td>
+        <td colspan="9" style="color:var(--muted); text-align:center;">データ未取得（「データ更新」を押してください）</td>
+        <td>${news}</td><td><button class="danger" onclick="removeStock('${s.sym}')">削除</button></td></tr>`;
+    }
+    let smaCell='—';
+    if(m.sma50!=null){
+      const dev = (m.price/m.sma50-1)*100;
+      smaCell = m.price>=m.sma50
+        ? `<span class="badge buy">上 +${dev.toFixed(1)}%</span>`
+        : `<span class="badge sell">下 ${dev.toFixed(1)}%</span>`;
+    }
+    let rsiCell='—';
+    if(m.rsi!=null){
+      const cls = m.rsi>=70?'down':(m.rsi<=30?'up':'');
+      rsiCell = `<span class="${cls}">${m.rsi.toFixed(0)}</span>`;
+    }
+    const plCell = (m.pl!=null)
+      ? `${fmtPct(m.plPct)}<br><span class="${m.pl>=0?'up':'down'}" style="font-size:11px;">${m.pl>=0?'+':'-'}${fmtMoney(Math.abs(m.pl))}</span>`
+      : '<span class="sector-tag">ウォッチ</span>';
+    const beginnerSma = beginnerMode ? '<span class="beginner-hint">50日平均より上なら中期の流れは強めです。</span>' : '';
+    const beginnerRsi = beginnerMode ? '<span class="beginner-hint">RSIは70以上で過熱、30以下で売られすぎの目安です。</span>' : '';
+    return `<tr>
+      <td><span class="sym">${displaySymbol(s.sym)}</span><br><span class="sector-tag">${s.sector}${s.shares?` / ${s.shares}株`:''}</span>${beginnerMode?'<span class="beginner-hint">まずは前日比、1ヶ月、3ヶ月の向きを見ます。</span>':''}</td>
+      <td>${fmtMoney(m.price)}</td>
+      <td>${fmtPct(m.d1)}</td><td>${fmtPct(m.w1)}</td><td>${fmtPct(m.m1)}</td><td>${fmtPct(m.m3)}</td>
+      <td>${fmtPct(m.vsSpx)}</td>
+      <td>${smaCell}${beginnerSma}</td><td>${rsiCell}${beginnerRsi}</td><td>${plCell}</td>
+      <td>${news}</td>
+      <td><button class="danger" onclick="removeStock('${s.sym}')">削除</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderSummary(){
+  const el = document.getElementById('summaryCards');
+  const holdings = stocks.filter(s=>s.shares && s.cost && marketData[s.sym]);
+  let html='';
+  if(spxData){
+    const spx1d = pctChange(spxData.closes,1);
+    html += `<div class="scard"><div class="label">${marketConfig().benchmarkName} (前日比)</div>
+      <div class="value">${fmtPct(spx1d)}</div></div>`;
+  }
+  if(holdings.length){
+    let totVal=0, totCost=0;
+    holdings.forEach(s=>{
+      const p = marketData[s.sym].closes.at(-1);
+      totVal += s.shares*p; totCost += s.shares*s.cost;
+    });
+    const pl = totVal-totCost;
+    html += `<div class="scard"><div class="label">評価額合計</div><div class="value">${fmtMoney(totVal)}</div></div>
+      <div class="scard"><div class="label">評価損益</div>
+      <div class="value ${pl>=0?'up':'down'}">${pl>=0?'+':''}${fmtMoney(pl)} (${fmtPct(totVal/totCost*100-100)})</div></div>`;
+  }
+  html += `<div class="scard"><div class="label">登録銘柄数</div><div class="value">${stocks.length}</div></div>`;
+  el.innerHTML = html;
+}
+
+function renderBeginnerGuide(){
+  const el = document.getElementById('beginnerGuide');
+  if(!el) return;
+  const b = marketConfig().benchmarkName;
+  el.innerHTML = `
+    <h2>初心者モード: まず見る順番</h2>
+    <div class="guide-grid">
+      <div class="guide-step"><b>1. 市場全体</b><br>${b} が上がっている日は、個別株も上がりやすい傾向があります。まず相場の風向きを見ます。</div>
+      <div class="guide-step"><b>2. 1ヶ月・3ヶ月</b><br>短期の勢いを見る欄です。両方プラスなら上昇基調、両方マイナスなら慎重に見ます。</div>
+      <div class="guide-step"><b>3. 50日線</b><br>株価が50日平均より上なら流れは強め、下なら弱めの目安です。</div>
+      <div class="guide-step"><b>4. RSI</b><br>70以上は買われすぎ、30以下は売られすぎのサインです。単独では売買判断にしません。</div>
+      <div class="guide-step"><b>5. 損益</b><br>保有株だけに出ます。損益率を見て、利確・損切りのルールを先に決めておくと迷いにくくなります。</div>
+      <div class="guide-step"><b>6. ニュース</b><br>大きく動いた日は決算、業績修正、金利、為替などの材料がないか確認します。</div>
+    </div>`;
+}
+
+function renderPerfChart(){
+  const ctx = document.getElementById('perfChart');
+  const title = document.getElementById('perfTitle');
+  const empty = document.getElementById('perfEmpty');
+  const colors = ['#4da3ff','#2ecc71','#f5b041','#e74c8b','#9b59b6','#1abc9c','#e67e22','#5dade2','#58d68d','#f1948a'];
+  const showFc = document.getElementById('showForecast')?.checked;
+  const datasets = [];
+  const chartStocks = stocks.filter(s=>marketData[s.sym]);
+  if(title) title.textContent = `パフォーマンス比較（ウォッチリスト ${chartStocks.length}銘柄 / 6ヶ月・起点=0%）`;
+  if(empty) empty.style.display = chartStocks.length ? 'none' : 'block';
+  if(!chartStocks.length){ if(perfChart) perfChart.destroy(); return; }
+
+  // 基準ラベル: 最も長い履歴を持つ系列
+  let refData = spxData;
+  chartStocks.forEach(s=>{
+    const d = marketData[s.sym];
+    if(d && (!refData || d.dates.length>refData.dates.length)) refData = d;
+  });
+  if(!refData){ if(perfChart) perfChart.destroy(); return; }
+  const histLen = refData.dates.length;
+  let labels = refData.dates.map(d=>`${d.getMonth()+1}/${d.getDate()}`);
+  if(showFc){
+    labels = labels.concat(futureBizDates(refData.dates.at(-1), FC_HORIZON)
+      .map(d=>`${d.getMonth()+1}/${d.getDate()}*`));
+  }
+
+  const addSeries = (name, data, color, dashed)=>{
+    if(!data) return;
+    const base = data.closes[0];
+    const pad = histLen - data.closes.length;
+    const series = new Array(Math.max(pad,0)).fill(null)
+      .concat(data.closes.map(c=>(c/base-1)*100));
+    datasets.push({label:name, data:series, borderColor:color, borderWidth:dashed?1.5:2,
+      borderDash:dashed?[6,4]:[], pointRadius:0, tension:.2});
+    // 予測延長（点線）
+    if(showFc && !dashed){
+      const fc = forecast(data.closes);
+      if(fc){
+        const fcSeries = new Array(histLen-1).fill(null);
+        fcSeries.push((data.closes.at(-1)/base-1)*100); // 接続点
+        fc.mid.forEach(p=>fcSeries.push((p/base-1)*100));
+        datasets.push({label:name+' 予測', data:fcSeries, borderColor:color,
+          borderWidth:1.5, borderDash:[3,3], pointRadius:0, tension:.2,
+          skipLegend:true});
+      }
+    }
+  };
+  chartStocks.forEach((s,i)=>addSeries(displaySymbol(s.sym), marketData[s.sym], colors[i%colors.length], false));
+  addSeries(marketConfig().benchmarkName, spxData, '#8a99a8', true);
+  if(perfChart) perfChart.destroy();
+  if(!datasets.length){ if(empty) empty.style.display = 'block'; return; }
+  perfChart = new Chart(ctx,{type:'line',
+    data:{labels, datasets},
+    options:{responsive:true, maintainAspectRatio:false,
+      interaction:{mode:'index', intersect:false},
+      plugins:{legend:{labels:{color:'#e8edf2',
+          filter:item=>!item.text.includes('予測')}},
+        tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.parsed.y>=0?'+':''}${c.parsed.y.toFixed(1)}%`}}},
+      scales:{x:{ticks:{color:'#8a99a8', maxTicksLimit:12}, grid:{color:'#2c3a47'}},
+        y:{ticks:{color:'#8a99a8', callback:v=>v+'%'}, grid:{color:'#2c3a47'}}}}});
+}
+
+// ===== 注目ピック =====
+let pickChart = null;
+let lastScreenerRows = [];
+let lastScreenerMeta = null;
+function renderPicks(){
+  const ctx = document.getElementById('pickChart');
+  const ul = document.getElementById('pickList');
+  const title = document.getElementById('pickTitle');
+  const watchRows = [];
+  stocks.forEach(s=>{
+    const m = rowMetrics(s);
+    const d = marketData[s.sym];
+    if(!m || !d) return;
+    const fc = forecast(d.closes);
+    watchRows.push({sym:s.sym, sector:s.sector, name:displaySymbol(s.sym), source:'watch',
+      held:!!(s.shares&&s.cost), inList:true, score:momentumScore(m),
+      exp30:fc?fc.exp30:null, lo30:fc?fc.lo30:null, hi30:fc?fc.hi30:null, m});
+  });
+  const usingScreener = !!lastScreenerMeta;
+  const rows = usingScreener
+    ? lastScreenerRows.map(r=>Object.assign({}, r, {
+        source:'screen',
+        held:stocks.some(s=>s.sym===r.sym && s.shares && s.cost),
+        inList:stocks.some(s=>s.sym===r.sym),
+        lo30:null,
+        hi30:null,
+      }))
+    : watchRows;
+  if(pickChart) pickChart.destroy();
+  if(!rows.length){
+    if(title){
+      title.textContent = usingScreener
+        ? `🔮 注目ピック（スクリーナー結果${lastScreenerMeta?.sector?` / ${lastScreenerMeta.sector}`:''}）`
+        : '🔮 注目ピック（スクリーナー連動・予想30日変化率）';
+    }
+    ul.innerHTML = usingScreener
+      ? '<li>現在のスクリーナーフィルタ条件に合う候補はありません。</li>'
+      : '<li>データ更新、またはスクリーナー実行後にランキングが表示されます。</li>';
+    return;
+  }
+  rows.sort((a,b)=>usingScreener ? (b.score??-999)-(a.score??-999) : (b.exp30??-999)-(a.exp30??-999));
+  const chartRows = rows.slice(0,10);
+  if(title){
+    const scope = usingScreener
+      ? `スクリーナー結果${lastScreenerMeta?.sector?` / ${lastScreenerMeta.sector}`:''}`
+      : 'ウォッチリスト';
+    title.textContent = `🔮 注目ピック（${scope}）`;
+  }
+  pickChart = new Chart(ctx,{type:'bar',
+    data:{labels:chartRows.map(r=>displaySymbol(r.sym)+(r.inList?' (登録済)':'')),
+      datasets:[{label:'予想30日変化率', data:chartRows.map(r=>r.exp30),
+        backgroundColor:chartRows.map(r=>{
+          const c = (r.exp30??0)>=0 ? (r.held?'rgba(46,204,113,.8)':'rgba(77,163,255,.8)') : 'rgba(255,92,92,.7)';
+          return c;
+        })}]},
+    options:{indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false},
+        tooltip:{callbacks:{label:c=>{
+          const r=chartRows[c.dataIndex];
+          const range = (r.lo30!=null && r.hi30!=null) ? ` (レンジ ${r.lo30.toFixed(1)}%〜+${r.hi30.toFixed(1)}%)` : '';
+          return `予想30日: ${r.exp30>=0?'+':''}${r.exp30?.toFixed(1)}% / スコア ${r.score!=null?r.score.toFixed(1):'—'}${range}`;
+        }}}},
+      scales:{x:{ticks:{color:'#8a99a8', callback:v=>v+'%'}, grid:{color:'#2c3a47'}},
+        y:{ticks:{color:'#e8edf2'}, grid:{display:false}}}}});
+  // ピックコメント（保有/ウォッチ別）
+  const items=[];
+  if(usingScreener){
+    const top = rows.slice(0,3);
+    if(top.length){
+      const hasStrong = top.some(r=>(r.score??0)>0);
+      items.push({cls:hasStrong?'good':'caution', text:`スクリーナー結果と連動中です。上位${top.length}件は ${top.map(r=>displaySymbol(r.sym)).join(' / ')}。気になる銘柄は「＋追加」でウォッチリストへ入れると、パフォーマンス比較にも反映されます。${hasStrong?'':'今回はスコアが弱めなので、候補の比較・監視用として見てください。'}`});
+      top.forEach(r=>{
+        const add = r.inList ? '<span class="sector-tag" style="margin-left:8px;">登録済</span>' : `<button onclick="addFromScreener('${r.sym}','${r.sector}')" style="margin-left:8px;">＋追加</button>`;
+        items.push({cls:'', text:`${displaySymbol(r.sym)}: スコア ${r.score!=null?r.score.toFixed(1):'—'} / 予想30日 ${r.exp30!=null?(r.exp30>=0?'+':'')+r.exp30.toFixed(1)+'%':'—'}。${r.name?` ${r.name} / ${r.sector}`:''}${add}`});
+      });
+    } else {
+      items.push({cls:'caution', text:'今回のスクリーナー結果では表示できる候補が見つかりませんでした。'});
+    }
+  } else {
+    const topHeld = rows.filter(r=>r.held && (r.exp30??0)>0 && (r.score??0)>0)[0];
+    const topWatch = rows.filter(r=>!r.held && (r.exp30??0)>0 && (r.score??0)>0)[0];
+    if(topHeld) items.push({cls:'good', text:`【保有中で勢いが強い】${displaySymbol(topHeld.sym)}: トレンド延長で予想30日 +${topHeld.exp30.toFixed(1)}%（±1σレンジ ${topHeld.lo30.toFixed(1)}%〜+${topHeld.hi30.toFixed(1)}%）。モメンタムスコア ${topHeld.score.toFixed(1)}。`});
+    const heldExists = rows.some(r=>r.held);
+    if(heldExists && !topHeld) items.push({cls:'caution', text:'保有銘柄に上昇モメンタムの強いものは現在ありません。'});
+    if(topWatch) items.push({cls:'good', text:`【未保有で注目】${displaySymbol(topWatch.sym)}: 予想30日 +${topWatch.exp30.toFixed(1)}%（レンジ ${topWatch.lo30.toFixed(1)}%〜+${topWatch.hi30.toFixed(1)}%）。新規エントリー候補として値動き・ニュースの確認を。`});
+  }
+  const worst = rows[rows.length-1];
+  if(worst && (worst.exp30??0)<-3) items.push({cls:'bad', text:`【勢いが弱い】${displaySymbol(worst.sym)}: 下落トレンドの延長で予想30日 ${worst.exp30.toFixed(1)}%。${worst.held?'保有理由の再確認を。':'エントリーは慎重に。'}`});
+  if(!items.length) items.push({cls:'', text:'明確な上昇候補は現在ありません。横ばい圏が中心です。'});
+  ul.innerHTML = items.map(i=>`<li class="${i.cls}">${i.text}</li>`).join('');
+}
+
+// ===== 自動レビュー =====
+function renderReview(){
+  const ul = document.getElementById('reviewList');
+  const items = [];
+  const spx1d = spxData? pctChange(spxData.closes,1):null;
+  const spx3m = spxData? pctChange(spxData.closes,63):null;
+  const benchmarkName = marketConfig().benchmarkName;
+  if(spx1d!=null){
+    const tone = spx1d>1?'リスクオン気味':(spx1d<-1?'リスクオフ気味':'落ち着いた動き');
+    items.push({cls:'', text:`市場全体: ${benchmarkName}は前日比${spx1d>=0?'+':''}${spx1d.toFixed(2)}%。${tone}です。`});
+  }
+  stocks.forEach(s=>{
+    const m = rowMetrics(s);
+    if(!m) return;
+    // 急騰・急落
+    if(m.d1!=null && Math.abs(m.d1)>=3){
+      items.push({cls: m.d1>0?'good':'bad',
+        text:`【${displaySymbol(s.sym)}】前日比${m.d1>=0?'+':''}${m.d1.toFixed(1)}%と大きく${m.d1>0?'上昇':'下落'}。決算やニュースが出ていないか確認をおすすめします（テーブルのニュースリンク参照）。`});
+    }
+    // RSI
+    if(m.rsi!=null && m.rsi>=70)
+      items.push({cls:'caution', text:`【${displaySymbol(s.sym)}】RSI ${m.rsi.toFixed(0)} で買われすぎ圏。短期的な反落に注意。`});
+    if(m.rsi!=null && m.rsi<=30)
+      items.push({cls:'caution', text:`【${displaySymbol(s.sym)}】RSI ${m.rsi.toFixed(0)} で売られすぎ圏。反発の可能性がある一方、下落トレンド継続の場合もあります。`});
+    // 50日線
+    if(m.sma50!=null){
+      const dev=(m.price/m.sma50-1)*100;
+      if(dev<=-7) items.push({cls:'bad', text:`【${displaySymbol(s.sym)}】50日移動平均線を${Math.abs(dev).toFixed(1)}%下回っており、中期トレンドは弱め。`});
+      if(dev>=10) items.push({cls:'caution', text:`【${displaySymbol(s.sym)}】50日線から+${dev.toFixed(1)}%乖離。過熱気味の可能性。`});
+    }
+    // 対S&P500
+    if(m.vsSpx!=null && spx3m!=null){
+      if(m.vsSpx>=10) items.push({cls:'good', text:`【${displaySymbol(s.sym)}】直近3ヶ月で${benchmarkName}を${m.vsSpx.toFixed(1)}pt上回るアウトパフォーム。`});
+      if(m.vsSpx<=-10) items.push({cls:'bad', text:`【${displaySymbol(s.sym)}】直近3ヶ月で${benchmarkName}を${Math.abs(m.vsSpx).toFixed(1)}pt下回るアンダーパフォーム。保有理由の再確認を。`});
+    }
+    // 保有損益
+    if(m.plPct!=null){
+      if(m.plPct<=-15) items.push({cls:'bad', text:`【${displaySymbol(s.sym)}】取得単価から${m.plPct.toFixed(1)}%の含み損。損切りルールを決めているか確認しましょう。`});
+      if(m.plPct>=30) items.push({cls:'good', text:`【${displaySymbol(s.sym)}】含み益+${m.plPct.toFixed(1)}%。一部利益確定やトレーリングストップの検討余地があります。`});
+    }
+  });
+  if(!items.length) items.push({cls:'', text:'特筆すべきシグナルはありません。良い状態です。'});
+  ul.innerHTML = items.map(i=>`<li class="${i.cls}">${i.text}</li>`).join('');
+}
+
+// ===== ポートフォリオ診断 =====
+function renderDiagnosis(){
+  const ul = document.getElementById('diagList');
+  const ctx = document.getElementById('sectorChart');
+  const items = [];
+  // ウェイト計算: 保有株は評価額、ウォッチのみなら等ウェイト
+  const weights = {}; let total=0;
+  const hasHoldings = stocks.some(s=>s.shares && s.cost && marketData[s.sym]);
+  stocks.forEach(s=>{
+    let w = 1;
+    if(hasHoldings){
+      if(!(s.shares && marketData[s.sym])) return;
+      w = s.shares * marketData[s.sym].closes.at(-1);
+    }
+    weights[s.sector] = (weights[s.sector]||0) + w;
+    total += w;
+  });
+  const sectors = Object.keys(weights);
+  if(sectorChart) sectorChart.destroy();
+  if(sectors.length){
+    sectorChart = new Chart(ctx,{type:'doughnut',
+      data:{labels:sectors, datasets:[{data:sectors.map(k=>weights[k]),
+        backgroundColor:['#4da3ff','#2ecc71','#f5b041','#e74c8b','#9b59b6','#1abc9c','#e67e22','#5dade2','#58d68d','#f1948a','#aab7b8','#76448a']}]},
+      options:{responsive:true, maintainAspectRatio:false,
+        plugins:{legend:{position:'right', labels:{color:'#e8edf2', font:{size:11}}}}}});
+  }
+  if(total>0){
+    sectors.forEach(sec=>{
+      const pct = weights[sec]/total*100;
+      if(pct>=50) items.push({cls:'bad', text:`「${sec}」セクターが${pct.toFixed(0)}%を占めています。集中度が高く、セクター固有のリスクに弱い構成です。`});
+      else if(pct>=35) items.push({cls:'caution', text:`「${sec}」セクターが${pct.toFixed(0)}%。やや偏りがあります。`});
+    });
+    if(sectors.length<=2 && stocks.length>=3)
+      items.push({cls:'caution', text:`セクターが${sectors.length}種類のみ。異なる業種への分散を検討すると、相場局面の変化に強くなります。`});
+    if(hasHoldings){
+      // 1銘柄集中チェック
+      stocks.forEach(s=>{
+        if(!(s.shares && marketData[s.sym])) return;
+        const w = s.shares*marketData[s.sym].closes.at(-1)/total*100;
+        if(w>=30) items.push({cls:'caution', text:`${displaySymbol(s.sym)} 1銘柄でポートフォリオの${w.toFixed(0)}%。個別銘柄リスクが大きめです。`});
+      });
+    }
+    if(!items.length) items.push({cls:'good', text:'セクター分散は良好です。'});
+    if(!hasHoldings) items.push({cls:'', text:'※ 現在はウォッチリストの等ウェイト換算で診断しています。保有株を登録すると評価額ベースになります。'});
+  } else {
+    items.push({cls:'', text:'銘柄を登録してデータ更新すると診断が表示されます。'});
+  }
+  ul.innerHTML = items.map(i=>`<li class="${i.cls}">${i.text}</li>`).join('');
+}
+
+// ===== デモトレード（仮想売買） =====
+// 本番に近い練習体験を目指し、注文照会、複合注文、アラート、余力・証拠金管理まで扱う。
+const PT_KEY = 'us_stock_paper_v1';
+const ORDER_LABELS = {
+  market:'成行', limit:'指値', stop:'逆指値', stoplimit:'逆指値付指値',
+  trailing:'トレーリング', ocoLimit:'OCO 利確', ocoStop:'OCO 損切り',
+  ifdLimit:'IFD 決済指値', ifdStop:'IFD 決済逆指値',
+  ifdocoLimit:'IFD-OCO 利確', ifdocoStop:'IFD-OCO 損切り',
+};
+function normalizePaper(p){
+  p = p || {};
+  p.cash = Number.isFinite(+p.cash)? +p.cash : 10000;
+  p.initial = Number.isFinite(+p.initial)? +p.initial : p.cash;
+  p.pos = p.pos && typeof p.pos==='object'? p.pos : {};
+  p.hist = Array.isArray(p.hist)? p.hist : [];
+  p.mode = p.mode || 'simple';
+  p.feeRate = (p.feeRate!=null)? +p.feeRate : 0.1;
+  p.slippageRate = (p.slippageRate!=null)? +p.slippageRate : 0.03;
+  p.orders = Array.isArray(p.orders)? p.orders : [];
+  p.alerts = Array.isArray(p.alerts)? p.alerts : [];
+  p.events = Array.isArray(p.events)? p.events : [];
+  p.equity = Array.isArray(p.equity)? p.equity : [];
+  p.realized = +p.realized || 0;
+  p.wins = +p.wins || 0;
+  p.losses = +p.losses || 0;
+  p.rules = Object.assign({maxPosPct:20, minCashPct:10, stopLossPct:8, liquidationPct:25, marginWarnPct:40}, p.rules || {});
+  p.leverage = +p.leverage || 1;
+  p.allowShort = !!p.allowShort;
+  p.sessionStarted = p.sessionStarted || Date.now();
+  p.sessionDays = (p.sessionDays!=null)? +p.sessionDays : 30;
+  p.lastRiskNotice = p.lastRiskNotice || '';
+  return p;
+}
+function defaultPaperCash(){ return currentMarket==='jp'? 1000000 : 10000; }
+function paperKey(market=currentMarket){ return market==='us'? PT_KEY : `${PT_KEY}_${market}`; }
+function loadPaper(market=currentMarket){
+  try{ const r = localStorage.getItem(paperKey(market)); if(r) return normalizePaper(JSON.parse(r)); }catch(e){}
+  const cash = market==='jp'? 1000000 : 10000;
+  return normalizePaper({cash, initial:cash});
+}
+let paper = loadPaper();
+function savePaper(){ try{ localStorage.setItem(paperKey(), JSON.stringify(paper)); }catch(e){} }
+function round2(v){ return Math.round((+v||0)*100)/100; }
+function pad2(n){ return String(n).padStart(2,'0'); }
+function nowStr(){
+  const d=new Date();
+  return `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+function todayStr(){
+  const d=new Date();
+  return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+}
+function orderLabel(type){ return ORDER_LABELS[type] || type || '注文'; }
+function fmtSignedMoney(v){ return (v>=0?'+':'-') + fmtMoney(Math.abs(v)); }
+function paperEvent(kind, text, cls=''){
+  paper.events = paper.events || [];
+  paper.events.unshift({d:nowStr(), kind, text, cls});
+  paper.events = paper.events.slice(0,40);
+}
+function ptPrice(sym){
+  const d = marketData[sym] || screenData[sym];
+  if(!d) return null;
+  return d.live ?? d.closes[d.closes.length-1];
+}
+async function ptEnsure(sym){
+  if(ptPrice(sym)!=null) return true;
+  try{ marketData[sym] = await fetchChart(sym); return true; }catch(e){ return false; }
+}
+function quoteSpread(sym){
+  const p = ptPrice(sym);
+  if(p==null) return null;
+  const half = Math.max(0.01, p*0.00025);
+  return {mid:p, bid:round2(p-half), ask:round2(p+half)};
+}
+function applySlippage(p, side){
+  const rate = paper.mode==='pro'? Math.max(0, +paper.slippageRate||0)/100 : 0;
+  const fill = side==='buy'? p*(1+rate) : p*(1-rate);
+  return Math.round(fill*10000)/10000;
+}
+function ptFee(amount){ return paper.mode==='pro'? amount*(parseFloat(paper.feeRate)||0)/100 : 0; }
+function equityTotal(){
+  let t = paper.cash;
+  Object.entries(paper.pos).forEach(([s,po])=>{ const p=ptPrice(s); if(p!=null) t += po.qty*p; });
+  return t;
+}
+function grossExposure(){
+  let g = 0;
+  Object.entries(paper.pos).forEach(([s,po])=>{ const p=ptPrice(s); if(p!=null) g += Math.abs(po.qty)*p; });
+  return g;
+}
+function portfolioSnapshot(){
+  let stockVal=0, unknown=false;
+  Object.entries(paper.pos).forEach(([sym,pos])=>{
+    const p = ptPrice(sym);
+    if(p==null) unknown=true; else stockVal += pos.qty*p;
+  });
+  const total = paper.cash + stockVal;
+  const gross = grossExposure();
+  const lev = paper.mode==='pro'? (paper.leverage||1) : 1;
+  const buyPower = Math.max(0, total*lev - gross);
+  const marginRatio = gross>0? total/gross*100 : Infinity;
+  return {stockVal, unknown, total, gross, lev, buyPower, marginRatio,
+    pl: total-paper.initial, plPct: paper.initial? (total/paper.initial-1)*100 : 0};
+}
+function sessionText(){
+  if(!paper.sessionDays) return '期限なし';
+  const elapsed = Math.floor((Date.now()-paper.sessionStarted)/86400000);
+  const left = Math.max(0, paper.sessionDays - elapsed);
+  return `残り${left}日`;
+}
+
+// ===== 約定エンジン（数量は符号付き: ＋ロング / −ショート） =====
+function execTrade(sym, side, qty, rawPrice, label, note, opts={}){
+  qty = +qty;
+  if(!sym || !qty || qty<=0 || rawPrice==null) return '注文内容が不正です';
+  const p = opts.noSlippage ? rawPrice : applySlippage(rawPrice, side);
+  const delta = side==='buy'? qty : -qty;
+  const pos = Object.assign({qty:0, avg:0}, paper.pos[sym] || {});
+  if(!(paper.mode==='pro' && paper.allowShort) && pos.qty + delta < -1e-9)
+    return '保有数量が不足しています（空売りは本格モードで「空売りを許可」をオンにすると可能）';
+  const notional = p*qty, fee = ptFee(notional);
+  const newCash = paper.cash + (side==='buy'? -(notional+fee) : (notional-fee));
+  const newQty = pos.qty + delta;
+  let g=0, eq=newCash;
+  const allSyms = new Set([...Object.keys(paper.pos), sym]);
+  for(const s2 of allSyms){
+    const q2 = s2===sym? newQty : paper.pos[s2].qty;
+    const pp = s2===sym? p : ptPrice(s2);
+    if(pp==null) continue;
+    g += Math.abs(q2)*pp; eq += q2*pp;
+  }
+  const lev = paper.mode==='pro'? (paper.leverage||1) : 1;
+  if(eq <= 0 || g > eq*lev + 1e-6)
+    return `買付余力不足です（約定後の建玉総額 $${g.toFixed(0)} > 余力 $${(Math.max(eq,0)*lev).toFixed(0)}）。レバレッジ設定や数量を見直してください`;
+  let realized = null;
+  if(pos.qty !== 0 && Math.sign(delta) !== Math.sign(pos.qty)){
+    const closed = Math.min(Math.abs(delta), Math.abs(pos.qty));
+    realized = (p - pos.avg) * closed * Math.sign(pos.qty) - fee*(closed/qty);
+    realized = round2(realized);
+    paper.realized = round2((paper.realized||0) + realized);
+    if(realized >= 0) paper.wins++; else paper.losses++;
+  }
+  if(pos.qty===0 || Math.sign(delta)===Math.sign(pos.qty)){
+    pos.avg = (pos.avg*Math.abs(pos.qty) + p*Math.abs(delta)) / (Math.abs(pos.qty)+Math.abs(delta));
+    pos.qty += delta;
+  } else {
+    const remaining = pos.qty + delta;
+    if(Math.abs(remaining) <= 1e-9){ pos.qty = 0; }
+    else if(Math.sign(remaining)===Math.sign(pos.qty)){ pos.qty = remaining; }
+    else { pos.qty = remaining; pos.avg = p; }
+  }
+  paper.cash = round2(newCash);
+  if(Math.abs(pos.qty) <= 1e-9) delete paper.pos[sym]; else paper.pos[sym] = {qty:round2(pos.qty), avg:round2(pos.avg)};
+  const sideLabel = side==='buy'?'買':'売';
+  const fillNote = [label||'成行', note, opts.system?'自動執行':null].filter(Boolean).join(' / ');
+  paper.hist.unshift({d:nowStr(), side:sideLabel, sym, qty, price:round2(p), fee:round2(fee), realized, note:fillNote});
+  paperEvent('fill', `${displaySymbol(sym)} ${sideLabel} ${qty}株 @ ${fmtMoney(p)}${realized!=null? ` / 実現損益 ${fmtSignedMoney(realized)}`:''}`, realized==null?'':(realized>=0?'good':'bad'));
+  return null;
+}
+
+function validateCloseCapacity(sym, side, qty){
+  if(side!=='sell' || paper.allowShort) return null;
+  const pos = paper.pos[sym];
+  if(!pos || pos.qty < qty) return '保有数量が不足しています（売り注文は保有分まで。空売りは設定をオンに）';
+  return null;
+}
+function createOrder(o){
+  const idBase = Date.now() + Math.floor(Math.random()*1000);
+  paper.orders.push(Object.assign({id:idBase, tif:'gtc', created:nowStr(), createdDay:todayStr()}, o));
+  paperEvent('order', `${displaySymbol(o.sym)} ${orderLabel(o.type)}を受付: ${o.side==='buy'?'買':'売'} ${o.qty}株`, 'caution');
+}
+function createExitOrders(sym, entrySide, qty, limit, stop, tif, note, prefix){
+  const closeSide = entrySide==='buy'? 'sell':'buy';
+  const gid = prefix + '-' + Date.now();
+  if(limit && limit>0) createOrder({sym, side:closeSide, type:prefix==='ifdoco'?'ifdocoLimit':(prefix==='oco'?'ocoLimit':'ifdLimit'),
+    qty, limit, stop:null, tif, note, groupId:gid, reduceOnly:true});
+  if(stop && stop>0) createOrder({sym, side:closeSide, type:prefix==='ifdoco'?'ifdocoStop':(prefix==='oco'?'ocoStop':'ifdStop'),
+    qty, limit:null, stop, tif, note, groupId:gid, reduceOnly:true});
+}
+function reduceOnlyExecution(o){
+  if(!o.reduceOnly) return {qty:o.qty};
+  const pos = paper.pos[o.sym];
+  if(!pos || Math.abs(pos.qty) <= 1e-9) return {err:'決済対象の建玉がありません'};
+  const closesLong = pos.qty > 0 && o.side === 'sell';
+  const closesShort = pos.qty < 0 && o.side === 'buy';
+  if(!closesLong && !closesShort) return {err:'現在の建玉方向と決済注文の向きが一致しません'};
+  return {qty:Math.min(o.qty, Math.abs(pos.qty))};
+}
+async function placeOrder(){
+  const side = document.getElementById('ptSide').value;
+  const sym = normalizeSymbol(document.getElementById('ptSym').value);
+  const qty = parseFloat(document.getElementById('ptQty').value);
+  const pro = paper.mode==='pro';
+  const type = pro? document.getElementById('ptType').value : 'market';
+  const limit = parseFloat(document.getElementById('ptLimit').value);
+  const stop = parseFloat(document.getElementById('ptStop').value);
+  const trailPct = parseFloat(document.getElementById('ptTrailPct').value);
+  const tif = pro? document.getElementById('ptTif').value : 'gtc';
+  const note = pro? document.getElementById('ptNote').value.trim() : '';
+  if(!sym || !qty || qty<=0){ alert('ティッカーと株数を入力してください'); return; }
+  if(['limit','stoplimit'].includes(type) && (!limit || limit<=0)){ alert('指値価格を入力してください'); return; }
+  if(['stop','stoplimit'].includes(type) && (!stop || stop<=0)){ alert('逆指値価格を入力してください'); return; }
+  if(['oco','ifdoco'].includes(type) && ((!limit || limit<=0) || (!stop || stop<=0))){ alert('OCO/IFD-OCOには利確用の指値と損切り用の逆指値を入力してください'); return; }
+  if(type==='ifd' && ((!limit || limit<=0) && (!stop || stop<=0))){ alert('IFDには決済予約の指値または逆指値を入力してください'); return; }
+  if(type==='trailing' && (!trailPct || trailPct<=0)){ alert('トレーリング幅(%)を入力してください'); return; }
+  if(!(await ptEnsure(sym))){ alert(sym+' の株価を取得できませんでした'); return; }
+  const p = ptPrice(sym);
+  if(pro){
+    const snap = portfolioSnapshot();
+    const newExposure = (Math.abs(paper.pos[sym]?.qty||0)*p + p*qty) / Math.max(snap.total, 1) * 100;
+    if(side==='buy' && newExposure > paper.rules.maxPosPct &&
+       !confirm(`ルール警告: この注文で ${sym} が資産の${newExposure.toFixed(0)}%になります（上限 ${paper.rules.maxPosPct}%）。続行しますか？`)) return;
+  }
+  if(type==='market'){
+    const err = execTrade(sym, side, qty, p, '成行', note);
+    if(err){ alert(err); return; }
+  } else if(type==='ifd' || type==='ifdoco'){
+    const err = execTrade(sym, side, qty, p, type==='ifd'?'IFD 新規成行':'IFD-OCO 新規成行', note);
+    if(err){ alert(err); return; }
+    createExitOrders(sym, side, qty, limit, stop, tif, note, type);
+  } else if(type==='oco'){
+    const closeErr = validateCloseCapacity(sym, side, qty);
+    if(closeErr){ alert(closeErr); return; }
+    createExitOrders(sym, side==='sell'?'buy':'sell', qty, limit, stop, tif, note, 'oco');
+  } else {
+    const closeErr = validateCloseCapacity(sym, side, qty);
+    if(closeErr){ alert(closeErr); return; }
+    createOrder({sym, side, type, qty,
+      limit: (type==='limit'||type==='stoplimit')? limit : null,
+      stop: (type==='stop'||type==='stoplimit')? stop : null,
+      trailPct: type==='trailing'? trailPct : null,
+      trailHigh: type==='trailing' && side==='sell'? p : null,
+      trailLow: type==='trailing' && side==='buy'? p : null,
+      tif, note});
+  }
+  ['ptQty','ptLimit','ptStop','ptTrailPct','ptNote'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  checkMarginRisk();
+  recordEquity();
+  savePaper(); renderPaper();
+}
+function cancelOrder(id){
+  const o = paper.orders.find(x=>x.id===id);
+  paper.orders = paper.orders.filter(x=>x.id!==id);
+  if(o) paperEvent('cancel', `${displaySymbol(o.sym)} ${orderLabel(o.type)}を取消`, 'caution');
+  savePaper(); renderPaper();
+}
+function orderHit(o, p){
+  if(o.type==='limit' || o.type==='ocoLimit' || o.type==='ifdLimit' || o.type==='ifdocoLimit')
+    return o.side==='buy'? p<=o.limit : p>=o.limit;
+  if(o.type==='stop' || o.type==='ocoStop' || o.type==='ifdStop' || o.type==='ifdocoStop')
+    return o.side==='buy'? p>=o.stop : p<=o.stop;
+  if(o.type==='stoplimit'){
+    const trig = o.side==='buy'? p>=o.stop : p<=o.stop;
+    const lim = o.side==='buy'? p<=o.limit : p>=o.limit;
+    return trig && lim;
+  }
+  if(o.type==='trailing'){
+    if(o.side==='sell'){
+      o.trailHigh = Math.max(o.trailHigh||p, p);
+      o.stop = round2(o.trailHigh*(1-(o.trailPct||0)/100));
+      return p<=o.stop;
+    }
+    o.trailLow = Math.min(o.trailLow||p, p);
+    o.stop = round2(o.trailLow*(1+(o.trailPct||0)/100));
+    return p>=o.stop;
+  }
+  return false;
+}
+function checkOrders(){
+  if(!paper.orders.length) return;
+  const today = todayStr();
+  const remain=[], filledGroups=new Set();
+  let changed=false;
+  paper.orders.forEach(o=>{
+    if(o.groupId && filledGroups.has(o.groupId)){ changed=true; return; }
+    if(o.tif==='day' && o.createdDay && o.createdDay!==today){
+      paper.hist.unshift({d:nowStr(), side:'失効', sym:o.sym, qty:o.qty, price:null, fee:0, note:'当日限り注文の期限切れ'});
+      paperEvent('expire', `${displaySymbol(o.sym)} ${orderLabel(o.type)}が期限切れ`, 'caution');
+      changed=true; return;
+    }
+    const p = ptPrice(o.sym);
+    if(p==null){ remain.push(o); return; }
+    if(!orderHit(o,p)){ remain.push(o); return; }
+    const reduce = reduceOnlyExecution(o);
+    if(reduce.err){
+      paper.hist.unshift({d:nowStr(), side:'失効', sym:o.sym, qty:o.qty, price:p, fee:0, note:orderLabel(o.type)+'取消: '+reduce.err});
+      paperEvent('expire', `${displaySymbol(o.sym)} ${orderLabel(o.type)}を取消: ${reduce.err}`, 'caution');
+      changed=true; return;
+    }
+    const err = execTrade(o.sym, o.side, reduce.qty, p, orderLabel(o.type)+' 約定', o.note);
+    if(err){
+      paper.hist.unshift({d:nowStr(), side:'失効', sym:o.sym, qty:o.qty, price:p, fee:0, note:orderLabel(o.type)+'失敗: '+err});
+      paperEvent('reject', `${displaySymbol(o.sym)} ${orderLabel(o.type)}の約定に失敗: ${err}`, 'bad');
+    } else if(o.groupId){
+      filledGroups.add(o.groupId);
+    }
+    changed=true;
+  });
+  if(filledGroups.size){
+    remain.forEach(o=>{ if(o.groupId && filledGroups.has(o.groupId)) paperEvent('cancel', `${displaySymbol(o.sym)} ${orderLabel(o.type)}はOCO成立により取消`, 'caution'); });
+  }
+  paper.orders = remain.filter(o=>!(o.groupId && filledGroups.has(o.groupId)));
+  if(changed) savePaper();
+}
+function checkAlerts(){
+  if(!paper.alerts.length) return;
+  let changed=false;
+  paper.alerts.forEach(a=>{
+    if(a.fired) return;
+    const p = ptPrice(a.sym);
+    if(p==null) return;
+    const hit = a.cond==='above'? p>=a.price : p<=a.price;
+    if(hit){
+      a.fired = true; a.firedAt = nowStr();
+      paperEvent('alert', `${displaySymbol(a.sym)} が ${fmtMoney(p)}。アラート条件 ${a.cond==='above'?'以上':'以下'} ${fmtMoney(a.price)} に到達`, 'good');
+      changed=true;
+    }
+  });
+  if(changed) savePaper();
+}
+function checkMarginRisk(){
+  if(paper.mode!=='pro') return;
+  const snap = portfolioSnapshot();
+  if(!Number.isFinite(snap.marginRatio) || snap.gross<=0) return;
+  const today = todayStr();
+  if(snap.marginRatio <= paper.rules.liquidationPct){
+    const key = today + ':liquidation';
+    if(paper.lastRiskNotice===key) return;
+    paper.lastRiskNotice = key;
+    Object.entries({...paper.pos}).forEach(([sym,pos])=>{
+      const p = ptPrice(sym);
+      if(p==null) return;
+      execTrade(sym, pos.qty>0?'sell':'buy', Math.abs(pos.qty), p, 'ロスカット', '証拠金維持率が下限を下回ったため', {system:true});
+    });
+    paperEvent('risk', `証拠金維持率が${snap.marginRatio.toFixed(0)}%まで低下したため、建玉をロスカットしました。`, 'bad');
+    savePaper();
+  } else if(snap.marginRatio <= paper.rules.marginWarnPct){
+    const key = today + ':warn';
+    if(paper.lastRiskNotice!==key){
+      paper.lastRiskNotice = key;
+      paperEvent('risk', `証拠金維持率 ${snap.marginRatio.toFixed(0)}%。ロスカット水準 ${paper.rules.liquidationPct}% に接近しています。`, 'caution');
+      savePaper();
+    }
+  }
+}
+function recordEquity(){
+  let complete = true;
+  Object.keys(paper.pos).forEach(sym=>{ if(ptPrice(sym)==null) complete=false; });
+  if(!complete) return;
+  const total = equityTotal();
+  const spx = spxData? round2(spxData.live ?? spxData.closes[spxData.closes.length-1]) : null;
+  const today = todayStr();
+  const last = paper.equity[paper.equity.length-1];
+  if(last && last.d===today){ last.v = round2(total); if(spx!=null) last.spx = spx; }
+  else paper.equity.push({d:today, v:round2(total), spx});
+  if(paper.equity.length>365) paper.equity = paper.equity.slice(-365);
+  savePaper();
+}
+
+// ===== 取引ルール・設定 =====
+function setRules(){
+  paper.rules.maxPosPct = parseFloat(document.getElementById('ruleMaxPos').value)||20;
+  paper.rules.minCashPct = parseFloat(document.getElementById('ruleMinCash').value)||0;
+  paper.rules.stopLossPct = parseFloat(document.getElementById('ruleStop').value)||8;
+  paper.rules.liquidationPct = parseFloat(document.getElementById('ruleLiquidation').value)||25;
+  paper.rules.marginWarnPct = Math.max(paper.rules.liquidationPct+10, 40);
+  savePaper(); renderPaper();
+}
+function setPaperMode(){ paper.mode = document.getElementById('ptMode').value; savePaper(); renderPaper(); }
+function setFeeRate(){ paper.feeRate = Math.max(0, parseFloat(document.getElementById('ptFee').value)||0); savePaper(); renderPaper(); }
+function setSlippageRate(){ paper.slippageRate = Math.max(0, parseFloat(document.getElementById('ptSlip').value)||0); savePaper(); renderPaper(); }
+function setLeverage(){ paper.leverage = parseInt(document.getElementById('ptLev').value)||1; savePaper(); renderPaper(); }
+function setAllowShort(){ paper.allowShort = document.getElementById('ptShort').checked; savePaper(); renderPaper(); }
+function setSessionDays(){ paper.sessionDays = parseInt(document.getElementById('ptSessionDays').value)||0; paper.sessionStarted = Date.now(); savePaper(); renderPaper(); }
+function adjustDemoCash(){
+  const amount = parseFloat(document.getElementById('ptCashAdjust').value);
+  const action = document.getElementById('ptCashAction').value;
+  if(!amount || amount<=0){ alert('入出金額を入力してください'); return; }
+  if(action==='withdraw' && amount>paper.cash){ alert('現金残高を超える出金はできません'); return; }
+  paper.cash += action==='deposit'? amount : -amount;
+  if(action==='deposit') paper.initial += amount;
+  paper.cash = round2(paper.cash); paper.initial = round2(paper.initial);
+  paperEvent('cash', `${action==='deposit'?'デモ入金':'デモ出金'} ${fmtMoney(amount)}`, action==='deposit'?'good':'caution');
+  document.getElementById('ptCashAdjust').value='';
+  recordEquity(); savePaper(); renderPaper();
+}
+function addPriceAlert(){
+  const sym = normalizeSymbol(document.getElementById('ptAlertSym').value);
+  const cond = document.getElementById('ptAlertCond').value;
+  const price = parseFloat(document.getElementById('ptAlertPrice').value);
+  if(!sym || !price || price<=0){ alert('ティッカーと価格を入力してください'); return; }
+  paper.alerts.unshift({id:Date.now(), sym, cond, price, created:nowStr(), fired:false});
+  paper.alerts = paper.alerts.slice(0,20);
+  document.getElementById('ptAlertSym').value='';
+  document.getElementById('ptAlertPrice').value='';
+  paperEvent('alert', `${displaySymbol(sym)} ${cond==='above'?'以上':'以下'} ${fmtMoney(price)} のアラートを設定`, 'caution');
+  savePaper(); renderPaper();
+}
+function cancelAlert(id){
+  paper.alerts = paper.alerts.filter(a=>a.id!==id);
+  savePaper(); renderPaper();
+}
+function setQtyPreset(pct){
+  const sym = normalizeSymbol(document.getElementById('ptSym').value) || stocks[0]?.sym || Object.keys(paper.pos)[0];
+  if(!sym){ alert('ティッカーを入力してください'); return; }
+  document.getElementById('ptSym').value = displaySymbol(sym);
+  const p = ptPrice(sym);
+  if(p==null){ alert('株価未取得です。データ更新後に使えます。'); return; }
+  const qty = Math.floor((portfolioSnapshot().buyPower * pct/100) / p);
+  document.getElementById('ptQty').value = Math.max(qty, 0);
+  renderOrderPreview();
+}
+function copyTradeSymbol(){
+  const sym = stocks[0]?.sym || Object.keys(paper.pos)[0] || '';
+  if(sym){ document.getElementById('ptSym').value = displaySymbol(sym); renderOrderPreview(); }
+}
+function closePosition(sym){
+  const pos = paper.pos[sym]; if(!pos) return;
+  const p = ptPrice(sym);
+  if(p==null){ alert('株価未取得のため決済できません。「データ更新」を押してください'); return; }
+  const absQty = Math.abs(pos.qty);
+  const dir = pos.qty>0? '売却':'買い戻し';
+  const q = parseFloat(prompt(`${sym} を何株${dir}しますか？（建玉 ${absQty}株 / 現在値 $${p.toFixed(2)}）`, absQty));
+  if(!q || q<=0) return;
+  const err = execTrade(sym, pos.qty>0?'sell':'buy', Math.min(q,absQty), p, '決済');
+  if(err){ alert(err); return; }
+  recordEquity(); savePaper(); renderPaper();
+}
+function paperReset(){
+  if(!confirm('デモトレードをリセットしますか？（建玉・注文・取引履歴・資産推移がすべて消えます）')) return;
+  const init = parseFloat(prompt(`初期資金(${marketConfig().currency})を入力してください`, String(defaultPaperCash()))) || defaultPaperCash();
+  paper = normalizePaper({cash:init, initial:init, mode:paper.mode, feeRate:paper.feeRate,
+    slippageRate:paper.slippageRate, rules:paper.rules, leverage:paper.leverage,
+    allowShort:paper.allowShort, sessionDays:paper.sessionDays});
+  paperEvent('reset', `デモ口座を ${fmtMoney(init)} で再作成`, 'caution');
+  savePaper(); renderPaper();
+}
+function demoPaperTargets(){
+  return currentMarket==='jp'
+    ? [
+      {sym:'7203.T', sector:'輸送用機器', qty:100, entryOffset:42, cashWeight:0.18},
+      {sym:'6758.T', sector:'電気機器', qty:100, entryOffset:28, cashWeight:0.22},
+      {sym:'8306.T', sector:'銀行', qty:200, entryOffset:18, cashWeight:0.16},
+    ]
+    : [
+      {sym:'AAPL', sector:'情報技術', qty:8, entryOffset:42, cashWeight:0.20},
+      {sym:'MSFT', sector:'情報技術', qty:5, entryOffset:30, cashWeight:0.22},
+      {sym:'NVDA', sector:'情報技術', qty:6, entryOffset:18, cashWeight:0.18},
+    ];
+}
+function dateFromOffset(days){
+  const d = new Date();
+  d.setDate(d.getDate()-days);
+  return `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} ${pad2(9)}:${pad2(30)}`;
+}
+function closeAtOffset(data, offset){
+  const closes = data?.closes || [];
+  if(!closes.length) return null;
+  const idx = Math.max(0, closes.length-1-offset);
+  return closes[idx] ?? closes[closes.length-1];
+}
+function demoEquitySeries(targets, cash){
+  const maxLen = Math.min(30, ...targets.map(t=>(marketData[t.sym]?.closes||[]).length).filter(Boolean));
+  if(!maxLen || maxLen<2) return [];
+  const labels = marketData[targets[0].sym].dates.slice(-maxLen);
+  return labels.map((d,i)=>{
+    let v = cash;
+    targets.forEach(t=>{
+      const data = marketData[t.sym];
+      const closes = data.closes.slice(-maxLen);
+      v += t.qty * closes[i];
+    });
+    return {d:`${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`, v:round2(v), spx:null};
+  });
+}
+async function seedDemoPaper(){
+  if(!confirm('現在のデモ口座を、実在銘柄のサンプルデータで上書きしますか？')) return;
+  const targets = demoPaperTargets();
+  setStatus('デモ用の実データを取得中...');
+  try{
+    for(const t of targets){
+      if(!marketData[t.sym]) marketData[t.sym] = await fetchChart(t.sym);
+      await new Promise(r=>setTimeout(r,120));
+    }
+    const positions = {};
+    const hist = [];
+    let investedAtEntry = 0;
+    let currentValue = 0;
+    targets.forEach(t=>{
+      const data = marketData[t.sym];
+      const avg = round2(closeAtOffset(data, t.entryOffset) || ptPrice(t.sym));
+      const current = ptPrice(t.sym) || avg;
+      positions[t.sym] = {qty:t.qty, avg};
+      investedAtEntry += avg*t.qty;
+      currentValue += current*t.qty;
+      const fee = round2(ptFee(avg*t.qty));
+      hist.unshift({d:dateFromOffset(t.entryOffset), side:'買', sym:t.sym, qty:t.qty, price:avg, fee, realized:null,
+        note:'実データサンプル: 過去終値を取得単価として登録'});
+      const existing = stocks.find(s=>s.sym===t.sym);
+      if(existing){ existing.shares = existing.shares || t.qty; existing.cost = existing.cost || avg; existing.sector = existing.sector || t.sector; }
+      else stocks.push({sym:t.sym, sector:t.sector, shares:t.qty, cost:avg});
+    });
+    const cash = currentMarket==='jp' ? 350000 : 12000;
+    const initial = round2(investedAtEntry + cash);
+    const now = Date.now();
+    const first = targets[0];
+    const firstPrice = ptPrice(first.sym) || positions[first.sym].avg;
+    const firstQty = Math.max(1, Math.floor(first.qty/2));
+    const gid = 'sample-' + now;
+    paper = normalizePaper({
+      cash,
+      initial,
+      pos:positions,
+      hist,
+      mode:'pro',
+      feeRate:0.1,
+      slippageRate:0.03,
+      leverage:1,
+      allowShort:false,
+      sessionDays:30,
+      sessionStarted:now,
+      orders:[
+        {id:now+1, sym:first.sym, side:'sell', type:'ocoLimit', qty:firstQty, limit:round2(firstPrice*1.08), stop:null, tif:'gtc', created:nowStr(), createdDay:todayStr(), note:'サンプル: 利確予約', groupId:gid, reduceOnly:true},
+        {id:now+2, sym:first.sym, side:'sell', type:'ocoStop', qty:firstQty, limit:null, stop:round2(firstPrice*0.92), tif:'gtc', created:nowStr(), createdDay:todayStr(), note:'サンプル: 損切り予約', groupId:gid, reduceOnly:true},
+      ],
+      alerts:[
+        {id:now+3, sym:targets[1].sym, cond:'above', price:round2((ptPrice(targets[1].sym)||positions[targets[1].sym].avg)*1.05), created:nowStr(), fired:false},
+      ],
+      events:[
+        {d:nowStr(), kind:'sample', text:`${marketConfig().marketLabel}の実データサンプルを投入しました。現在評価額 ${fmtMoney(currentValue)}。`, cls:'good'},
+        {d:nowStr(), kind:'order', text:`${displaySymbol(first.sym)} にOCOの利確・損切り予約を設定しました。`, cls:'caution'},
+      ],
+      equity:demoEquitySeries(targets, cash),
+      realized:0,
+      wins:0,
+      losses:0,
+    });
+    saveStocks();
+    savePaper();
+    const ptSym = document.getElementById('ptSym');
+    if(ptSym) ptSym.value = displaySymbol(first.sym);
+    setStatus('');
+    renderAll();
+  }catch(e){
+    setStatus('⚠ デモ用データの取得に失敗しました');
+    alert('実データサンプルの作成に失敗しました: ' + e.message);
+  }
+}
+
+// ===== 成績分析 =====
+function computeStats(){
+  const closed = paper.hist.filter(h=>h.realized!=null);
+  const wins = closed.filter(h=>h.realized>=0), losses = closed.filter(h=>h.realized<0);
+  const grossWin = wins.reduce((s,h)=>s+h.realized,0);
+  const grossLoss = Math.abs(losses.reduce((s,h)=>s+h.realized,0));
+  const fees = paper.hist.reduce((s,h)=>s+(h.fee||0),0);
+  let maxDD=0, peak=-Infinity;
+  paper.equity.forEach(e=>{ if(e.v>peak) peak=e.v; const dd=(e.v/peak-1)*100; if(dd<maxDD) maxDD=dd; });
+  let sharpe=null;
+  if(paper.equity.length>=6){
+    const rets=[]; for(let i=1;i<paper.equity.length;i++) rets.push(Math.log(paper.equity[i].v/paper.equity[i-1].v));
+    const mu = rets.reduce((s,r)=>s+r,0)/rets.length;
+    const sd = Math.sqrt(rets.reduce((s,r)=>s+(r-mu)*(r-mu),0)/(rets.length-1));
+    if(sd>0) sharpe = mu/sd*Math.sqrt(252);
+  }
+  const bySym={};
+  closed.forEach(h=>{ bySym[h.sym]=bySym[h.sym]||{n:0,pl:0}; bySym[h.sym].n++; bySym[h.sym].pl+=h.realized; });
+  return {closedN:closed.length, winRate: closed.length? wins.length/closed.length*100:null,
+    pf: grossLoss>0? grossWin/grossLoss : (grossWin>0? Infinity : null),
+    avgWin: wins.length? grossWin/wins.length:null,
+    avgLoss: losses.length? grossLoss/losses.length:null,
+    fees, maxDD, sharpe, bySym};
+}
+function exportCsv(){
+  const rows = [['日時','売買','銘柄','株数','価格$','手数料$','実現損益$','メモ']];
+  [...paper.hist].reverse().forEach(h=>rows.push(
+    [h.d, h.side, h.sym, h.qty, h.price??'', h.fee??'', h.realized??'', (h.note||'').replace(/[,\n]/g,'、')]));
+  const csv = '﻿' + rows.map(r=>r.join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
+  a.download = 'demo_trade_history_' + todayStr() + '.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// ===== 描画 =====
+let eqChart = null;
+function renderQuote(){
+  const el = document.getElementById('ptQuote');
+  if(!el) return;
+  const sym = normalizeSymbol(document.getElementById('ptSym')?.value) || stocks[0]?.sym || Object.keys(paper.pos)[0] || '';
+  const q = sym? quoteSpread(sym):null;
+  const d = sym? (marketData[sym] || screenData[sym]) : null;
+  const d1 = d? pctChange(d.closes,1):null;
+  el.innerHTML = `
+    <div class="quote-cell"><div class="label">銘柄</div><div class="value">${sym ? displaySymbol(sym) : '—'}</div></div>
+    <div class="quote-cell"><div class="label">Bid / Ask</div><div class="value">${q? `${fmtMoney(q.bid)} / ${fmtMoney(q.ask)}`:'—'}</div></div>
+    <div class="quote-cell"><div class="label">前日比</div><div class="value">${fmtPct(d1)}</div></div>`;
+}
+function renderOrderPreview(){
+  renderQuote();
+  const el = document.getElementById('ptPreview');
+  if(!el) return;
+  const side = document.getElementById('ptSide')?.value || 'buy';
+  const sym = normalizeSymbol(document.getElementById('ptSym')?.value);
+  const qty = parseFloat(document.getElementById('ptQty')?.value);
+  const type = paper.mode==='pro'? (document.getElementById('ptType')?.value || 'market') : 'market';
+  if(!sym || !qty || qty<=0){ el.textContent = 'ティッカーと株数を入力すると、概算約定額・手数料・ルール警告を表示します。'; return; }
+  const p0 = ptPrice(sym);
+  if(p0==null){ el.innerHTML = `${sym} の価格が未取得です。価格更新を押してください。`; return; }
+  const fill = applySlippage(p0, side);
+  const notional = fill*qty;
+  const fee = ptFee(notional);
+  const snap = portfolioSnapshot();
+  const weight = snap.total>0? notional/snap.total*100 : 0;
+  const warnings=[];
+  if(side==='buy' && weight > paper.rules.maxPosPct) warnings.push(`1銘柄上限 ${paper.rules.maxPosPct}% を超える可能性`);
+  if(side==='sell' && !paper.allowShort && (paper.pos[sym]?.qty||0) < qty) warnings.push('保有数量を超える売り注文です');
+  if(type==='trailing') warnings.push('更新時点の高値/安値から追跡幅で逆指値を動かします');
+  if(['oco','ifd','ifdoco'].includes(type)) warnings.push('複合注文は練習用の近似判定です');
+  el.innerHTML = `想定価格 ${fmtMoney(fill)} / 約定代金 ${fmtMoney(notional)} / 手数料 ${fmtMoney(fee)} / 資産比 ${weight.toFixed(1)}%`
+    + (warnings.length? `<br><span class="warn">${warnings.join('。')}</span>`:'');
+}
+function renderRuleCheck(total){
+  const ul = document.getElementById('ptRules');
+  if(!ul) return;
+  const ids=['ruleMaxPos','ruleMinCash','ruleStop','ruleLiquidation'];
+  const vals=[paper.rules.maxPosPct, paper.rules.minCashPct, paper.rules.stopLossPct, paper.rules.liquidationPct];
+  ids.forEach((id,i)=>{
+    const el=document.getElementById(id);
+    if(el && document.activeElement!==el) el.value = vals[i];
+  });
+  const items=[];
+  if(total>0){
+    Object.entries(paper.pos).forEach(([sym,pos])=>{
+      const p = ptPrice(sym); if(p==null) return;
+      const w = Math.abs(p*pos.qty)/total*100;
+      if(w > paper.rules.maxPosPct)
+        items.push({cls:'bad', text:`${displaySymbol(sym)} 1銘柄で資産の${w.toFixed(0)}%（上限${paper.rules.maxPosPct}%を超過）。一部決済か分散を検討。`});
+      const ret = (p/pos.avg-1)*100*Math.sign(pos.qty);
+      if(ret <= -paper.rules.stopLossPct)
+        items.push({cls:'bad', text:`${displaySymbol(sym)} が${ret.toFixed(1)}%（損切りライン -${paper.rules.stopLossPct}%に抵触）。逆指値や決済判断の練習ポイントです。`});
+    });
+    const cashPct = paper.cash/total*100;
+    if(Object.keys(paper.pos).length && cashPct < paper.rules.minCashPct)
+      items.push({cls:'caution', text:`現金比率${cashPct.toFixed(0)}%（下限${paper.rules.minCashPct}%未満）。急落時の買い余力が不足気味です。`});
+    const snap = portfolioSnapshot();
+    if(Number.isFinite(snap.marginRatio) && snap.marginRatio <= paper.rules.marginWarnPct)
+      items.push({cls:snap.marginRatio<=paper.rules.liquidationPct?'bad':'caution', text:`証拠金維持率 ${snap.marginRatio.toFixed(0)}%。ロスカット水準 ${paper.rules.liquidationPct}% を意識してください。`});
+  }
+  if(!items.length) items.push({cls:'good', text:'現在の取引ルールは守れています。'});
+  ul.innerHTML = items.map(i=>`<li class="${i.cls}">${i.text}</li>`).join('');
+}
+function renderRiskMeter(snap){
+  const el = document.getElementById('ptRiskMeter');
+  if(!el) return;
+  const ratio = Number.isFinite(snap.marginRatio)? snap.marginRatio : 999;
+  const pct = Math.max(0, Math.min(100, ratio));
+  const cls = ratio<=paper.rules.liquidationPct?'danger':(ratio<=paper.rules.marginWarnPct?'warn':'');
+  el.innerHTML = `<div class="mini-grid">
+    <div class="mini-card"><div class="label">建玉総額</div><div class="value">${fmtMoney(snap.gross)}</div></div>
+    <div class="mini-card"><div class="label">証拠金維持率</div><div class="value ${cls==='danger'?'down':(cls==='warn'?'warn':'up')}">${Number.isFinite(snap.marginRatio)? snap.marginRatio.toFixed(0)+'%':'—'}</div><div class="risk-bar"><span class="${cls}" style="width:${pct}%"></span></div></div>
+    <div class="mini-card"><div class="label">デモ口座</div><div class="value">${sessionText()}</div></div>
+  </div>`;
+}
+function renderPaper(){
+  const sum = document.getElementById('ptSummary');
+  if(!sum) return;
+  const pro = paper.mode==='pro';
+  const modeSel = document.getElementById('ptMode');
+  if(modeSel && modeSel.value!==paper.mode) modeSel.value = paper.mode;
+  const sessionSel = document.getElementById('ptSessionDays');
+  if(sessionSel) sessionSel.value = String(paper.sessionDays||0);
+  const feeIn = document.getElementById('ptFee');
+  if(feeIn && document.activeElement!==feeIn) feeIn.value = paper.feeRate;
+  const slipIn = document.getElementById('ptSlip');
+  if(slipIn && document.activeElement!==slipIn) slipIn.value = paper.slippageRate;
+  const levSel = document.getElementById('ptLev');
+  if(levSel) levSel.value = String(paper.leverage||1);
+  const shortCb = document.getElementById('ptShort');
+  if(shortCb) shortCb.checked = !!paper.allowShort;
+  document.querySelectorAll('.pro-only').forEach(el=>{ el.style.display = pro? '' : 'none'; });
+  const t = document.getElementById('ptType')?.value || 'market';
+  const stopEl = document.getElementById('ptStop'), limEl = document.getElementById('ptLimit'), trEl=document.getElementById('ptTrailPct');
+  if(limEl) limEl.style.display = (pro && ['limit','stoplimit','oco','ifd','ifdoco'].includes(t))? '' : 'none';
+  if(stopEl) stopEl.style.display = (pro && ['stop','stoplimit','oco','ifd','ifdoco'].includes(t))? '' : 'none';
+  if(trEl) trEl.style.display = (pro && t==='trailing')? '' : 'none';
+
+  const snap = portfolioSnapshot();
+  let vsSpxCard = '';
+  const baseE = paper.equity.find(e=>e.spx!=null);
+  const lastE = [...paper.equity].reverse().find(e=>e.spx!=null);
+  if(pro && baseE && lastE && baseE!==lastE){
+    const myRet = (snap.total/paper.initial - 1)*100;
+    const spxRet = (lastE.spx/baseE.spx - 1)*100;
+    const diff = myRet - spxRet;
+    vsSpxCard = `<div class="scard"><div class="label">対${marketConfig().benchmarkName}</div>
+      <div class="value ${diff>=0?'up':'down'}">${diff>=0?'+':''}${diff.toFixed(1)}pt</div>
+      <div style="font-size:11px; color:var(--muted); margin-top:2px;">自分 ${myRet>=0?'+':''}${myRet.toFixed(1)}% / ${marketConfig().benchmarkShort} ${spxRet>=0?'+':''}${spxRet.toFixed(1)}%</div></div>`;
+  }
+  sum.innerHTML = `
+    <div class="scard"><div class="label">現金</div><div class="value">${fmtMoney(paper.cash)}</div></div>
+    <div class="scard"><div class="label">建玉評価額</div><div class="value">${fmtMoney(snap.stockVal)}${snap.unknown?' <span class="warn">*</span>':''}</div></div>
+    <div class="scard"><div class="label">総資産</div><div class="value">${fmtMoney(snap.total)}</div></div>
+    ${pro? `<div class="scard"><div class="label">買付余力（${snap.lev}倍）</div><div class="value">${fmtMoney(snap.buyPower)}</div></div>`:''}
+    <div class="scard"><div class="label">累計損益</div>
+      <div class="value ${snap.pl>=0?'up':'down'}">${fmtSignedMoney(snap.pl)} (${fmtPct(snap.plPct)})</div></div>`
+    + vsSpxCard;
+  renderRiskMeter(snap);
+  renderRuleCheck(snap.total);
+  renderQuote();
+  renderOrderPreview();
+
+  const otbl = document.getElementById('ptOrderTable');
+  const oempty = document.getElementById('ptOrderEmpty');
+  if(otbl){
+    otbl.style.display = (pro && paper.orders.length)? 'table' : 'none';
+    if(oempty) oempty.style.display = (pro && paper.orders.length)? 'none':'block';
+    document.getElementById('ptOrderBody').innerHTML = paper.orders.map(o=>{
+      const p = ptPrice(o.sym);
+      return `<tr>
+        <td><span class="sym">${displaySymbol(o.sym)}</span>${o.groupId?'<br><span class="sector-tag">OCO連動</span>':''}</td>
+        <td class="${o.side==='buy'?'up':'down'}">${o.side==='buy'?'買':'売'}</td>
+        <td>${orderLabel(o.type)}</td>
+        <td>${o.qty}</td><td>${o.stop!=null? fmtMoney(o.stop):'—'}</td><td>${o.limit!=null? fmtMoney(o.limit):'—'}</td>
+        <td>${o.trailPct? o.trailPct+'%':'—'}</td><td>${fmtMoney(p)}</td>
+        <td>${o.tif==='day'?'当日':'GTC'}</td>
+        <td style="font-size:11px;">${o.created}</td>
+        <td><button class="danger" onclick="cancelOrder(${o.id})">取消</button></td>
+      </tr>`;
+    }).join('');
+  }
+
+  const tbl = document.getElementById('ptTable');
+  const tb = document.getElementById('ptBody');
+  const pempty = document.getElementById('ptPositionEmpty');
+  const syms = Object.keys(paper.pos);
+  if(tbl){
+    tbl.style.display = syms.length? 'table':'none';
+    if(pempty) pempty.style.display = syms.length? 'none':'block';
+  }
+  if(tb) tb.innerHTML = syms.map(sym=>{
+    const pos = paper.pos[sym];
+    const p = ptPrice(sym);
+    const isLong = pos.qty>0;
+    const val = p!=null? p*pos.qty : null;
+    const pl2 = p!=null? (p-pos.avg)*pos.qty : null;
+    const plPct2 = p!=null? (p/pos.avg-1)*100*Math.sign(pos.qty) : null;
+    const weight = p!=null && snap.total>0? Math.abs(p*pos.qty)/snap.total*100 : null;
+    const riskCls = plPct2!=null && plPct2<=-paper.rules.stopLossPct ? 'down' : (weight!=null && weight>paper.rules.maxPosPct ? 'warn':'');
+    return `<tr>
+      <td><span class="sym">${displaySymbol(sym)}</span></td>
+      <td><span class="badge ${isLong?'buy':'sell'}">${isLong?'ロング':'ショート'}</span></td>
+      <td>${Math.abs(pos.qty)}</td><td>${fmtMoney(pos.avg)}</td><td>${fmtMoney(p)}</td><td>${fmtMoney(val)}</td>
+      <td>${pl2!=null? `<span class="${pl2>=0?'up':'down'}">${fmtSignedMoney(pl2)}</span> (${fmtPct(plPct2)})` : '—'}</td>
+      <td class="${riskCls}">${weight!=null? weight.toFixed(1)+'%':'—'}</td>
+      <td><button class="danger" onclick="closePosition('${sym}')">決済</button></td>
+    </tr>`;
+  }).join('');
+
+  const alertEl = document.getElementById('ptAlertList');
+  if(alertEl){
+    alertEl.innerHTML = (paper.alerts||[]).map(a=>`<li class="${a.fired?'good':''}">
+      ${displaySymbol(a.sym)} ${a.cond==='above'?'以上':'以下'} ${fmtMoney(a.price)} ${a.fired?`<span class="up">到達 ${a.firedAt}</span>`:''}
+      <button class="danger" onclick="cancelAlert(${a.id})" style="margin-left:8px;">削除</button>
+    </li>`).join('') || '<li>価格アラートは未設定です。</li>';
+  }
+  const evEl = document.getElementById('ptEventLog');
+  if(evEl){
+    evEl.innerHTML = (paper.events||[]).slice(0,8).map(e=>`<li class="${e.cls||''}">${e.d} ${e.text}</li>`).join('') || '<li>注文・約定・アラートのイベントがここに残ります。</li>';
+  }
+
+  const statsEl = document.getElementById('ptStats');
+  if(statsEl && pro){
+    const st = computeStats();
+    statsEl.innerHTML = `
+      <div class="scard"><div class="label">実現損益（手数料込）</div>
+        <div class="value ${paper.realized>=0?'up':'down'}">${fmtSignedMoney(paper.realized)}</div></div>
+      <div class="scard"><div class="label">勝率</div>
+        <div class="value">${st.winRate!=null? st.winRate.toFixed(0)+'%':'—'}<span style="font-size:12px; color:var(--muted);"> ${paper.wins}勝${paper.losses}敗</span></div></div>
+      <div class="scard"><div class="label">プロフィットファクター</div>
+        <div class="value">${st.pf==null?'—':(st.pf===Infinity?'∞':st.pf.toFixed(2))}</div></div>
+      <div class="scard"><div class="label">平均利益 / 平均損失</div>
+        <div class="value" style="font-size:16px;"><span class="up">${st.avgWin!=null?'+'+fmtMoney(st.avgWin):'—'}</span> / <span class="down">${st.avgLoss!=null?'-'+fmtMoney(st.avgLoss):'—'}</span></div></div>
+      <div class="scard"><div class="label">最大ドローダウン</div>
+        <div class="value down">${st.maxDD.toFixed(1)}%</div></div>
+      <div class="scard"><div class="label">シャープレシオ</div>
+        <div class="value">${st.sharpe!=null? st.sharpe.toFixed(2):'—'}</div></div>
+      <div class="scard"><div class="label">手数料合計</div>
+        <div class="value">${fmtMoney(st.fees)}</div></div>`;
+    const spTbl = document.getElementById('ptSymPl');
+    const entries = Object.entries(st.bySym).sort((a,b)=>b[1].pl-a[1].pl);
+    if(spTbl) spTbl.style.display = entries.length? 'table':'none';
+    const spBody = document.getElementById('ptSymPlBody');
+    if(spBody) spBody.innerHTML = entries.slice(0,8).map(([sym,v])=>`<tr>
+      <td><span class="sym">${displaySymbol(sym)}</span></td><td>${v.n}</td>
+      <td class="${v.pl>=0?'up':'down'}">${fmtSignedMoney(v.pl)}</td></tr>`).join('');
+  }
+
+  const eqc = document.getElementById('ptEquityChart');
+  if(eqChart){ eqChart.destroy(); eqChart=null; }
+  if(eqc && pro && paper.equity.length>=2){
+    eqChart = new Chart(eqc,{type:'line',
+      data:{labels:paper.equity.map(e=>e.d.slice(5)),
+        datasets:[
+          {label:'総資産', data:paper.equity.map(e=>e.v), borderColor:'#4da3ff',
+           backgroundColor:'rgba(77,163,255,.1)', fill:true, pointRadius:0, tension:.2},
+          {label:'初期資金', data:paper.equity.map(()=>paper.initial), borderColor:'#8a99a8',
+           borderDash:[6,4], pointRadius:0, borderWidth:1},
+          ...(baseE? [{label:`${marketConfig().benchmarkName}に同額投資した場合`,
+           data:paper.equity.map(e=>e.spx!=null? round2(paper.initial*e.spx/baseE.spx) : null),
+           borderColor:'#f5b041', borderDash:[4,3], pointRadius:0, borderWidth:1.5, spanGaps:true}] : [])]},
+      options:{responsive:true, maintainAspectRatio:false,
+        plugins:{legend:{labels:{color:'#e8edf2'}}},
+        scales:{x:{ticks:{color:'#8a99a8', maxTicksLimit:10}, grid:{color:'#2c3a47'}},
+          y:{ticks:{color:'#8a99a8', callback:v=>fmtMoney(v)}, grid:{color:'#2c3a47'}}}}});
+  }
+
+  const histEl = document.getElementById('ptHist');
+  if(histEl) histEl.innerHTML =
+    paper.hist.slice(0,20).map(h=>`<tr>
+      <td style="text-align:left;">${h.d}</td>
+      <td class="${h.side==='買'?'up':(h.side==='売'?'down':'warn')}">${h.side}</td>
+      <td>${displaySymbol(h.sym)}</td><td>${h.qty}株</td><td>${fmtMoney(h.price)}</td>
+      <td style="font-size:11px; color:var(--muted); text-align:left;">${h.note||''}${h.fee? ' / 手数料 '+fmtMoney(h.fee):''}${h.realized!=null? ` / 損益 <span class="${h.realized>=0?'up':'down'}">${fmtSignedMoney(h.realized)}</span>`:''}</td>
+    </tr>`).join('') || '<tr><td style="color:var(--muted); text-align:left;">まだ取引がありません</td></tr>';
+}
+
+// ===== 銘柄発掘スクリーナー =====
+const UNIVERSE = [
+  {sym:'AAPL', name:'Apple', sector:'情報技術', desc:'iPhone・Mac・サービス事業。世界最大級の時価総額と強固なエコシステム'},
+  {sym:'MSFT', name:'Microsoft', sector:'情報技術', desc:'Windows・Office・Azureクラウド。AI（Copilot/OpenAI提携）でも先行'},
+  {sym:'NVDA', name:'NVIDIA', sector:'情報技術', desc:'AI向けGPUで圧倒的シェア。データセンター需要が成長の柱'},
+  {sym:'AVGO', name:'Broadcom', sector:'情報技術', desc:'通信用半導体とインフラソフト。AI向けカスタムチップでも成長'},
+  {sym:'AMD',  name:'AMD', sector:'情報技術', desc:'CPU/GPUでIntel・NVIDIAを追う。データセンター向けが伸長'},
+  {sym:'CRM',  name:'Salesforce', sector:'情報技術', desc:'顧客管理(CRM)クラウド最大手。AI機能Agentforceを展開'},
+  {sym:'ORCL', name:'Oracle', sector:'情報技術', desc:'データベース大手からAIクラウドインフラへ転換中'},
+  {sym:'ADBE', name:'Adobe', sector:'情報技術', desc:'Photoshop等クリエイティブソフトのサブスク企業。生成AI Firefly展開'},
+  {sym:'NOW',  name:'ServiceNow', sector:'情報技術', desc:'企業の業務フロー自動化SaaS。高い継続成長率'},
+  {sym:'INTU', name:'Intuit', sector:'情報技術', desc:'会計ソフトQuickBooks・税務TurboTax。中小企業向けに強い'},
+  {sym:'PANW', name:'Palo Alto Networks', sector:'情報技術', desc:'サイバーセキュリティ大手。プラットフォーム統合戦略'},
+  {sym:'QCOM', name:'Qualcomm', sector:'情報技術', desc:'スマホ向け半導体大手。車載・エッジAIに多角化'},
+  {sym:'GOOGL',name:'Alphabet', sector:'通信サービス', desc:'Google検索・YouTube・クラウド。広告とAI（Gemini）が柱'},
+  {sym:'META', name:'Meta Platforms', sector:'通信サービス', desc:'Instagram・Facebook。広告効率の高さとAI投資が特徴'},
+  {sym:'NFLX', name:'Netflix', sector:'通信サービス', desc:'動画配信最大手。広告プランと値上げで収益性向上'},
+  {sym:'DIS',  name:'Disney', sector:'通信サービス', desc:'テーマパーク・映画・Disney+。コンテンツ資産が豊富'},
+  {sym:'AMZN', name:'Amazon', sector:'一般消費財', desc:'EC最大手＋クラウドAWS。広告事業も第3の柱に成長'},
+  {sym:'TSLA', name:'Tesla', sector:'一般消費財', desc:'EV大手。自動運転・ロボタクシーへの期待が株価変動要因'},
+  {sym:'HD',   name:'Home Depot', sector:'一般消費財', desc:'住宅リフォーム小売最大手。住宅市況に連動'},
+  {sym:'MCD',  name:'McDonald\'s', sector:'一般消費財', desc:'世界最大の外食チェーン。フランチャイズ中心の安定収益'},
+  {sym:'NKE',  name:'Nike', sector:'一般消費財', desc:'スポーツ用品世界最大手。ブランド力とDTC戦略'},
+  {sym:'SBUX', name:'Starbucks', sector:'一般消費財', desc:'コーヒーチェーン最大手。中国市場が成長と懸念の両面'},
+  {sym:'BKNG', name:'Booking Holdings', sector:'一般消費財', desc:'Booking.com等の旅行予約。旅行需要回復の恩恵'},
+  {sym:'UBER', name:'Uber', sector:'一般消費財', desc:'ライドシェア・フードデリバリー。黒字化後も高成長'},
+  {sym:'COST', name:'Costco', sector:'生活必需品', desc:'会員制倉庫型小売。会費収入による安定した収益構造'},
+  {sym:'WMT',  name:'Walmart', sector:'生活必需品', desc:'世界最大の小売。EC・広告事業の成長で再評価'},
+  {sym:'PG',   name:'P&G', sector:'生活必需品', desc:'パンパース・アリエール等。連続増配で知られるディフェンシブ銘柄'},
+  {sym:'KO',   name:'Coca-Cola', sector:'生活必需品', desc:'飲料世界最大手。60年以上の連続増配'},
+  {sym:'PEP',  name:'PepsiCo', sector:'生活必需品', desc:'飲料＋スナック(フリトレー)。事業分散が強み'},
+  {sym:'LLY',  name:'Eli Lilly', sector:'ヘルスケア', desc:'肥満症・糖尿病薬(ゼップバウンド等)で急成長中の製薬大手'},
+  {sym:'UNH',  name:'UnitedHealth', sector:'ヘルスケア', desc:'米最大の医療保険。ヘルスケアサービスOptumも展開'},
+  {sym:'JNJ',  name:'Johnson & Johnson', sector:'ヘルスケア', desc:'医薬品・医療機器の複合企業。60年以上連続増配'},
+  {sym:'ABBV', name:'AbbVie', sector:'ヘルスケア', desc:'免疫疾患薬が主力の製薬。高配当で知られる'},
+  {sym:'MRK',  name:'Merck', sector:'ヘルスケア', desc:'がん免疫薬キイトルーダが主力の製薬大手'},
+  {sym:'ISRG', name:'Intuitive Surgical', sector:'ヘルスケア', desc:'手術支援ロボット「ダヴィンチ」でほぼ独占'},
+  {sym:'JPM',  name:'JPMorgan Chase', sector:'金融', desc:'米最大の銀行。投資銀行・資産運用も首位級'},
+  {sym:'V',    name:'Visa', sector:'金融', desc:'決済ネットワーク最大手。高利益率のストック型ビジネス'},
+  {sym:'MA',   name:'Mastercard', sector:'金融', desc:'Visaに次ぐ決済ネットワーク。キャッシュレス化の恩恵'},
+  {sym:'BAC',  name:'Bank of America', sector:'金融', desc:'米2位の銀行。金利動向に業績が連動'},
+  {sym:'GS',   name:'Goldman Sachs', sector:'金融', desc:'投資銀行の名門。M&A・市場部門が収益源'},
+  {sym:'BRK-B',name:'Berkshire Hathaway', sector:'金融', desc:'バフェット率いる複合企業。保険＋事業＋株式投資'},
+  {sym:'XOM',  name:'ExxonMobil', sector:'エネルギー', desc:'米最大の石油メジャー。原油価格に連動'},
+  {sym:'CVX',  name:'Chevron', sector:'エネルギー', desc:'石油メジャー2位。高配当・株主還元に積極的'},
+  {sym:'CAT',  name:'Caterpillar', sector:'資本財', desc:'建設機械世界最大手。インフラ投資の恩恵'},
+  {sym:'GE',   name:'GE Aerospace', sector:'資本財', desc:'航空機エンジン大手。航空需要回復で好調'},
+  {sym:'HON',  name:'Honeywell', sector:'資本財', desc:'航空宇宙・ビル管理・産業オートメーションの複合企業'},
+  {sym:'UNP',  name:'Union Pacific', sector:'資本財', desc:'米最大級の鉄道貨物。寡占による価格決定力'},
+  {sym:'LIN',  name:'Linde', sector:'素材', desc:'産業ガス世界最大手。安定成長と水素関連の期待'},
+  {sym:'NEE',  name:'NextEra Energy', sector:'公益', desc:'再生可能エネルギー最大手の電力会社。電力需要増の恩恵'},
+  {sym:'PLD',  name:'Prologis', sector:'不動産', desc:'物流倉庫REIT最大手。EC拡大の恩恵を受ける'},
+];
+const JP_UNIVERSE = [
+  {sym:'7203.T', name:'トヨタ自動車', sector:'輸送用機器', desc:'世界最大級の自動車メーカー。ハイブリッド車、EV、為替動向の影響が大きい'},
+  {sym:'6758.T', name:'ソニーグループ', sector:'電気機器', desc:'ゲーム、音楽、映画、半導体、金融を持つ複合企業'},
+  {sym:'9984.T', name:'ソフトバンクグループ', sector:'情報・通信', desc:'AI・半導体関連投資やファンド価値の変動が株価材料になりやすい'},
+  {sym:'8306.T', name:'三菱UFJ FG', sector:'銀行', desc:'国内最大級の金融グループ。金利上昇局面で収益期待が高まりやすい'},
+  {sym:'8035.T', name:'東京エレクトロン', sector:'電気機器', desc:'半導体製造装置の大手。世界の半導体投資サイクルに敏感'},
+  {sym:'6861.T', name:'キーエンス', sector:'電気機器', desc:'工場自動化センサー大手。高収益企業として知られる'},
+  {sym:'6098.T', name:'リクルートHD', sector:'サービス', desc:'求人、人材、販促、Indeedなどを展開するサービス企業'},
+  {sym:'8058.T', name:'三菱商事', sector:'商社', desc:'資源、食品、インフラなど幅広い事業を持つ総合商社'},
+  {sym:'8001.T', name:'伊藤忠商事', sector:'商社', desc:'非資源分野に強い総合商社。生活消費関連にも広く展開'},
+  {sym:'9432.T', name:'日本電信電話', sector:'通信', desc:'国内通信最大手。安定配当銘柄としても見られやすい'},
+  {sym:'9983.T', name:'ファーストリテイリング', sector:'小売', desc:'ユニクロを展開。日経平均への寄与度が大きい大型株'},
+  {sym:'7974.T', name:'任天堂', sector:'情報・通信', desc:'ゲーム機・ソフト大手。新型機やソフト販売が材料になりやすい'},
+  {sym:'6501.T', name:'日立製作所', sector:'電気機器', desc:'IT、インフラ、エネルギーなどを展開する総合電機'},
+  {sym:'4063.T', name:'信越化学工業', sector:'化学', desc:'塩ビ、半導体シリコンウエハーで世界的に強い化学メーカー'},
+  {sym:'4519.T', name:'中外製薬', sector:'医薬品', desc:'バイオ医薬品に強い製薬会社。ロシュグループ'},
+  {sym:'4568.T', name:'第一三共', sector:'医薬品', desc:'がん領域など新薬開発への期待が大きい製薬大手'},
+  {sym:'6367.T', name:'ダイキン工業', sector:'機械', desc:'空調機器の世界大手。海外売上比率が高い'},
+  {sym:'6954.T', name:'ファナック', sector:'機械', desc:'産業用ロボット・FA機器大手。設備投資サイクルに連動しやすい'},
+  {sym:'6902.T', name:'デンソー', sector:'輸送用機器', desc:'自動車部品大手。電動化・車載半導体がテーマ'},
+  {sym:'7267.T', name:'ホンダ', sector:'輸送用機器', desc:'自動車・二輪大手。北米販売や為替の影響が大きい'},
+  {sym:'8316.T', name:'三井住友FG', sector:'銀行', desc:'メガバンクの一角。金利や景気見通しの影響を受けやすい'},
+  {sym:'8411.T', name:'みずほFG', sector:'銀行', desc:'メガバンクの一角。国内金利動向が注目される'},
+  {sym:'8766.T', name:'東京海上HD', sector:'金融', desc:'損害保険大手。海外保険事業も展開'},
+  {sym:'4502.T', name:'武田薬品工業', sector:'医薬品', desc:'国内最大級の製薬企業。グローバル医薬品事業を展開'},
+  {sym:'4503.T', name:'アステラス製薬', sector:'医薬品', desc:'泌尿器、がん領域などを持つ製薬大手'},
+  {sym:'4661.T', name:'オリエンタルランド', sector:'サービス', desc:'東京ディズニーリゾート運営。訪日需要や消費動向が材料'},
+  {sym:'2914.T', name:'日本たばこ産業', sector:'食品', desc:'たばこ、医薬、食品を展開。高配当銘柄として見られやすい'},
+  {sym:'3382.T', name:'セブン&アイHD', sector:'小売', desc:'コンビニ、スーパー等を展開。構造改革が材料になりやすい'},
+  {sym:'9843.T', name:'ニトリHD', sector:'小売', desc:'家具・インテリア大手。円高・円安の影響も受けやすい'},
+  {sym:'4452.T', name:'花王', sector:'化学', desc:'日用品・化粧品大手。原材料価格や消費動向に左右される'},
+  {sym:'4911.T', name:'資生堂', sector:'化学', desc:'化粧品大手。中国・訪日需要の影響が大きい'},
+  {sym:'6594.T', name:'ニデック', sector:'電気機器', desc:'精密モーター大手。EV・省エネ関連テーマ'},
+  {sym:'6981.T', name:'村田製作所', sector:'電気機器', desc:'電子部品大手。スマホ・自動車向け需要に連動'},
+  {sym:'7741.T', name:'HOYA', sector:'電気機器', desc:'半導体マスクブランクス、メガネレンズ、医療関連を展開'},
+  {sym:'7751.T', name:'キヤノン', sector:'電気機器', desc:'カメラ、プリンタ、医療機器などを展開'},
+  {sym:'6702.T', name:'富士通', sector:'情報・通信', desc:'ITサービス大手。DX需要や公共案件が材料'},
+  {sym:'6752.T', name:'パナソニックHD', sector:'電気機器', desc:'家電、車載電池、住宅設備などを展開'},
+  {sym:'7011.T', name:'三菱重工業', sector:'機械', desc:'防衛、航空宇宙、発電設備など。政策テーマで注目されやすい'},
+  {sym:'6301.T', name:'コマツ', sector:'機械', desc:'建設機械大手。資源価格や中国・米国景気に敏感'},
+  {sym:'8002.T', name:'丸紅', sector:'商社', desc:'電力、食品、資源など幅広く展開する総合商社'},
+  {sym:'8031.T', name:'三井物産', sector:'商社', desc:'資源に強い総合商社。商品市況の影響が大きい'},
+  {sym:'8801.T', name:'三井不動産', sector:'不動産', desc:'総合不動産大手。都心再開発、金利動向が材料'},
+  {sym:'8802.T', name:'三菱地所', sector:'不動産', desc:'丸の内を中心に不動産事業を展開。金利敏感株'},
+  {sym:'9433.T', name:'KDDI', sector:'通信', desc:'通信大手。安定収益と株主還元が注目されやすい'},
+  {sym:'9434.T', name:'ソフトバンク', sector:'通信', desc:'国内通信・法人向け事業を展開。高配当銘柄としても注目'},
+  {sym:'9613.T', name:'NTTデータグループ', sector:'情報・通信', desc:'ITサービス大手。公共・金融・グローバル案件を持つ'},
+  {sym:'5401.T', name:'日本製鉄', sector:'素材', desc:'鉄鋼最大手。鋼材市況や景気サイクルに連動'},
+  {sym:'5108.T', name:'ブリヂストン', sector:'化学', desc:'タイヤ世界大手。自動車生産や原材料価格の影響が大きい'},
+  {sym:'9020.T', name:'JR東日本', sector:'サービス', desc:'鉄道大手。人流、観光、駅ナカ消費が材料'},
+  {sym:'9022.T', name:'JR東海', sector:'サービス', desc:'東海道新幹線が主力。出張・観光需要に左右される'},
+];
+let screenData = {}; // sym -> chart data (キャッシュ)
+let lastScreenerTargets = [];
+let selectedScreenerSym = null;
+
+function activeUniverse(){ return currentMarket==='jp'? JP_UNIVERSE : UNIVERSE; }
+function fillSelectOptions(sel, values, includeAll=false){
+  if(!sel) return;
+  sel.innerHTML = includeAll ? '<option value="">全セクター</option>' : '';
+  values.forEach(sec=>{
+    const o=document.createElement('option'); o.value=sec; o.textContent=sec; sel.appendChild(o);
+  });
+}
+function updateMarketUI(){
+  const cfg = marketConfig();
+  document.title = cfg.title;
+  const h1 = document.getElementById('pageTitle');
+  if(h1) h1.textContent = '📈 ' + cfg.title;
+  const sub = document.getElementById('pageSub');
+  if(sub) sub.innerHTML = `${cfg.subtitle}　<span id="lastUpdate"></span>`;
+  const marketSel = document.getElementById('marketMode');
+  if(marketSel) marketSel.value = currentMarket;
+  const beginnerCb = document.getElementById('beginnerMode');
+  if(beginnerCb) beginnerCb.checked = beginnerMode;
+  document.body.classList.toggle('beginner-mode', beginnerMode);
+  updateModeControls();
+  const inSym = document.getElementById('inSym');
+  if(inSym) inSym.placeholder = cfg.inputPlaceholder;
+  const inCost = document.getElementById('inCost');
+  if(inCost) inCost.placeholder = currentMarket==='jp' ? '取得単価 (任意)' : '取得単価$ (任意)';
+  const priceLabel = currentMarket==='jp' ? '価格' : '価格$';
+  const ptLimit = document.getElementById('ptLimit');
+  if(ptLimit) ptLimit.placeholder = `指値 / 利確${currentMarket==='jp'?'':'$'}`;
+  const ptStop = document.getElementById('ptStop');
+  if(ptStop) ptStop.placeholder = `逆指値 / 損切り${currentMarket==='jp'?'':'$'}`;
+  const cashAdjust = document.getElementById('ptCashAdjust');
+  if(cashAdjust) cashAdjust.placeholder = currentMarket==='jp' ? 'デモ入出金' : 'デモ入出金$';
+  const alertPrice = document.getElementById('ptAlertPrice');
+  if(alertPrice) alertPrice.placeholder = priceLabel;
+  const addHelp = document.getElementById('addHelp');
+  if(addHelp) addHelp.textContent = cfg.addHelp;
+  const marketBadge = document.getElementById('marketBadge');
+  if(marketBadge) marketBadge.textContent = `${cfg.marketLabel}: 更新待ち`;
+  updateDataSourceUI();
+  const vsHeader = document.getElementById('vsHeader');
+  if(vsHeader) vsHeader.textContent = `vs ${cfg.benchmarkName}(3M)`;
+  const screenVs = document.getElementById('screenVsHeader');
+  if(screenVs) screenVs.textContent = `vs ${cfg.benchmarkName}`;
+  const screenerTitle = document.getElementById('screenerTitle');
+  if(screenerTitle) screenerTitle.textContent = cfg.screenerTitle;
+  const longHelp = document.getElementById('longHelp');
+  if(longHelp) longHelp.textContent = `登録銘柄＋${cfg.benchmarkName}の全履歴（取得できる限り、最大数十年分）をブラウザ内に保存します。一度取得すれば次回以降も保持され、再実行で最新分まで更新されます。`;
+  fillSelectOptions(document.getElementById('inSector'), cfg.sectors, false);
+  fillSelectOptions(document.getElementById('scanSector'), [...new Set(activeUniverse().map(u=>u.sector))], true);
+}
+
+async function runScreener(){
+  const secFilter = document.getElementById('scanSector').value;
+  const targets = activeUniverse().filter(u=>!secFilter || u.sector===secFilter);
+  lastScreenerTargets = targets;
+  const st = document.getElementById('scanStatus');
+  let done=0;
+  for(const u of targets){
+    if(!screenData[u.sym]){
+      st.textContent = `取得中 ${++done}/${targets.length} (${u.sym})`;
+      try{ screenData[u.sym] = await fetchChart(u.sym); }
+      catch(e){ console.warn('screener fail', u.sym, e); }
+      await new Promise(r=>setTimeout(r,200));
+    } else { done++; }
+  }
+  st.textContent = '';
+  updateSourceBadge();
+  renderScreener(targets);
+}
+function rerenderScreener(){
+  const targets = lastScreenerTargets.length ? lastScreenerTargets : activeUniverse().filter(u=>{
+    const f=document.getElementById('scanSector')?.value || '';
+    return !f || u.sector===f;
+  });
+  renderScreener(targets);
+}
+function pctTextPlain(v, digits=1){
+  if(v==null || !Number.isFinite(v)) return '—';
+  return `${v>0?'+':''}${v.toFixed(digits)}%`;
+}
+function metricTone(v, good=0, bad=0){
+  if(v==null || !Number.isFinite(v)) return '';
+  if(v>=good) return 'up';
+  if(v<=bad) return 'down';
+  return '';
+}
+function screenerJudgement(r){
+  if((r.score??-999)>=10 && (r.exp30??-999)>0) return {cls:'good', text:'優先監視候補'};
+  if((r.score??-999)>=3) return {cls:'good', text:'候補'};
+  if((r.score??-999)>=0) return {cls:'caution', text:'様子見候補'};
+  return {cls:'bad', text:'慎重に確認'};
+}
+function screenerRationales(r){
+  const items = [];
+  if((r.m3??0) > 10) items.push({cls:'good', text:`3ヶ月リターンが${pctTextPlain(r.m3)}で、中期モメンタムが強いです。`});
+  else if((r.m3??0) < -10) items.push({cls:'bad', text:`3ヶ月リターンが${pctTextPlain(r.m3)}で、中期トレンドは弱めです。`});
+  else if(r.m3!=null) items.push({cls:'caution', text:`3ヶ月リターンは${pctTextPlain(r.m3)}で、強いトレンドというより様子見寄りです。`});
+
+  if((r.vsSpx??0) > 5) items.push({cls:'good', text:`直近3ヶ月で${marketConfig().benchmarkName}を${r.vsSpx.toFixed(1)}pt上回っています。市場平均より強い動きです。`});
+  else if((r.vsSpx??0) < -5) items.push({cls:'bad', text:`直近3ヶ月で${marketConfig().benchmarkName}を${Math.abs(r.vsSpx).toFixed(1)}pt下回っています。市場平均に負けている点は注意です。`});
+
+  if((r.exp30??0) > 3) items.push({cls:'good', text:`過去60営業日のトレンド延長では30日先が${pctTextPlain(r.exp30)}です。短期の上昇期待が残っています。`});
+  else if((r.exp30??0) < -3) items.push({cls:'bad', text:`予想30日は${pctTextPlain(r.exp30)}で、短期トレンドは下向きです。すぐ買うより監視向きです。`});
+  else if(r.exp30!=null) items.push({cls:'caution', text:`予想30日は${pctTextPlain(r.exp30)}で、方向感はまだ強くありません。`});
+
+  if(r.smaDev!=null && r.smaDev > 5) items.push({cls:'good', text:`株価は50日線を${pctTextPlain(r.smaDev)}上回り、中期の流れは上向きです。`});
+  else if(r.smaDev!=null && r.smaDev < -5) items.push({cls:'bad', text:`株価は50日線を${pctTextPlain(r.smaDev)}下回り、戻り待ちの状態です。`});
+
+  if((r.rsi??0) >= 70) items.push({cls:'caution', text:`RSIが${r.rsi.toFixed(0)}で買われすぎ圏です。良い銘柄でも短期の反落には注意します。`});
+  else if((r.rsi??0) <= 30) items.push({cls:'caution', text:`RSIが${r.rsi.toFixed(0)}で売られすぎ圏です。反発狙いか、下落継続かをニュースで確認します。`});
+  else if(r.rsi!=null) items.push({cls:'good', text:`RSIは${r.rsi.toFixed(0)}で、過熱しすぎではありません。`});
+
+  items.push({cls:'', text:`総合スコアは、1週・1ヶ月・3ヶ月リターン、50日線乖離、RSI過熱ペナルティを合成した機械的な順位です。`});
+  items.push({cls:'caution', text:'次に見るべき根拠: 決算日、業績見通し、直近ニュース、出来高急増、金利・為替など外部要因。テクニカルだけでは売買判断を完結させません。'});
+  return items;
+}
+function showScreenerDetail(sym){
+  selectedScreenerSym = sym;
+  const el = document.getElementById('screenDetail');
+  if(!el) return;
+  const r = lastScreenerRows.find(x=>x.sym===sym);
+  if(!r){
+    el.style.display = 'none';
+    el.innerHTML = '';
+    return;
+  }
+  const j = screenerJudgement(r);
+  const inList = stocks.some(s=>s.sym===r.sym);
+  const addBtn = inList ? '<span class="sector-tag">ウォッチリスト登録済</span>' : `<button onclick="addFromScreener('${r.sym}','${r.sector}')">＋ウォッチリストに追加</button>`;
+  el.innerHTML = `
+    <div class="row" style="justify-content:space-between; align-items:flex-start;">
+      <div>
+        <h3>${displaySymbol(r.sym)} ${r.name || ''} <span class="badge ${j.cls==='good'?'buy':(j.cls==='bad'?'sell':'neutral')}">${j.text}</span></h3>
+        <p class="sub" style="margin:0;">${r.sector || 'その他'} / ${r.desc || ''}</p>
+      </div>
+      <div class="row">
+        ${addBtn}
+        <button onclick="hideScreenerDetail()">閉じる</button>
+      </div>
+    </div>
+    <div class="screen-detail-grid">
+      <div class="screen-detail-metric"><div class="label">株価</div><div class="value">${fmtMoney(r.price)}</div></div>
+      <div class="screen-detail-metric"><div class="label">1ヶ月</div><div class="value ${metricTone(r.m1,0,0)}">${pctTextPlain(r.m1)}</div></div>
+      <div class="screen-detail-metric"><div class="label">3ヶ月</div><div class="value ${metricTone(r.m3,0,0)}">${pctTextPlain(r.m3)}</div></div>
+      <div class="screen-detail-metric"><div class="label">vs ${marketConfig().benchmarkShort}</div><div class="value ${metricTone(r.vsSpx,0,0)}">${pctTextPlain(r.vsSpx)}</div></div>
+      <div class="screen-detail-metric"><div class="label">予想30日</div><div class="value ${metricTone(r.exp30,0,0)}">${pctTextPlain(r.exp30)}</div></div>
+      <div class="screen-detail-metric"><div class="label">50日線乖離</div><div class="value ${metricTone(r.smaDev,0,0)}">${pctTextPlain(r.smaDev)}</div></div>
+      <div class="screen-detail-metric"><div class="label">RSI</div><div class="value ${r.rsi>=70?'warn':(r.rsi<=30?'warn':'')}">${r.rsi!=null?r.rsi.toFixed(0):'—'}</div></div>
+      <div class="screen-detail-metric"><div class="label">総合スコア</div><div class="value ${metricTone(r.score,0,0)}">${r.score!=null?r.score.toFixed(1):'—'}</div></div>
+    </div>
+    <h3 style="margin-top:10px;">根拠</h3>
+    <ul class="rationale-list">
+      ${screenerRationales(r).map(i=>`<li class="${i.cls}">${i.text}</li>`).join('')}
+    </ul>`;
+  el.style.display = 'block';
+  el.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+function hideScreenerDetail(){
+  selectedScreenerSym = null;
+  const el = document.getElementById('screenDetail');
+  if(el){ el.style.display = 'none'; el.innerHTML = ''; }
+}
+
+function renderScreener(targets){
+  const rows=[];
+  targets.forEach(u=>{
+    const d = screenData[u.sym];
+    if(!d) return;
+    const closes = d.closes;
+    const m = {price:closes.at(-1), w1:pctChange(closes,5), m1:pctChange(closes,21),
+      m3:pctChange(closes,63), sma50:sma(closes,50), rsi:rsi(closes)};
+    const fc = forecast(closes);
+    const smaDev = (m.sma50!=null && m.price!=null) ? (m.price/m.sma50-1)*100 : null;
+    rows.push({...u, price:m.price, w1:m.w1, m1:m.m1, m3:m.m3, sma50:m.sma50, smaDev,
+      vsSpx:(m.m3!=null && spxData)? m.m3-(pctChange(spxData.closes,63)??0):null,
+      exp30:fc?fc.exp30:null, rsi:m.rsi, score:momentumScore(m)});
+  });
+  const minScoreRaw = document.getElementById('scanMinScore')?.value;
+  const minScore = minScoreRaw==='' ? null : parseFloat(minScoreRaw);
+  const positiveOnly = !!document.getElementById('scanPositiveOnly')?.checked;
+  let filtered = rows.filter(r=>{
+    if(Number.isFinite(minScore) && (r.score??-999) < minScore) return false;
+    if(positiveOnly && (r.exp30??-999) <= 0) return false;
+    return true;
+  });
+  const sort = document.getElementById('scanSort')?.value || 'score';
+  filtered.sort((a,b)=>{
+    if(sort==='exp30') return (b.exp30??-999)-(a.exp30??-999);
+    if(sort==='m3') return (b.m3??-999)-(a.m3??-999);
+    if(sort==='rsiLow') return (a.rsi??999)-(b.rsi??999);
+    return (b.score??-999)-(a.score??-999);
+  });
+  lastScreenerRows = filtered;
+  lastScreenerMeta = {
+    market: currentMarket,
+    sector: document.getElementById('scanSector')?.value || '',
+    count: filtered.length,
+  };
+  const tbl = document.getElementById('screenTable');
+  const tb = document.getElementById('screenBody');
+  tbl.style.display = filtered.length? 'table':'none';
+  tb.innerHTML = filtered.map((r,i)=>{
+    const inList = stocks.some(s=>s.sym===r.sym);
+    return `<tr>
+      <td>${i+1}</td>
+      <td><span class="sym">${displaySymbol(r.sym)}</span><br><span class="sector-tag">${r.name} / ${r.sector}</span></td>
+      <td style="text-align:left; white-space:normal; max-width:320px; font-size:12px; color:var(--muted);">${r.desc}</td>
+      <td>${fmtMoney(r.price)}</td><td>${fmtPct(r.m1)}</td><td>${fmtPct(r.m3)}</td>
+      <td>${fmtPct(r.vsSpx)}</td><td>${fmtPct(r.exp30)}</td>
+      <td>${r.rsi!=null? r.rsi.toFixed(0):'—'}</td>
+      <td><b>${r.score!=null? r.score.toFixed(1):'—'}</b></td>
+      <td><div class="row" style="justify-content:flex-end;">
+        <button onclick="showScreenerDetail('${r.sym}')">詳細</button>
+        ${inList? '<span class="sector-tag">登録済</span>'
+          : `<button onclick="addFromScreener('${r.sym}','${r.sector}')">＋追加</button>`}
+      </div></td>
+    </tr>`;
+  }).join('');
+  if(selectedScreenerSym && filtered.some(r=>r.sym===selectedScreenerSym)) showScreenerDetail(selectedScreenerSym);
+  else if(selectedScreenerSym) hideScreenerDetail();
+  renderPicks();
+}
+
+function addFromScreener(sym, sector){
+  if(stocks.some(s=>s.sym===sym)) return;
+  stocks.push({sym, sector, shares:null, cost:null});
+  if(screenData[sym]) marketData[sym] = screenData[sym];
+  saveStocks();
+  renderAll();
+  rerenderScreener();
+  if(selectedScreenerSym===sym) showScreenerDetail(sym);
+}
+
+// ===== 売り時チェック =====
+function renderSellCheck(){
+  const tbl = document.getElementById('sellTable');
+  const tb = document.getElementById('sellBody');
+  const ul = document.getElementById('sellList');
+  const held = stocks.filter(s=>s.shares && s.cost && marketData[s.sym]);
+  if(!held.length){
+    tbl.style.display='none';
+    ul.innerHTML = '<li>保有株が未登録です。銘柄追加フォームで株数と取得単価を入力すると、利確・損切りタイミングのシグナルがここに表示されます。</li>';
+    return;
+  }
+  const items=[];
+  tb.innerHTML = held.map(s=>{
+    const d = marketData[s.sym];
+    const m = rowMetrics(s);
+    const peak = Math.max(...d.closes);
+    const fromPeak = (m.price/peak-1)*100;
+    const smaDev = m.sma50!=null? (m.price/m.sma50-1)*100 : null;
+    // シグナル集計
+    let warn=0, notes=[];
+    if(fromPeak<=-10){ warn+=2; notes.push('高値から'+fromPeak.toFixed(1)+'%下落（トレーリングストップ抵触）'); }
+    else if(fromPeak<=-7){ warn+=1; notes.push('高値から'+fromPeak.toFixed(1)+'%下落'); }
+    if(m.rsi!=null && m.rsi>=70 && m.plPct>=20){ warn+=1; notes.push('RSI過熱＋含み益→一部利確の検討余地'); }
+    if(smaDev!=null && smaDev<0){ warn+=1; notes.push('50日線割れ（中期トレンド悪化）'); }
+    if(m.plPct<=-15){ warn+=2; notes.push('含み損'+m.plPct.toFixed(1)+'%→損切りルールの確認を'); }
+    let verdict, vClass;
+    if(warn>=3){ verdict='⚠ 売り検討'; vClass='down'; }
+    else if(warn>=1){ verdict='△ 警戒'; vClass='warn'; }
+    else { verdict='○ ホールド'; vClass='up'; }
+    if(notes.length) items.push({cls: warn>=3?'bad':'caution', text:`【${displaySymbol(s.sym)}】${notes.join('。')}。`});
+    else items.push({cls:'good', text:`【${displaySymbol(s.sym)}】売りシグナルなし。トレンド良好です。`});
+    return `<tr>
+      <td><span class="sym">${displaySymbol(s.sym)}</span></td>
+      <td>${fmtPct(m.plPct)}</td>
+      <td>${fmtPct(fromPeak)}</td>
+      <td>${m.rsi!=null? m.rsi.toFixed(0):'—'}</td>
+      <td>${smaDev!=null? fmtPct(smaDev):'—'}</td>
+      <td class="${vClass}"><b>${verdict}</b></td>
+    </tr>`;
+  }).join('');
+  tbl.style.display='table';
+  ul.innerHTML = items.map(i=>`<li class="${i.cls}">${i.text}</li>`).join('');
+}
+
+// ===== 長期データ（週足・上場以来） =====
+const LD_KEY = 'us_stock_longdata_v1';
+let longData = (function(){
+  try{ const r = localStorage.getItem(LD_KEY); if(r) return JSON.parse(r); }catch(e){}
+  return {}; // sym -> {ts:[日数], c:[終値]}
+})();
+let longPeriodYears = 0; // 0=最大
+
+async function fetchLongChart(sym){
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=max&interval=1wk`;
+  const j = await fetchJson(url);
+  const res = j.chart && j.chart.result && j.chart.result[0];
+  if(!res) throw new Error('データなし: '+sym);
+  const tsRaw = res.timestamp || [];
+  const cRaw = res.indicators.quote[0].close || [];
+  const ts=[], c=[];
+  for(let i=0;i<tsRaw.length;i++){
+    if(cRaw[i]!=null){ ts.push(Math.round(tsRaw[i]/86400)); c.push(Math.round(cRaw[i]*100)/100); }
+  }
+  if(c.length<30) throw new Error('データ不足: '+sym);
+  return {ts, c, updated:Date.now()};
+}
+
+async function buildLongData(){
+  const st = document.getElementById('longStatus');
+  const targets = [marketConfig().benchmark, ...stocks.map(s=>s.sym)];
+  let done=0, fail=[];
+  for(const sym of targets){
+    st.textContent = `取得中 ${++done}/${targets.length} (${sym})`;
+    try{ longData[sym] = await fetchLongChart(sym); }
+    catch(e){ fail.push(sym); }
+    await new Promise(r=>setTimeout(r,250));
+  }
+  try{ localStorage.setItem(LD_KEY, JSON.stringify(longData)); }
+  catch(e){
+    st.textContent = '⚠ 保存容量超過。古い銘柄のデータを整理してください。';
+    return;
+  }
+  st.textContent = fail.length? '⚠ 取得失敗: '+fail.join(', ') : '✅ 蓄積完了（次回以降も保持されます）';
+  renderLongChart(); renderLongStats();
+}
+
+function setLongPeriod(y){ longPeriodYears=y; renderLongChart(); }
+
+function longSlice(sym){
+  const d = longData[sym];
+  if(!d) return null;
+  if(!longPeriodYears) return d;
+  const minTs = d.ts[d.ts.length-1] - longPeriodYears*365;
+  const i0 = d.ts.findIndex(t=>t>=minTs);
+  if(i0<0) return d;
+  return {ts:d.ts.slice(i0), c:d.c.slice(i0)};
+}
+
+let longChart=null;
+function renderLongChart(){
+  const ctx = document.getElementById('longChart');
+  const colors = ['#4da3ff','#2ecc71','#f5b041','#e74c8b','#9b59b6','#1abc9c','#e67e22','#5dade2','#58d68d','#f1948a'];
+  const useLog = document.getElementById('longLog')?.checked;
+  const syms = stocks.map(s=>s.sym).filter(s=>longData[s]);
+  if(longChart) longChart.destroy();
+  const benchmark = marketConfig().benchmark;
+  if(!syms.length && !longData[benchmark]) return;
+
+  // 基準: 最長系列のタイムスタンプ
+  let refTs=null;
+  [benchmark, ...syms].forEach(s=>{
+    const d = longSlice(s);
+    if(d && (!refTs || d.ts.length>refTs.length)) refTs = d.ts;
+  });
+  const labels = refTs.map(t=>{
+    const dt = new Date(t*86400000);
+    return `${dt.getFullYear()}/${dt.getMonth()+1}`;
+  });
+  const tsIndex = new Map(refTs.map((t,i)=>[t,i]));
+  const datasets=[];
+  const addLong = (name, d, color, dashed)=>{
+    if(!d || !d.c.length) return;
+    const base = d.c[0];
+    const arr = new Array(refTs.length).fill(null);
+    d.ts.forEach((t,i)=>{
+      // 週足のずれを±3日で吸収
+      let idx = tsIndex.get(t);
+      if(idx===undefined){ for(let off=1; off<=3 && idx===undefined; off++){ idx = tsIndex.get(t-off) ?? tsIndex.get(t+off); } }
+      if(idx!==undefined) arr[idx] = useLog ? d.c[i]/base*100 : (d.c[i]/base-1)*100;
+    });
+    datasets.push({label:name, data:arr, borderColor:color, borderWidth:dashed?1.5:2,
+      borderDash:dashed?[6,4]:[], pointRadius:0, tension:.1, spanGaps:true});
+  };
+  syms.forEach((s,i)=>addLong(s, longSlice(s), colors[i%colors.length], false));
+  addLong(marketConfig().benchmarkName, longSlice(benchmark), '#8a99a8', true);
+  if(!datasets.length) return;
+  longChart = new Chart(ctx,{type:'line',
+    data:{labels, datasets},
+    options:{responsive:true, maintainAspectRatio:false,
+      interaction:{mode:'index', intersect:false},
+      plugins:{legend:{labels:{color:'#e8edf2'}},
+        tooltip:{callbacks:{label:c=> useLog
+          ? `${c.dataset.label}: ${c.parsed.y?.toFixed(0)} (起点=100)`
+          : `${c.dataset.label}: ${c.parsed.y>=0?'+':''}${c.parsed.y?.toFixed(1)}%`}}},
+      scales:{x:{ticks:{color:'#8a99a8', maxTicksLimit:12}, grid:{color:'#2c3a47'}},
+        y:{type: useLog?'logarithmic':'linear',
+           ticks:{color:'#8a99a8', callback:v=> useLog? v : v+'%'}, grid:{color:'#2c3a47'}}}}});
+}
+
+function renderLongStats(){
+  const tbl = document.getElementById('longTable');
+  const tb = document.getElementById('longBody');
+  const benchmark = marketConfig().benchmark;
+  const syms = [benchmark, ...stocks.map(s=>s.sym)].filter(s=>longData[s]);
+  if(!syms.length){ tbl.style.display='none'; return; }
+  tb.innerHTML = syms.map(sym=>{
+    const d = longData[sym];
+    const years = (d.ts.at(-1)-d.ts[0])/365;
+    const cagr = (Math.pow(d.c.at(-1)/d.c[0], 1/years)-1)*100;
+    // 週次リターンの年率ボラ
+    const rets=[]; for(let i=1;i<d.c.length;i++) rets.push(Math.log(d.c[i]/d.c[i-1]));
+    const mu=rets.reduce((s,r)=>s+r,0)/rets.length;
+    let v=0; rets.forEach(r=>v+=(r-mu)*(r-mu));
+    const vol = Math.sqrt(v/(rets.length-1))*Math.sqrt(52)*100;
+    // 最大ドローダウン
+    let peak=d.c[0], maxDD=0;
+    d.c.forEach(p=>{ if(p>peak) peak=p; const dd=(p/peak-1)*100; if(dd<maxDD) maxDD=dd; });
+    // 直近1年
+    const oneYTs = d.ts.at(-1)-365;
+    const i1 = d.ts.findIndex(t=>t>=oneYTs);
+    const y1 = i1>=0? (d.c.at(-1)/d.c[i1]-1)*100 : null;
+    const from = new Date(d.ts[0]*86400000);
+    return `<tr>
+      <td><span class="sym">${sym===benchmark?marketConfig().benchmarkName:displaySymbol(sym)}</span></td>
+      <td>${from.getFullYear()}年〜 (${years.toFixed(0)}年分)</td>
+      <td>${fmtPct(cagr)}</td>
+      <td>${vol.toFixed(0)}%</td>
+      <td><span class="down">${maxDD.toFixed(0)}%</span></td>
+      <td>${fmtPct(y1)}</td>
+    </tr>`;
+  }).join('');
+  tbl.style.display='table';
+}
+
+// 初期表示
+updateMarketUI();
+initDashboardCustomization();
+renderAll();
+(function(){
+  const sel = document.getElementById('autoRefresh');
+  if(sel){
+    const saved = parseInt(localStorage.getItem('us_stock_autorefresh')||'0') || 0;
+    sel.value = String([0,60,300,900].includes(saved)? saved : 0);
+  }
+  setAutoRefresh();
+  // 画面モード復元
+  try{ if(localStorage.getItem('us_stock_view')==='trade') document.body.classList.add('trade-mode'); }catch(e){}
+  updateViewBtn();
+})();
+window.addEventListener('load', ()=>{
+  refreshAll();
+  if(Object.keys(longData).length){ renderLongChart(); renderLongStats(); }
+});
+</script>
+</body>
+</html>

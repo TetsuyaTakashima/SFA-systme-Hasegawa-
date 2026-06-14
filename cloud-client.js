@@ -2,6 +2,7 @@
   const config = window.CRM_SUPABASE_CONFIG || {};
   const apiKey = config.anonKey || config.publishableKey || config.key || "";
   const enabled = Boolean(config.url && apiKey);
+  const venueUpsertBatchSize = 500;
   const client = !enabled
     ? null
     : window.supabase?.createClient
@@ -225,8 +226,11 @@
   async function upsertVenues(venues, currentUserId) {
     const rows = (Array.isArray(venues) ? venues : [venues]).filter(Boolean).map((venue) => venueToRow(venue, currentUserId));
     if (!client || !rows.length) return;
-    const { error } = await client.from("venues").upsert(rows, { onConflict: "id" });
-    if (error) throw error;
+    for (let index = 0; index < rows.length; index += venueUpsertBatchSize) {
+      const batch = rows.slice(index, index + venueUpsertBatchSize);
+      const { error } = await client.from("venues").upsert(batch, { onConflict: "id" });
+      if (error) throw error;
+    }
   }
 
   async function deleteVenue(id) {

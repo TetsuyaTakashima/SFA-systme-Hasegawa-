@@ -859,6 +859,10 @@ h2 {
   font-size: 0.9rem;
 }
 
+.import-note {
+  grid-column: 1 / -1;
+}
+
 .file-drop {
   min-height: 40px;
   display: inline-flex;
