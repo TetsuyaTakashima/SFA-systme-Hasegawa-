@@ -3120,6 +3120,30 @@ function portfolioSnapshot(){
   return {stockVal, unknown, total, gross, lev, buyPower, marginRatio,
     pl: total-paper.initial, plPct: paper.initial? (total/paper.initial-1)*100 : 0};
 }
+function projectedOrderSettlement(sym, side, qty, fill, fee, snap=portfolioSnapshot()){
+  if(!sym || !Number.isFinite(qty) || qty<=0 || fill==null) return null;
+  const notional = fill * qty;
+  const finalFee = Number.isFinite(fee) ? fee : ptFee(notional);
+  const cashDelta = side === 'buy' ? -(notional + finalFee) : (notional - finalFee);
+  const cashAfter = paper.cash + cashDelta;
+  const deltaQty = side === 'buy' ? qty : -qty;
+  const currentPos = Object.assign({qty:0, avg:0}, paper.pos[sym] || {});
+  const projectedQty = currentPos.qty + deltaQty;
+  let grossAfter = 0;
+  const allSyms = new Set([...Object.keys(paper.pos || {}), sym]);
+  allSyms.forEach(s=>{
+    const q = s === sym ? projectedQty : (paper.pos[s]?.qty || 0);
+    const p = s === sym ? fill : ptPrice(s);
+    if(p!=null) grossAfter += Math.abs(q) * p;
+  });
+  const totalAfter = snap.total - finalFee;
+  const lev = paper.mode === 'pro' ? (paper.leverage || 1) : 1;
+  const buyPowerAfter = Math.max(0, totalAfter * lev - grossAfter);
+  const cashPctAfter = totalAfter > 0 ? cashAfter / totalAfter * 100 : null;
+  return {notional, fee:finalFee, cashDelta, cashAfter, totalAfter, grossAfter,
+    buyPowerAfter, cashPctAfter, settlement:Math.abs(cashDelta),
+    label:side === 'buy' ? '支払予定' : '受取予定'};
+}
 function stressSnapshot(pct, onlySym=null){
   const snap = portfolioSnapshot();
   let delta = 0, grossAfter = 0, missing = [];
@@ -3737,9 +3761,10 @@ function currentOrderDraft(){
   const fee = notional!=null ? ptFee(notional) : null;
   const snap = portfolioSnapshot();
   const weight = (notional!=null && snap.total>0) ? notional/snap.total*100 : null;
+  const settlement = projectedOrderSettlement(sym, side, qty, fill, fee, snap);
   const qtyRule = tradeQtyRule();
   const qtyCheck = hasQty ? validateTradeQuantity(sym, qty, side) : {ok:false, cls:'caution', rule:qtyRule, message:`${qtyRule.label}: ${qtyRule.detail}（例: ${qtyRule.example}）`};
-  return {side, sym, qty, hasQty, pro, type, limit, stop, trailPct, note, price, fill, notional, fee, weight, snap, cacheFallback:!!chart?.cacheFallback, qtyRule, qtyCheck};
+  return {side, sym, qty, hasQty, pro, type, limit, stop, trailPct, note, price, fill, notional, fee, settlement, weight, snap, cacheFallback:!!chart?.cacheFallback, qtyRule, qtyCheck};
 }
 function preflightCard(title, cls, text){
   return `<div class="preflight-item ${cls}"><b>${title}</b>${text}</div>`;
@@ -3759,6 +3784,18 @@ function renderOrderPreflight(draft=currentOrderDraft()){
     items.push(preflightCard('数量・金額', 'bad', '株数が未入力です。価格や候補情報は表示しますが、注文実行には株数が必要です。'));
 
   items.push(preflightCard('取引単位', draft.qtyCheck.cls, draft.qtyCheck.message));
+
+  if(draft.settlement){
+    const s = draft.settlement;
+    const cashCls = s.cashAfter < 0 ? 'bad' :
+      (s.cashPctAfter!=null && s.cashPctAfter < paper.rules.minCashPct ? 'caution' : 'good');
+    items.push(preflightCard('決済見込み', 'good',
+      `約定代金 ${fmtMoney(s.notional)} / 手数料 ${fmtMoney(s.fee)} / 決済額(${s.label}) ${fmtMoney(s.settlement)}`));
+    items.push(preflightCard('注文後資金', cashCls,
+      `現金 ${fmtMoney(paper.cash)} → ${fmtMoney(s.cashAfter)} / 買付余力 ${fmtMoney(s.buyPowerAfter)} / 現金比率 ${s.cashPctAfter!=null?s.cashPctAfter.toFixed(1)+'%':'—'}`));
+  } else {
+    items.push(preflightCard('注文後資金', 'caution', `現金 ${fmtMoney(paper.cash)}。株数と価格がそろうと注文後の現金を表示します。`));
+  }
 
   if(draft.price!=null)
     items.push(preflightCard('データ', draft.cacheFallback?'caution':'good', `現在値 ${fmtMoney(draft.price)}${draft.cacheFallback?'（前回データ）':''}`));
@@ -3826,7 +3863,14 @@ function renderOrderPreview(){
   if(d.type==='trailing') warnings.push('更新時点の高値/安値から追跡幅で逆指値を動かします');
   if(['oco','ifd','ifdoco'].includes(d.type)) warnings.push('複合注文は練習用の近似判定です');
   if(d.cacheFallback) warnings.push('通信失敗時の前回データを使用中です');
-  el.innerHTML = `想定価格 ${fmtMoney(d.fill)} / 約定代金 ${fmtMoney(d.notional)} / 手数料 ${fmtMoney(d.fee)} / 資産比 ${d.weight.toFixed(1)}%`
+  if(d.settlement?.cashAfter < 0) warnings.push('注文後現金がマイナスになります');
+  if(d.settlement?.cashPctAfter!=null && d.settlement.cashPctAfter < paper.rules.minCashPct)
+    warnings.push(`注文後の現金比率が目安 ${paper.rules.minCashPct}% を下回ります`);
+  const settlementText = d.settlement
+    ? ` / 決済額(${d.settlement.label}) ${fmtMoney(d.settlement.settlement)} / 注文後現金 ${fmtMoney(d.settlement.cashAfter)}`
+    : '';
+  const weightText = d.weight!=null ? `${d.weight.toFixed(1)}%` : '—';
+  el.innerHTML = `想定価格 ${fmtMoney(d.fill)} / 約定代金 ${fmtMoney(d.notional)} / 手数料 ${fmtMoney(d.fee)}${settlementText} / 資産比 ${weightText}`
     + (warnings.length? `<br><span class="warn">${warnings.join('。')}</span>`:'');
   renderTradeBeginnerCoach();
 }
