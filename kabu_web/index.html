@@ -47,7 +47,10 @@
   .scard .value{font-size:20px; font-weight:bold; margin-top:4px;}
   .news-links a{color:var(--accent); font-size:12px; margin-right:10px; text-decoration:none;}
   .news-links a:hover{text-decoration:underline;}
-  #status{font-size:12px; color:var(--muted); margin-left:8px;}
+  #status,#tradeStatus{font-size:12px; color:var(--muted); margin-left:8px;}
+  #status.busy,#tradeStatus.busy{color:var(--accent); font-weight:bold;}
+  .data-refresh-btn.refreshing{opacity:.78; cursor:progress;}
+  .data-refresh-btn:disabled{filter:saturate(.8);}
   .disclaimer{font-size:11px; color:var(--muted); margin-top:20px; line-height:1.6;}
   .chart-wrap{position:relative; height:340px;}
   .empty{color:var(--muted); font-size:13px; padding:12px 0;}
@@ -287,7 +290,7 @@
     <input id="inShares" type="number" placeholder="株数 (任意)" style="width:110px" min="0" step="any">
     <input id="inCost" type="number" placeholder="取得単価$ (任意)" style="width:130px" min="0" step="any">
     <button class="primary" onclick="addStock()">追加</button>
-    <button onclick="refreshAll()">🔄 データ更新</button>
+    <button class="data-refresh-btn" data-label="🔄 データ更新" onclick="refreshAll()">🔄 データ更新</button>
     <select id="dataSource" onchange="setDataSource()">
       <option value="auto">株価ソース: 自動</option>
       <option value="yahoo">Yahoo Finance</option>
@@ -301,7 +304,7 @@
     </select>
     <span id="marketBadge" style="font-size:12px; color:var(--muted);"></span>
     <span id="sourceBadge" class="source-note"></span>
-    <span id="status"></span>
+    <span id="status" role="status" aria-live="polite"></span>
   </div>
   <div id="sourceHealth" class="source-health"></div>
   <p class="sub" id="addHelp" style="margin-top:8px;">※ 株数と取得単価を入れると「保有株」として損益計算されます。空欄ならウォッチリスト扱い。</p>
@@ -511,11 +514,11 @@
         <option value="60">デモ期限: 60日</option>
         <option value="0">デモ期限: なし</option>
       </select>
-      <button class="primary" onclick="refreshAll()">データ更新</button>
+      <button class="primary data-refresh-btn" data-label="データ更新" onclick="refreshAll()">データ更新</button>
       <button onclick="openTradeSetup(true)">初期設定</button>
       <button onclick="seedDemoPaper()">実データサンプル投入</button>
       <button class="danger" onclick="paperReset()">リセット / 初期設定</button>
-      <span id="tradeStatus" class="source-note"></span>
+      <span id="tradeStatus" class="source-note" role="status" aria-live="polite"></span>
     </div>
   </div>
   <p class="sub" style="margin-top:6px;">仮想資金を使って実際の株価で売買練習ができます。<b>本格モード</b>では複合注文、注文照会、デモ入金、価格アラート、証拠金維持率、ロスカット判定、取引日誌、成績分析が有効になります。</p>
@@ -629,7 +632,7 @@
       <div class="order-preview" id="ptPreflight"></div>
       <div class="row" style="margin-top:10px;">
         <button class="primary" onclick="placeOrder()" style="flex:1;">注文する</button>
-        <button onclick="refreshAll()">価格更新</button>
+        <button class="data-refresh-btn" data-label="価格更新" onclick="refreshAll()">価格更新</button>
       </div>
 
       <div class="pro-only" style="margin-top:14px;">
@@ -1828,14 +1831,32 @@ function activeInputSymbols(){
     .map(id=>normalizeSymbol(document.getElementById(id)?.value || ''))
     .filter(Boolean);
 }
+function setRefreshUi(active, detail=''){
+  document.querySelectorAll('.data-refresh-btn').forEach(btn=>{
+    if(!btn.dataset.label) btn.dataset.label = btn.textContent.trim() || 'データ更新';
+    btn.disabled = !!active;
+    btn.classList.toggle('refreshing', !!active);
+    btn.setAttribute('aria-busy', active ? 'true' : 'false');
+    btn.textContent = active ? '更新中...' : btn.dataset.label;
+    if(active && detail) btn.title = detail;
+    else btn.removeAttribute('title');
+  });
+  document.querySelectorAll('#status,#tradeStatus').forEach(el=>{
+    el.classList.toggle('busy', !!active);
+  });
+}
 
 let refreshing = false;
 let refreshRunId = 0;
 async function refreshAll(){
-  if(refreshing) return;
+  if(refreshing){
+    setStatus('更新中です。完了までお待ちください...');
+    return;
+  }
   const runId = ++refreshRunId;
   const marketAtStart = currentMarket;
   refreshing = true;
+  setRefreshUi(true, '更新対象を確認中');
   try{
     // 登録銘柄＋デモトレード保有銘柄＋未約定注文＋価格アラートの銘柄をまとめて取得
     const syms = [...new Set([...stocks.map(s=>s.sym), ...activeInputSymbols(), ...Object.keys(paper.pos),
@@ -1845,14 +1866,16 @@ async function refreshAll(){
       renderAll();
       return;
     }
-    setStatus('取得中... (0/'+(syms.length+1)+')');
+    setStatus('更新中... (0/'+(syms.length+1)+')');
     let done=0;
     try{ spxData = await fetchChart(marketConfig().benchmark); }catch(e){ spxData=null; }
     if(runId!==refreshRunId || marketAtStart!==currentMarket) return;
     done++;
+    setRefreshUi(true, `${done}/${syms.length+1} ${marketConfig().benchmarkShort}`);
     for(const sym of syms){
       if(runId!==refreshRunId || marketAtStart!==currentMarket) return;
-      setStatus('取得中... ('+done+'/'+(syms.length+1)+') '+sym);
+      setStatus('更新中... ('+done+'/'+(syms.length+1)+') '+displaySymbol(sym));
+      setRefreshUi(true, `${done}/${syms.length+1} ${displaySymbol(sym)}`);
       try{ marketData[sym] = await fetchChart(sym); }
       catch(e){ console.warn(e); }
       done++;
@@ -1867,7 +1890,12 @@ async function refreshAll(){
     recordEquity();     // デモトレード資産推移の記録
     document.getElementById('lastUpdate').textContent = '最終更新: ' + new Date().toLocaleString('ja-JP');
     renderAll();
-  } finally { if(runId===refreshRunId) refreshing = false; }
+  } finally {
+    if(runId===refreshRunId){
+      refreshing = false;
+      setRefreshUi(false);
+    }
+  }
 }
 function setStatus(msg){
   const status = document.getElementById('status');
