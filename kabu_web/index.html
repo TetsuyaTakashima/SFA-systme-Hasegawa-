@@ -195,6 +195,8 @@
   .forecast-detail-metric .label{font-size:11px; color:var(--muted);}
   .forecast-detail-metric .value{font-size:15px; font-weight:bold; margin-top:3px;}
   .forecast-mini-chart{height:220px; position:relative;}
+  .trend-fallback{height:100%; min-height:220px; display:none;}
+  .trend-fallback svg{width:100%; height:100%; display:block;}
   .setup-overlay{position:fixed; inset:0; z-index:50; display:grid; place-items:center; padding:18px; background:rgba(7,10,14,.78); backdrop-filter:blur(6px);}
   .setup-overlay[hidden]{display:none!important;}
   .setup-panel{width:min(1040px,100%); max-height:92vh; overflow:auto; background:var(--card); border:1px solid var(--border); border-radius:10px; padding:18px; box-shadow:0 18px 60px rgba(0,0,0,.45);}
@@ -601,7 +603,7 @@
         <select id="ptSymQuick" class="wide" onchange="selectQuickTradeSymbol()">
           <option value="">銘柄を検索/選択</option>
         </select>
-        <input id="ptSym" placeholder="ティッカー" maxlength="10" oninput="renderOrderPreview()" list="symbolSuggestions">
+        <input id="ptSym" placeholder="ティッカー" maxlength="10" oninput="renderOrderPreview(); renderTradeTrendChart()" list="symbolSuggestions">
         <input id="ptQty" type="number" placeholder="株数" min="0" step="any" oninput="renderOrderPreview()">
         <select id="ptType" class="pro-only" onchange="renderPaper()">
           <option value="market">成行</option>
@@ -653,6 +655,30 @@
           <label class="wide trade-note" style="cursor:pointer;"><input type="checkbox" id="ptShort" onchange="setAllowShort()"> 空売りを許可する</label>
         </div>
       </div>
+    </div>
+    <div class="pt-panel trade-widget" data-trade-widget="trend">
+      <div class="row" style="justify-content:space-between; align-items:flex-start;">
+        <h3>過去推移グラフ</h3>
+        <div class="forecast-tools">
+          <select id="ptTrendSymbol" onchange="setTradeTrendSymbol(this.value)">
+            <option value="">銘柄を選択</option>
+          </select>
+          <select id="ptTrendPeriod" onchange="setTradeTrendPeriod(this.value)">
+            <option value="21">過去1ヶ月</option>
+            <option value="63">過去3ヶ月</option>
+            <option value="126">過去6ヶ月</option>
+            <option value="252">過去1年</option>
+            <option value="504">過去2年</option>
+            <option value="0">取得分すべて</option>
+          </select>
+        </div>
+      </div>
+      <div class="forecast-detail-metrics" id="ptTrendMetrics"></div>
+      <div class="chart-wrap" style="height:260px;">
+        <canvas id="ptTrendChart"></canvas>
+        <div id="ptTrendFallback" class="trend-fallback"></div>
+      </div>
+      <p class="empty" id="ptTrendEmpty" style="display:none;">ウォッチリスト、建玉、または発注パネルの銘柄でデータ更新すると、デモ画面でも過去推移を確認できます。</p>
     </div>
     <div class="pt-panel trade-widget" data-trade-widget="orderGuide">
       <h3>発注入力ガイド</h3>
@@ -895,6 +921,7 @@
           <label><input id="setupPanelWatch" type="checkbox"> ウォッチリスト候補</label>
           <label><input id="setupPanelPicks" type="checkbox"> 注目ピック</label>
           <label><input id="setupPanelScreener" type="checkbox"> 銘柄発掘スクリーナー</label>
+          <label><input id="setupPanelTrend" type="checkbox"> 過去推移グラフ</label>
           <label><input id="setupPanelOrderGuide" type="checkbox"> 発注入力ガイド</label>
           <label><input id="setupPanelRisk" type="checkbox"> リスク管理</label>
           <label><input id="setupPanelSellCheck" type="checkbox"> 売り時チェック</label>
@@ -935,6 +962,8 @@ const CACHE_FALLBACK_KEY = 'stock_cache_fallback_enabled';
 const TRADE_SETUP_KEY = 'stock_trade_setup_v1';
 const WATCH_FORECAST_PERIOD_KEY = 'stock_watch_forecast_period';
 const WATCH_FORECAST_SYMBOL_KEY = 'stock_watch_forecast_symbol';
+const TRADE_TREND_PERIOD_KEY = 'stock_trade_trend_period';
+const TRADE_TREND_SYMBOL_KEY = 'stock_trade_trend_symbol';
 const DATA_SOURCES = {
   auto:'自動（Yahoo優先）',
   yahoo:'Yahoo Finance',
@@ -960,6 +989,7 @@ const TRADE_WIDGETS = [
   {id:'picks', label:'注目ピック', zone:'research'},
   {id:'screener', label:'スクリーナー', zone:'research'},
   {id:'order', label:'発注パネル', zone:'main'},
+  {id:'trend', label:'過去推移グラフ', zone:'main'},
   {id:'orderGuide', label:'発注入力ガイド', zone:'main'},
   {id:'risk', label:'リスク管理', zone:'side'},
   {id:'sellCheck', label:'売り時チェック', zone:'side'},
@@ -1036,6 +1066,7 @@ let marketData = {};   // sym -> {dates[], closes[]}
 let spxData = null;
 let perfChart = null, sectorChart = null;
 let forecastChart = null;
+let tradeTrendChart = null;
 let watchForecastCharts = {};
 let openWatchForecastSyms = new Set();
 let watchForecastPeriod = (function(){
@@ -1043,6 +1074,12 @@ let watchForecastPeriod = (function(){
 })();
 let selectedForecastSym = (function(){
   try{ return localStorage.getItem(WATCH_FORECAST_SYMBOL_KEY) || null; }catch(e){ return null; }
+})();
+let tradeTrendPeriod = (function(){
+  try{ return parseInt(localStorage.getItem(TRADE_TREND_PERIOD_KEY) || '126') || 126; }catch(e){ return 126; }
+})();
+let selectedTradeTrendSym = (function(){
+  try{ return localStorage.getItem(TRADE_TREND_SYMBOL_KEY) || null; }catch(e){ return null; }
 })();
 let chartCache = loadChartCache();
 let sourceHealth = [];
@@ -1174,6 +1211,10 @@ function addStock(){
   const cost = parseFloat(document.getElementById('inCost').value) || null;
   stocks.push({sym, sector:document.getElementById('inSector').value, shares, cost});
   if(!selectedForecastSym) selectedForecastSym = sym;
+  if(!selectedTradeTrendSym){
+    selectedTradeTrendSym = sym;
+    try{ localStorage.setItem(TRADE_TREND_SYMBOL_KEY, selectedTradeTrendSym); }catch(e){}
+  }
   saveStocks();
   document.getElementById('inSym').value='';
   document.getElementById('inShares').value='';
@@ -1189,6 +1230,12 @@ function removeStock(sym){
   openWatchForecastSyms.delete(sym);
   destroyWatchForecastChart(sym);
   if(selectedForecastSym===sym) selectedForecastSym = stocks[0]?.sym || null;
+  if(selectedTradeTrendSym===sym){
+    selectedTradeTrendSym = stocks[0]?.sym || null;
+    try{
+      selectedTradeTrendSym ? localStorage.setItem(TRADE_TREND_SYMBOL_KEY, selectedTradeTrendSym) : localStorage.removeItem(TRADE_TREND_SYMBOL_KEY);
+    }catch(e){}
+  }
   saveStocks();
   renderAll();
   updateSymbolSuggestions();
@@ -1230,9 +1277,11 @@ function setMarketMode(next, opts={}){
   if(perfChart){ perfChart.destroy(); perfChart=null; }
   if(sectorChart){ sectorChart.destroy(); sectorChart=null; }
   if(forecastChart){ forecastChart.destroy(); forecastChart=null; }
+  if(tradeTrendChart){ tradeTrendChart.destroy(); tradeTrendChart=null; }
   destroyAllWatchForecastCharts();
   openWatchForecastSyms.clear();
   selectedForecastSym = stocks[0]?.sym || null;
+  selectedTradeTrendSym = null;
   if(pickChart){ pickChart.destroy(); pickChart=null; }
   if(longChart){ longChart.destroy(); longChart=null; }
   if(eqChart){ eqChart.destroy(); eqChart=null; }
@@ -1829,6 +1878,7 @@ async function refreshOne(sym){
 function activeInputSymbols(){
   return ['inSym','ptSym','ptAlertSym']
     .map(id=>normalizeSymbol(document.getElementById(id)?.value || ''))
+    .concat(selectedTradeTrendSym ? [selectedTradeTrendSym] : [])
     .filter(Boolean);
 }
 function setRefreshUi(active, detail=''){
@@ -2023,12 +2073,17 @@ function fmtMoney(v){
     maximumFractionDigits:cfg.currencyDigits,
   }).format(v);
 }
-function forecastPeriodOptionsHtml(){
+function escapeHtml(v){
+  return String(v ?? '').replace(/[&<>"']/g, ch=>({
+    '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+  })[ch]);
+}
+function forecastPeriodOptionsHtml(period=watchForecastPeriod){
   const opts = [
     ['21','過去1ヶ月'], ['63','過去3ヶ月'], ['126','過去6ヶ月'],
     ['252','過去1年'], ['504','過去2年'], ['0','取得分すべて'],
   ];
-  return opts.map(([v,label])=>`<option value="${v}" ${String(watchForecastPeriod)===v?'selected':''}>${label}</option>`).join('');
+  return opts.map(([v,label])=>`<option value="${v}" ${String(period)===v?'selected':''}>${label}</option>`).join('');
 }
 function forecastPeriodLabel(period=watchForecastPeriod){
   const map = {21:'過去1ヶ月', 63:'過去3ヶ月', 126:'過去6ヶ月', 252:'過去1年', 504:'過去2年', 0:'取得分すべて'};
@@ -2085,13 +2140,13 @@ function forecastChartOptions(compact=false){
     scales:{x:{ticks:{color:'#8a99a8', maxTicksLimit:compact?6:12}, grid:{color:'#2c3a47'}},
       y:{ticks:{color:'#8a99a8', callback:v=>fmtMoney(v)}, grid:{color:'#2c3a47'}}}};
 }
-function forecastMetricsHtml(sym, payload){
+function forecastMetricsHtml(sym, payload, period=watchForecastPeriod){
   if(!payload) return '';
   const m = rowMetrics(stocks.find(s=>s.sym===sym) || {sym});
   const fc = payload.fc;
   const range = fc ? `${fc.lo30>=0?'+':''}${fc.lo30.toFixed(1)}% 〜 ${fc.hi30>=0?'+':''}${fc.hi30.toFixed(1)}%` : '—';
   return `
-    <div class="forecast-detail-metric"><div class="label">${forecastPeriodLabel()}の騰落率</div><div class="value">${fmtPct(payload.periodRet)}</div></div>
+    <div class="forecast-detail-metric"><div class="label">${forecastPeriodLabel(period)}の騰落率</div><div class="value">${fmtPct(payload.periodRet)}</div></div>
     <div class="forecast-detail-metric"><div class="label">30営業日予想</div><div class="value">${fc?fmtPct(fc.exp30):'—'}</div></div>
     <div class="forecast-detail-metric"><div class="label">予想レンジ</div><div class="value" style="font-size:13px;">${range}</div></div>
     <div class="forecast-detail-metric"><div class="label">RSI / 50日線</div><div class="value" style="font-size:13px;">${m?.rsi!=null?m.rsi.toFixed(0):'—'} / ${m?.sma50!=null?fmtMoney(m.sma50):'—'}</div></div>`;
@@ -2171,6 +2226,133 @@ function renderForecastPanel(){
   forecastChart = new Chart(canvas, {type:'line',
     data:{labels:payload.labels, datasets:payload.datasets},
     options:forecastChartOptions(false)});
+}
+function tradeTrendCandidates(){
+  const map = new Map();
+  const add = (item, source)=>{
+    if(!item?.sym) return;
+    const sym = normalizeSymbol(item.sym);
+    if(!sym || map.has(sym)) return;
+    map.set(sym, {...item, sym, source});
+  };
+  const typed = normalizeSymbol(document.getElementById('ptSym')?.value || '');
+  if(typed) add({sym:typed, sector:'発注パネル'}, '入力中');
+  Object.keys(paper?.pos || {}).forEach(sym=>add({sym, sector:'建玉'}, '建玉'));
+  stocks.forEach(s=>add(s, s.shares && s.cost ? '保有/ウォッチ' : 'ウォッチ'));
+  (lastScreenerRows || []).slice(0,12).forEach(r=>add(r, 'スクリーナー'));
+  return Array.from(map.values());
+}
+function updateTradeTrendOptions(){
+  const sel = document.getElementById('ptTrendSymbol');
+  if(!sel) return;
+  const items = tradeTrendCandidates();
+  const before = selectedTradeTrendSym;
+  if(selectedTradeTrendSym && !items.some(i=>i.sym===selectedTradeTrendSym)){
+    selectedTradeTrendSym = items[0]?.sym || null;
+  }
+  if(!selectedTradeTrendSym && items.length) selectedTradeTrendSym = items[0].sym;
+  if(before !== selectedTradeTrendSym){
+    try{
+      selectedTradeTrendSym ? localStorage.setItem(TRADE_TREND_SYMBOL_KEY, selectedTradeTrendSym) : localStorage.removeItem(TRADE_TREND_SYMBOL_KEY);
+    }catch(e){}
+  }
+  sel.innerHTML = '<option value="">銘柄を選択</option>' + items.map(item=>{
+    const selected = item.sym===selectedTradeTrendSym ? 'selected' : '';
+    return `<option value="${item.sym}" ${selected}>${symbolOptionLabel(item)}</option>`;
+  }).join('');
+  sel.value = selectedTradeTrendSym || '';
+  const per = document.getElementById('ptTrendPeriod');
+  if(per) per.value = String(tradeTrendPeriod);
+}
+function setTradeTrendSymbol(sym){
+  selectedTradeTrendSym = sym || null;
+  try{
+    selectedTradeTrendSym ? localStorage.setItem(TRADE_TREND_SYMBOL_KEY, selectedTradeTrendSym) : localStorage.removeItem(TRADE_TREND_SYMBOL_KEY);
+  }catch(e){}
+  renderTradeTrendChart();
+}
+function setTradeTrendPeriod(value){
+  const v = parseInt(value);
+  tradeTrendPeriod = Number.isFinite(v) ? v : 126;
+  try{ localStorage.setItem(TRADE_TREND_PERIOD_KEY, String(tradeTrendPeriod)); }catch(e){}
+  renderTradeTrendChart();
+}
+function renderTradeTrendFallback(sym, payload){
+  const box = document.getElementById('ptTrendFallback');
+  if(!box) return;
+  if(!payload){
+    box.style.display = 'none';
+    box.innerHTML = '';
+    return;
+  }
+  const actual = payload.data.closes || [];
+  const forecastMid = payload.fc?.mid || [];
+  const values = actual.concat(forecastMid);
+  if(values.length < 2){
+    box.style.display = 'none';
+    box.innerHTML = '';
+    return;
+  }
+  const w = 640, h = 240, m = 30;
+  const min = Math.min(...values), max = Math.max(...values);
+  const span = Math.max(max-min, Math.abs(max || 1)*0.02, 1);
+  const x = i=>m + (w-m*2) * (i / Math.max(values.length-1, 1));
+  const y = v=>h-m - ((v-min)/span) * (h-m*2);
+  const pts = actual.map((v,i)=>`${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+  const forecastPts = forecastMid.length
+    ? [actual.at(-1)].concat(forecastMid).map((v,i)=>`${x(actual.length-1+i).toFixed(1)},${y(v).toFixed(1)}`).join(' ')
+    : '';
+  const zero = [0, .25, .5, .75, 1].map(r=>{
+    const yy = m + (h-m*2)*r;
+    return `<line x1="${m}" y1="${yy.toFixed(1)}" x2="${w-m}" y2="${yy.toFixed(1)}" stroke="#2c3a47" stroke-width="1"/>`;
+  }).join('');
+  box.innerHTML = `<svg viewBox="0 0 ${w} ${h}" role="img" aria-label="${escapeHtml(displaySymbol(sym))}の過去推移グラフ">
+    <rect x="0" y="0" width="${w}" height="${h}" rx="8" fill="rgba(15,20,25,.35)"/>
+    ${zero}
+    <polyline points="${pts}" fill="none" stroke="#4da3ff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    ${forecastPts ? `<polyline points="${forecastPts}" fill="none" stroke="#2ecc71" stroke-width="2.4" stroke-dasharray="7 5" stroke-linecap="round" stroke-linejoin="round"/>` : ''}
+    <circle cx="${x(actual.length-1).toFixed(1)}" cy="${y(actual.at(-1)).toFixed(1)}" r="4" fill="#4da3ff"/>
+    <text x="${m}" y="22" fill="#e8edf2" font-size="13" font-weight="700">${escapeHtml(displaySymbol(sym))}</text>
+    <text x="${w-m}" y="22" text-anchor="end" fill="#8a99a8" font-size="12">現在 ${escapeHtml(fmtMoney(actual.at(-1)))}</text>
+    <text x="${m}" y="${h-9}" fill="#8a99a8" font-size="11">Chart.js未読込時の簡易表示</text>
+    ${forecastMid.length ? `<text x="${w-m}" y="${h-9}" text-anchor="end" fill="#2ecc71" font-size="11">点線: 30営業日予想</text>` : ''}
+  </svg>`;
+  box.style.display = 'block';
+}
+function renderTradeTrendChart(){
+  updateTradeTrendOptions();
+  const canvas = document.getElementById('ptTrendChart');
+  const empty = document.getElementById('ptTrendEmpty');
+  const metrics = document.getElementById('ptTrendMetrics');
+  const fallback = document.getElementById('ptTrendFallback');
+  if(!canvas) return;
+  if(tradeTrendChart){ tradeTrendChart.destroy(); tradeTrendChart=null; }
+  const sym = selectedTradeTrendSym;
+  const payload = sym ? forecastChartData(sym, tradeTrendPeriod) : null;
+  const wrap = canvas.closest('.chart-wrap');
+  if(wrap) wrap.style.display = payload ? '' : 'none';
+  if(empty) empty.style.display = payload ? 'none' : 'block';
+  if(metrics) metrics.innerHTML = payload ? forecastMetricsHtml(sym, payload, tradeTrendPeriod) : '';
+  if(!payload) return;
+  if(typeof Chart==='undefined'){
+    canvas.style.display = 'none';
+    renderTradeTrendFallback(sym, payload);
+    return;
+  }
+  if(fallback){
+    fallback.style.display = 'none';
+    fallback.innerHTML = '';
+  }
+  canvas.style.display = 'block';
+  try{
+    tradeTrendChart = new Chart(canvas, {type:'line',
+      data:{labels:payload.labels, datasets:payload.datasets},
+      options:forecastChartOptions(false)});
+  }catch(e){
+    console.warn('trade trend chart fallback', e);
+    canvas.style.display = 'none';
+    renderTradeTrendFallback(sym, payload);
+  }
 }
 
 // ===== 描画 =====
@@ -2499,7 +2681,10 @@ function selectTradeSymbol(sym, side='buy', note=''){
   if(sideSel) sideSel.value = side;
   if(quick) quick.value = sym;
   if(noteEl && paper.mode==='pro' && note) noteEl.value = note.slice(0,120);
+  selectedTradeTrendSym = sym;
+  try{ localStorage.setItem(TRADE_TREND_SYMBOL_KEY, selectedTradeTrendSym); }catch(e){}
   renderOrderPreview();
+  renderTradeTrendChart();
   input?.scrollIntoView({behavior:'smooth', block:'center'});
 }
 function tradeCandidateCard(r, opts={}){
@@ -2560,6 +2745,7 @@ function renderTradeResearch(){
       ? rows.slice(0,6).map(r=>tradeCandidateCard(r, {detail:true, allowAdd:true})).join('')
       : '<p class="table-empty">「スキャン」を押すと、発掘候補からそのままデモ注文の練習に進めます。</p>';
   }
+  updateTradeTrendOptions();
 }
 function copyTradeScanControlsToMain(){
   const pairs = [['ptScanSector','scanSector'], ['ptScanSort','scanSort'], ['ptScanMinScore','scanMinScore'], ['ptScanListedWithin','scanListedWithin']];
@@ -2878,7 +3064,7 @@ function tradeSetupPreset(name, market=currentMarket){
       feeRate:0.1, slippageRate:0.03, maxPosPct:15, minCashPct:20, stopLossPct:8,
       liquidationPct:30, leverage:1, allowShort:false, preflightMode:'warn',
       journalAssist:true, dataSource:'auto', autoRefresh:0, cacheFallback:true,
-      panels:{coach:true, watch:true, picks:true, screener:true, orderGuide:true, risk:true, sellCheck:true, stress:true, alerts:false, events:false, stats:false, history:true},
+      panels:{coach:true, watch:true, picks:true, screener:true, trend:true, orderGuide:true, risk:true, sellCheck:true, stress:true, alerts:false, events:false, stats:false, history:true},
     },
     standard:{
       experience:'normal', sessionDays:60, seedMode:'watch', orderLevel:'basic',
@@ -2886,7 +3072,7 @@ function tradeSetupPreset(name, market=currentMarket){
       feeRate:0.1, slippageRate:0.03, maxPosPct:20, minCashPct:10, stopLossPct:8,
       liquidationPct:25, leverage:1, allowShort:false, preflightMode:'warn',
       journalAssist:true, dataSource:'auto', autoRefresh:300, cacheFallback:true,
-      panels:{coach:false, watch:true, picks:true, screener:true, orderGuide:true, risk:true, sellCheck:true, stress:true, alerts:true, events:false, stats:true, history:true},
+      panels:{coach:false, watch:true, picks:true, screener:true, trend:true, orderGuide:true, risk:true, sellCheck:true, stress:true, alerts:true, events:false, stats:true, history:true},
     },
     pro:{
       experience:'pro', sessionDays:0, seedMode:'demo', orderLevel:'pro',
@@ -2894,7 +3080,7 @@ function tradeSetupPreset(name, market=currentMarket){
       feeRate:0.1, slippageRate:0.03, maxPosPct:20, minCashPct:10, stopLossPct:8,
       liquidationPct:25, leverage:2, allowShort:false, preflightMode:'warn',
       journalAssist:true, dataSource:'auto', autoRefresh:60, cacheFallback:true,
-      panels:{coach:false, watch:true, picks:true, screener:true, orderGuide:true, risk:true, sellCheck:true, stress:true, alerts:true, events:true, stats:true, history:true},
+      panels:{coach:false, watch:true, picks:true, screener:true, trend:true, orderGuide:true, risk:true, sellCheck:true, stress:true, alerts:true, events:true, stats:true, history:true},
     },
   };
   const p = presets[name] || presets.standard;
@@ -2903,7 +3089,7 @@ function tradeSetupPreset(name, market=currentMarket){
 function setupPanelIds(){
   return {
     coach:'setupPanelCoach', watch:'setupPanelWatch', picks:'setupPanelPicks',
-    screener:'setupPanelScreener', orderGuide:'setupPanelOrderGuide',
+    screener:'setupPanelScreener', trend:'setupPanelTrend', orderGuide:'setupPanelOrderGuide',
     risk:'setupPanelRisk', sellCheck:'setupPanelSellCheck', stress:'setupPanelStress',
     alerts:'setupPanelAlerts', events:'setupPanelEvents', stats:'setupPanelStats',
     history:'setupPanelHistory',
@@ -2994,6 +3180,7 @@ function fillTradeSetupFromCurrent(){
   setSetupPanels({
     coach:tradeLayout.visible.coach !== false, watch:tradeLayout.visible.watch !== false,
     picks:tradeLayout.visible.picks !== false, screener:tradeLayout.visible.screener !== false,
+    trend:tradeLayout.visible.trend !== false,
     orderGuide:tradeLayout.visible.orderGuide !== false,
     risk:tradeLayout.visible.risk !== false, sellCheck:tradeLayout.visible.sellCheck !== false,
     stress:tradeLayout.visible.stress !== false,
@@ -3062,7 +3249,7 @@ function applyTradeSetupPanels(panels){
   Object.assign(tradeLayout.visible, {
     summary:true, order:true, positions:true,
     coach:!!panels.coach, watch:!!panels.watch, picks:!!panels.picks, screener:!!panels.screener,
-    orderGuide:!!panels.orderGuide,
+    trend:!!panels.trend, orderGuide:!!panels.orderGuide,
     risk:!!panels.risk, sellCheck:!!panels.sellCheck, stress:!!panels.stress, alerts:!!panels.alerts, events:!!panels.events,
     stats:!!panels.stats, history:!!panels.history,
   });
@@ -4275,6 +4462,7 @@ function renderPaper(){
   renderRuleCheck(snap.total);
   renderQuote();
   renderOrderPreview();
+  renderTradeTrendChart();
   renderTradeSellCheck();
 
   const otbl = document.getElementById('ptOrderTable');
@@ -4947,6 +5135,10 @@ function addFromScreener(sym, sector){
   const ref = lastScreenerRows.find(r=>r.sym===sym) || universeLookup(sym) || {};
   stocks.push({sym, sector:sector || ref.sector, name:ref.name || '', desc:ref.desc || '', listedAt:ref.listedAt || null, shares:null, cost:null});
   if(screenData[sym]) marketData[sym] = screenData[sym];
+  if(!selectedTradeTrendSym){
+    selectedTradeTrendSym = sym;
+    try{ localStorage.setItem(TRADE_TREND_SYMBOL_KEY, selectedTradeTrendSym); }catch(e){}
+  }
   saveStocks();
   renderAll();
   rerenderScreener();
