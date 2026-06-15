@@ -155,6 +155,50 @@
   .trade-mini-tools{display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-bottom:10px;}
   .trade-mini-tools select,.trade-mini-tools input{min-height:32px; font-size:12px;}
   .trade-layout-settings{margin-bottom:14px;}
+  .trade-layout-settings summary{cursor:pointer; list-style:none; display:flex; justify-content:space-between; align-items:center; gap:8px;}
+  .trade-layout-settings summary::-webkit-details-marker{display:none;}
+  .trade-layout-settings summary:after{content:"▾"; color:var(--muted); font-size:14px;}
+  .trade-layout-settings:not([open]) summary:after{content:"▸";}
+  .trade-layout-settings h3{margin-bottom:0;}
+  .trade-settings-body{margin-top:10px;}
+  .preflight-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px; margin-top:8px;}
+  .preflight-item{background:rgba(15,20,25,.48); border:1px solid var(--border); border-left:3px solid var(--muted); border-radius:7px; padding:8px; font-size:12px; line-height:1.45;}
+  .preflight-item.good{border-left-color:var(--up);}
+  .preflight-item.caution{border-left-color:var(--warn);}
+  .preflight-item.bad{border-left-color:var(--down);}
+  .preflight-item b{display:block; font-size:11px; color:var(--muted); margin-bottom:2px;}
+  .stress-row{display:grid; grid-template-columns:1fr auto; gap:8px; align-items:center; padding:8px 0; border-bottom:1px solid var(--border);}
+  .stress-row:last-child{border-bottom:none;}
+  .source-health{display:grid; gap:6px; margin-top:8px;}
+  .source-health div{font-size:11px; color:var(--muted); background:rgba(15,20,25,.35); border:1px solid var(--border); border-radius:6px; padding:7px 8px;}
+  .preset-row{display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-top:8px;}
+  .preset-row button{min-height:30px; padding:5px 8px; font-size:12px;}
+  .forecast-tools{display:flex; gap:8px; flex-wrap:wrap; align-items:center;}
+  .forecast-tools select{min-height:34px; font-size:12px;}
+  .forecast-detail-cell{background:rgba(15,20,25,.35); text-align:left!important; white-space:normal;}
+  .forecast-detail-head{display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:8px;}
+  .forecast-detail-head b{font-size:13px;}
+  .forecast-detail-metrics{display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:8px; margin-top:8px;}
+  .forecast-detail-metric{background:var(--card2); border:1px solid var(--border); border-radius:6px; padding:8px;}
+  .forecast-detail-metric .label{font-size:11px; color:var(--muted);}
+  .forecast-detail-metric .value{font-size:15px; font-weight:bold; margin-top:3px;}
+  .forecast-mini-chart{height:220px; position:relative;}
+  .setup-overlay{position:fixed; inset:0; z-index:50; display:grid; place-items:center; padding:18px; background:rgba(7,10,14,.78); backdrop-filter:blur(6px);}
+  .setup-overlay[hidden]{display:none!important;}
+  .setup-panel{width:min(1040px,100%); max-height:92vh; overflow:auto; background:var(--card); border:1px solid var(--border); border-radius:10px; padding:18px; box-shadow:0 18px 60px rgba(0,0,0,.45);}
+  .setup-panel h2{margin-bottom:4px;}
+  .setup-presets{display:flex; gap:8px; flex-wrap:wrap; margin:12px 0;}
+  .setup-grid{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px;}
+  .setup-section{border:1px solid var(--border); border-radius:8px; background:rgba(15,20,25,.35); padding:12px;}
+  .setup-section h3{font-size:13px; color:var(--muted); font-weight:normal; margin-bottom:10px;}
+  .setup-fields{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px;}
+  .setup-field{display:grid; gap:5px; font-size:12px; color:var(--muted);}
+  .setup-field.wide{grid-column:1/-1;}
+  .setup-field input,.setup-field select{width:100%; min-width:0;}
+  .setup-field input[type="checkbox"]{width:auto; min-height:auto;}
+  .setup-checks{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px;}
+  .setup-checks label{display:flex; gap:7px; align-items:center; min-height:34px; background:var(--card2); border:1px solid var(--border); border-radius:6px; padding:6px 8px; color:var(--text); font-size:12px; cursor:pointer;}
+  .setup-actions{display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; margin-top:14px;}
   .trade-widget{position:relative;}
   .trade-widget[draggable="true"]{cursor:grab;}
   .trade-widget.dragging{opacity:.45; outline:1px dashed var(--accent);}
@@ -184,6 +228,8 @@
     .top-controls{align-items:stretch; flex-direction:column;}
     .mode-group{display:grid; grid-template-columns:repeat(2,minmax(0,1fr));}
     button.mode-btn{width:100%; padding:8px 10px; font-size:12px;}
+    .setup-grid,.setup-fields,.setup-checks{grid-template-columns:1fr;}
+    .setup-panel{padding:14px;}
   }
   .trade-only{display:none;}
   body.trade-mode .analysis-only{display:none;}
@@ -248,6 +294,7 @@
     <span id="sourceBadge" class="source-note"></span>
     <span id="status"></span>
   </div>
+  <div id="sourceHealth" class="source-health"></div>
   <p class="sub" id="addHelp" style="margin-top:8px;">※ 株数と取得単価を入れると「保有株」として損益計算されます。空欄ならウォッチリスト扱い。</p>
 </div>
 
@@ -294,6 +341,30 @@
     </table>
   </div>
   <p class="empty" id="emptyMsg" style="display:none;">銘柄が未登録です。上のフォームからティッカーを追加し、「データ更新」を押してください。</p>
+</div>
+
+<!-- 銘柄別予想グラフ -->
+<div class="card analysis-only dashboard-widget" data-widget="forecast">
+  <div class="row" style="justify-content:space-between;">
+    <h2>📉 銘柄別予想グラフ</h2>
+    <div class="forecast-tools">
+      <select id="forecastSymbol" onchange="setForecastSymbol(this.value)">
+        <option value="">銘柄を選択</option>
+      </select>
+      <select id="forecastPeriod" onchange="setForecastPeriod(this.value)">
+        <option value="21">過去1ヶ月</option>
+        <option value="63">過去3ヶ月</option>
+        <option value="126">過去6ヶ月</option>
+        <option value="252">過去1年</option>
+        <option value="504">過去2年</option>
+        <option value="0">取得分すべて</option>
+      </select>
+    </div>
+  </div>
+  <div class="chart-wrap"><canvas id="forecastChart"></canvas></div>
+  <div class="forecast-detail-metrics" id="forecastMetrics"></div>
+  <p class="empty" id="forecastEmpty" style="display:none;">ウォッチリストの株価データを取得すると、過去推移と30営業日先の予想線が表示されます。</p>
+  <p class="sub" style="margin-top:8px;">予想線は過去60営業日の対数トレンドを30営業日延長した練習用の目安です。将来の値動きを保証するものではありません。</p>
 </div>
 
 <!-- チャート -->
@@ -353,7 +424,7 @@
   <div class="row" style="justify-content:space-between;">
     <h2 id="screenerTitle">⛏️ 銘柄発掘スクリーナー（米国主要50銘柄）</h2>
     <div class="screener-tools">
-      <select id="scanSector"><option value="">全セクター</option></select>
+      <select id="scanSector" onchange="rerenderScreener()"><option value="">全セクター</option></select>
       <select id="scanSort" onchange="rerenderScreener()">
         <option value="score">総合スコア順</option>
         <option value="exp30">上昇期待順</option>
@@ -364,16 +435,31 @@
       <label style="font-size:12px; color:var(--muted); cursor:pointer;">
         <input type="checkbox" id="scanPositiveOnly" onchange="rerenderScreener()"> プラス予想のみ
       </label>
+      <select id="scanListedWithin" onchange="rerenderScreener()">
+        <option value="">上場時期: すべて</option>
+        <option value="1">1年以内</option>
+        <option value="3">3年以内</option>
+        <option value="5">5年以内</option>
+        <option value="10">10年以内</option>
+        <option value="older10">10年以上</option>
+      </select>
       <button class="primary" onclick="runScreener()">スキャン実行</button>
       <span id="scanStatus" style="font-size:12px; color:var(--muted);"></span>
     </div>
   </div>
-  <p class="sub" style="margin-top:6px;">主要50銘柄を一括取得し、モメンタムスコア順にランキングします（約20〜40秒）。気になる銘柄はそのままウォッチリストに追加できます。</p>
+  <p class="sub" style="margin-top:6px;">通常は主要50銘柄を一括取得し、上場時期フィルタ選択時は近年上場候補も含めてランキングします（約20〜60秒）。気になる銘柄はそのままウォッチリストに追加できます。</p>
+  <div class="preset-row">
+    <span class="source-note">条件プリセット</span>
+    <button onclick="applyScreenerPreset('growth')">成長候補</button>
+    <button onclick="applyScreenerPreset('pullback')">押し目候補</button>
+    <button onclick="applyScreenerPreset('lowRsi')">低RSI候補</button>
+    <button onclick="applyScreenerPreset('reset')">条件クリア</button>
+  </div>
   <div style="overflow-x:auto;">
     <table id="screenTable" style="display:none;">
       <thead><tr>
         <th>#</th><th>銘柄</th><th>会社概要</th><th>株価</th><th>1ヶ月</th><th>3ヶ月</th>
-        <th id="screenVsHeader">vs S&P500</th><th>予想30日</th><th>RSI</th><th>スコア</th><th></th>
+        <th id="screenVsHeader">vs S&P500</th><th>予想30日</th><th>RSI</th><th>上場</th><th>スコア</th><th></th>
       </tr></thead>
       <tbody id="screenBody"></tbody>
     </table>
@@ -407,23 +493,32 @@
         <option value="simple">シンプルモード</option>
         <option value="pro">本格モード</option>
       </select>
+      <select id="ptTradeSizeMode" onchange="setTradeSizeMode()">
+        <option value="normal">通常単位</option>
+        <option value="small">少額単位</option>
+      </select>
       <select id="ptSessionDays" class="pro-only" onchange="setSessionDays()">
         <option value="30">デモ期限: 30日</option>
         <option value="60">デモ期限: 60日</option>
         <option value="0">デモ期限: なし</option>
       </select>
+      <button onclick="openTradeSetup(true)">初期設定</button>
       <button onclick="seedDemoPaper()">実データサンプル投入</button>
-      <button class="danger" onclick="paperReset()">リセット / 初期資金変更</button>
+      <button class="danger" onclick="paperReset()">リセット / 初期設定</button>
     </div>
   </div>
   <p class="sub" style="margin-top:6px;">仮想資金を使って実際の株価で売買練習ができます。<b>本格モード</b>では複合注文、注文照会、デモ入金、価格アラート、証拠金維持率、ロスカット判定、取引日誌、成績分析が有効になります。</p>
-  <div class="pt-panel trade-layout-settings">
-    <div class="row" style="justify-content:space-between;">
+  <details class="pt-panel trade-layout-settings" id="tradeSettingsDetails" open ontoggle="saveTradeSettingsOpen()">
+    <summary>
       <h3>デモ画面設定</h3>
-      <button onclick="resetTradeLayout()">初期配置</button>
+    </summary>
+    <div class="trade-settings-body">
+      <div class="row" style="justify-content:flex-end; margin-bottom:8px;">
+        <button onclick="resetTradeLayout()">初期配置</button>
+      </div>
+      <div class="widget-toggle-list" id="tradeWidgetToggles"></div>
     </div>
-    <div class="widget-toggle-list" id="tradeWidgetToggles"></div>
-  </div>
+  </details>
   <div class="trade-top-zone" data-trade-zone="top">
     <div class="trade-widget" data-trade-widget="summary">
       <div class="summary-cards" id="ptSummary"></div>
@@ -457,7 +552,22 @@
         <label style="font-size:12px; color:var(--muted); cursor:pointer;">
           <input type="checkbox" id="ptScanPositiveOnly" onchange="rerenderTradeScreener()"> プラス予想のみ
         </label>
+        <select id="ptScanListedWithin" onchange="rerenderTradeScreener()" style="width:128px;">
+          <option value="">上場時期: すべて</option>
+          <option value="1">1年以内</option>
+          <option value="3">3年以内</option>
+          <option value="5">5年以内</option>
+          <option value="10">10年以内</option>
+          <option value="older10">10年以上</option>
+        </select>
         <span id="ptScanStatus" style="font-size:12px; color:var(--muted);"></span>
+      </div>
+      <div class="preset-row">
+        <span class="source-note">条件プリセット</span>
+        <button onclick="applyTradeScreenerPreset('growth')">成長候補</button>
+        <button onclick="applyTradeScreenerPreset('pullback')">押し目候補</button>
+        <button onclick="applyTradeScreenerPreset('lowRsi')">低RSI候補</button>
+        <button onclick="applyTradeScreenerPreset('reset')">条件クリア</button>
       </div>
       <div id="ptScreenCandidates" class="trade-candidate-list"></div>
       <div id="ptScreenDetail" class="screen-detail" style="display:none;"></div>
@@ -496,7 +606,7 @@
           <option value="gtc">無期限(GTC)</option>
           <option value="day">当日限り</option>
         </select>
-        <input id="ptNote" class="wide pro-only" placeholder="取引メモ・根拠（例: 決算後の押し目 / 50日線反発）" maxlength="120">
+        <input id="ptNote" class="wide pro-only" placeholder="取引メモ・根拠（例: 決算後の押し目 / 50日線反発）" maxlength="120" oninput="renderOrderPreview()">
       </div>
       <div class="chip-row" style="margin-top:8px;">
         <button onclick="setQtyPreset(25)">余力25%</button>
@@ -505,6 +615,7 @@
         <button onclick="copyTradeSymbol()">一覧の先頭</button>
       </div>
       <div class="order-preview" id="ptPreview">ティッカーと株数を入力すると、概算約定額・手数料・ルール警告を表示します。</div>
+      <div class="order-preview" id="ptPreflight"></div>
       <div class="row" style="margin-top:10px;">
         <button class="primary" onclick="placeOrder()" style="flex:1;">注文する</button>
         <button onclick="refreshAll()">価格更新</button>
@@ -562,6 +673,16 @@
         </div>
       </div>
 
+      <div class="pt-panel pro-only trade-widget" data-trade-widget="stress">
+        <h3>ストレステスト</h3>
+        <div class="row" style="margin-bottom:8px;">
+          <span class="trade-note">一括下落</span>
+          <input id="ptStressPct" type="number" value="-10" step="1" style="width:88px;" onchange="renderStressTest()">
+          <button onclick="renderStressTest()">再計算</button>
+        </div>
+        <div id="ptStressList"></div>
+      </div>
+
       <div class="pt-panel pro-only trade-widget" data-trade-widget="alerts">
           <h3>価格アラート</h3>
           <div class="row">
@@ -583,6 +704,7 @@
       <div class="pt-panel pro-only trade-widget" data-trade-widget="stats">
         <h3>成績分析</h3>
         <div class="summary-cards" id="ptStats"></div>
+        <ul class="review" id="ptJournalReview" style="margin:0 0 12px;"></ul>
         <div class="grid2">
           <div><div class="chart-wrap" style="height:220px;"><canvas id="ptEquityChart"></canvas></div></div>
           <div style="overflow-x:auto;">
@@ -608,6 +730,166 @@
   <p class="sub" style="margin-top:8px;">※ 約定・アラート・ロスカットはデータ更新タイミングの価格で判定する簡易シミュレーションです。複合注文は練習用の近似実装であり、実際の証券会社の約定仕様とは異なります。</p>
 </div>
 
+<div class="setup-overlay" id="tradeSetupOverlay" role="dialog" aria-modal="true" aria-labelledby="tradeSetupTitle" hidden>
+  <div class="setup-panel">
+    <div class="row" style="justify-content:space-between; align-items:flex-start;">
+      <div>
+        <h2 id="tradeSetupTitle">デモトレード初期設定</h2>
+        <p class="sub" id="tradeSetupLead" style="margin-bottom:0;">最初に市場、資金、リスクルール、表示パネルを決めます。おすすめ設定から始めて、細かい項目だけ調整できます。</p>
+      </div>
+      <button class="danger" onclick="skipTradeSetup()">あとで設定</button>
+    </div>
+
+    <div class="setup-presets">
+      <button class="primary" onclick="applyTradeSetupPreset('beginner')">初心者おすすめ</button>
+      <button onclick="applyTradeSetupPreset('standard')">標準設定</button>
+      <button onclick="applyTradeSetupPreset('pro')">本格設定</button>
+    </div>
+
+    <div class="setup-grid">
+      <section class="setup-section">
+        <h3>1. 市場と練習スタイル</h3>
+        <div class="setup-fields">
+          <label class="setup-field">市場
+            <select id="setupMarket" onchange="syncTradeSetupMarket()">
+              <option value="us">米国株</option>
+              <option value="jp">日本株</option>
+            </select>
+          </label>
+          <label class="setup-field">練習スタイル
+            <select id="setupExperience" onchange="syncTradeSetupExperience()">
+              <option value="beginner">初心者モード</option>
+              <option value="normal">通常モード</option>
+              <option value="pro">本格モード</option>
+            </select>
+          </label>
+          <label class="setup-field">取引単位
+            <select id="setupTradeSizeMode">
+              <option value="normal">通常単位</option>
+              <option value="small">少額単位</option>
+            </select>
+          </label>
+          <label class="setup-field">注文機能
+            <select id="setupOrderLevel">
+              <option value="market">成行のみ</option>
+              <option value="basic">指値・逆指値まで</option>
+              <option value="pro">OCO / IFD まで</option>
+            </select>
+          </label>
+          <label class="setup-field">初期データ
+            <select id="setupSeedMode">
+              <option value="watch">ウォッチリストだけ作る</option>
+              <option value="demo">実データサンプル建玉を入れる</option>
+              <option value="empty">空の状態で始める</option>
+            </select>
+          </label>
+        </div>
+      </section>
+
+      <section class="setup-section">
+        <h3>2. 資金とデモ期間</h3>
+        <div class="setup-fields">
+          <label class="setup-field">初期資金 <span id="setupCashUnit"></span>
+            <input id="setupCash" type="number" min="0" step="1000" oninput="this.dataset.autoDefault='0'">
+          </label>
+          <label class="setup-field">デモ期間
+            <select id="setupSessionDays">
+              <option value="30">30日</option>
+              <option value="60">60日</option>
+              <option value="0">無期限</option>
+            </select>
+          </label>
+          <label class="setup-field">手数料率 %
+            <input id="setupFee" type="number" min="0" step="0.01">
+          </label>
+          <label class="setup-field">スリッページ %
+            <input id="setupSlip" type="number" min="0" step="0.01">
+          </label>
+        </div>
+      </section>
+
+      <section class="setup-section">
+        <h3>3. リスクルール</h3>
+        <div class="setup-fields">
+          <label class="setup-field">1銘柄上限 %
+            <input id="setupMaxPos" type="number" min="1" max="100" step="1">
+          </label>
+          <label class="setup-field">最低現金比率 %
+            <input id="setupMinCash" type="number" min="0" max="100" step="1">
+          </label>
+          <label class="setup-field">損切り目安 %
+            <input id="setupStopLoss" type="number" min="1" max="50" step="1">
+          </label>
+          <label class="setup-field">ロスカット水準 %
+            <input id="setupLiquidation" type="number" min="5" max="100" step="1">
+          </label>
+          <label class="setup-field">レバレッジ
+            <select id="setupLeverage">
+              <option value="1">現物 1倍</option>
+              <option value="2">信用 2倍</option>
+              <option value="3">練習用 3倍</option>
+            </select>
+          </label>
+          <label class="setup-field">注文前チェック
+            <select id="setupPreflightMode">
+              <option value="warn">警告のみ</option>
+              <option value="block">厳格にブロック</option>
+            </select>
+          </label>
+          <label class="setup-field wide"><input id="setupAllowShort" type="checkbox"> 空売りを許可する</label>
+        </div>
+      </section>
+
+      <section class="setup-section">
+        <h3>4. サポートとデータ取得</h3>
+        <div class="setup-fields">
+          <label class="setup-field">株価ソース
+            <select id="setupDataSource">
+              <option value="auto">自動</option>
+              <option value="yahoo">Yahoo Finance</option>
+              <option value="stooq">Stooq</option>
+            </select>
+          </label>
+          <label class="setup-field">自動更新
+            <select id="setupAutoRefresh">
+              <option value="0">オフ</option>
+              <option value="60">1分ごと</option>
+              <option value="300">5分ごと</option>
+              <option value="900">15分ごと</option>
+            </select>
+          </label>
+          <label class="setup-field wide"><input id="setupCacheFallback" type="checkbox"> 通信失敗時は前回データを警告付きで使う</label>
+          <label class="setup-field wide"><input id="setupJournalAssist" type="checkbox"> 取引日誌スコアと振り返りコメントを表示する</label>
+        </div>
+      </section>
+
+      <section class="setup-section" style="grid-column:1/-1;">
+        <h3>5. 初期表示パネル</h3>
+        <div class="setup-checks">
+          <label><input id="setupPanelCoach" type="checkbox"> 初心者コーチ</label>
+          <label><input id="setupPanelWatch" type="checkbox"> ウォッチリスト候補</label>
+          <label><input id="setupPanelPicks" type="checkbox"> 注目ピック</label>
+          <label><input id="setupPanelScreener" type="checkbox"> 銘柄発掘スクリーナー</label>
+          <label><input id="setupPanelRisk" type="checkbox"> リスク管理</label>
+          <label><input id="setupPanelStress" type="checkbox"> ストレステスト</label>
+          <label><input id="setupPanelAlerts" type="checkbox"> 価格アラート</label>
+          <label><input id="setupPanelEvents" type="checkbox"> イベントログ</label>
+          <label><input id="setupPanelStats" type="checkbox"> 成績分析</label>
+          <label><input id="setupPanelHistory" type="checkbox"> 取引履歴</label>
+        </div>
+      </section>
+    </div>
+
+    <div class="setup-actions">
+      <button onclick="skipTradeSetup()">このまま始める</button>
+      <div class="row">
+        <button onclick="fillTradeSetupFromCurrent()">現在値に戻す</button>
+        <button class="primary" onclick="applyTradeSetup()">この設定で開始</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <p class="disclaimer">
 ⚠️ 免責事項: このダッシュボードは情報提供のみを目的としており、投資助言ではありません。表示されるレビュー・シグナル・予測は単純なテクニカル指標と過去トレンドの延長に基づく機械的なものであり、将来の値動きを予測・保証するものではありません。株価データは Yahoo Finance の非公式APIから取得しており、遅延や欠損が発生する場合があります。投資判断はご自身の責任で行ってください。
 </p>
@@ -619,7 +901,13 @@ const MARKET_KEY = 'stock_dashboard_market';
 const BEGINNER_KEY = 'stock_dashboard_beginner';
 const DASHBOARD_LAYOUT_KEY = 'stock_dashboard_layout_v2';
 const TRADE_LAYOUT_KEY = 'stock_trade_layout_v1';
+const TRADE_SETTINGS_OPEN_KEY = 'stock_trade_settings_open';
 const DATA_SOURCE_KEY = 'stock_dashboard_data_source';
+const CHART_CACHE_KEY = 'stock_chart_cache_v1';
+const CACHE_FALLBACK_KEY = 'stock_cache_fallback_enabled';
+const TRADE_SETUP_KEY = 'stock_trade_setup_v1';
+const WATCH_FORECAST_PERIOD_KEY = 'stock_watch_forecast_period';
+const WATCH_FORECAST_SYMBOL_KEY = 'stock_watch_forecast_symbol';
 const DATA_SOURCES = {
   auto:'自動（Yahoo優先）',
   yahoo:'Yahoo Finance',
@@ -628,6 +916,7 @@ const DATA_SOURCES = {
 const DASHBOARD_WIDGETS = [
   {id:'summary', label:'サマリー', zone:'main'},
   {id:'watchlist', label:'ウォッチリスト', zone:'main'},
+  {id:'forecast', label:'銘柄別予想グラフ', zone:'main'},
   {id:'performance', label:'パフォーマンス比較', zone:'main'},
   {id:'picks', label:'注目ピック', zone:'main'},
   {id:'screener', label:'銘柄発掘スクリーナー', zone:'main'},
@@ -646,11 +935,17 @@ const TRADE_WIDGETS = [
   {id:'order', label:'発注パネル', zone:'main'},
   {id:'risk', label:'リスク管理', zone:'side'},
   {id:'positions', label:'建玉・注文照会', zone:'side'},
+  {id:'stress', label:'ストレステスト', zone:'side'},
   {id:'alerts', label:'価格アラート', zone:'side'},
   {id:'events', label:'イベントログ', zone:'side'},
   {id:'stats', label:'成績分析', zone:'side'},
   {id:'history', label:'取引履歴', zone:'side'},
 ];
+const ORDER_LEVEL_TYPES = {
+  market:['market'],
+  basic:['market','limit','stop','stoplimit'],
+  pro:['market','limit','stop','stoplimit','oco','ifd','ifdoco','trailing'],
+};
 const MARKET_CONFIGS = {
   us: {
     title:'米国株ダッシュボード',
@@ -704,10 +999,24 @@ let currentDataSource = (function(){
   try{ return localStorage.getItem(DATA_SOURCE_KEY) || 'auto'; }catch(e){ return 'auto'; }
 })();
 if(!DATA_SOURCES[currentDataSource]) currentDataSource = 'auto';
+let cacheFallbackEnabled = (function(){
+  try{ return localStorage.getItem(CACHE_FALLBACK_KEY) !== '0'; }catch(e){ return true; }
+})();
 let stocks = loadStocks();
 let marketData = {};   // sym -> {dates[], closes[]}
 let spxData = null;
 let perfChart = null, sectorChart = null;
+let forecastChart = null;
+let watchForecastCharts = {};
+let openWatchForecastSyms = new Set();
+let watchForecastPeriod = (function(){
+  try{ return parseInt(localStorage.getItem(WATCH_FORECAST_PERIOD_KEY) || '126') || 126; }catch(e){ return 126; }
+})();
+let selectedForecastSym = (function(){
+  try{ return localStorage.getItem(WATCH_FORECAST_SYMBOL_KEY) || null; }catch(e){ return null; }
+})();
+let chartCache = loadChartCache();
+let sourceHealth = [];
 
 function marketConfig(){ return MARKET_CONFIGS[currentMarket] || MARKET_CONFIGS.us; }
 function stockListKey(market=currentMarket){ return market==='us'? LS_KEY : `${LS_KEY}_${market}`; }
@@ -719,6 +1028,49 @@ function loadStocks(market=currentMarket){
   return MARKET_CONFIGS[market].samples.map(s=>({...s}));
 }
 function saveStocks(){ try{ localStorage.setItem(stockListKey(), JSON.stringify(stocks)); }catch(e){} }
+function loadChartCache(){
+  try{ return JSON.parse(localStorage.getItem(CHART_CACHE_KEY) || '{}') || {}; }catch(e){ return {}; }
+}
+function saveChartCache(){
+  try{ localStorage.setItem(CHART_CACHE_KEY, JSON.stringify(chartCache)); }catch(e){}
+}
+function chartCacheKey(sym, source=currentDataSource){ return `${currentMarket}:${sym}:${source}`; }
+function symbolDomId(sym){ return String(sym||'').replace(/[^A-Z0-9]/gi, '_'); }
+function packChartData(data){
+  return {
+    dates:(data.dates||[]).map(d=>d instanceof Date ? d.toISOString() : d),
+    closes:data.closes || [],
+    live:data.live,
+    liveTime:data.liveTime ? (data.liveTime instanceof Date ? data.liveTime.toISOString() : data.liveTime) : null,
+    marketState:data.marketState || null,
+    source:data.source || null,
+    requestedSource:data.requestedSource || null,
+    cachedAt:Date.now(),
+  };
+}
+function unpackChartData(data){
+  if(!data || !Array.isArray(data.closes) || !Array.isArray(data.dates)) return null;
+  return Object.assign({}, data, {
+    dates:data.dates.map(d=>new Date(d)),
+    liveTime:data.liveTime ? new Date(data.liveTime) : null,
+  });
+}
+function rememberChartCache(sym, data){
+  if(!sym || !data) return;
+  chartCache[chartCacheKey(sym, data.source || currentDataSource)] = packChartData(data);
+  chartCache[chartCacheKey(sym, 'last')] = packChartData(data);
+  const keys = Object.keys(chartCache).sort((a,b)=>(chartCache[b].cachedAt||0)-(chartCache[a].cachedAt||0));
+  keys.slice(90).forEach(k=>delete chartCache[k]);
+  saveChartCache();
+}
+function cachedChart(sym){
+  const keys = [chartCacheKey(sym, currentDataSource), chartCacheKey(sym, 'last'), chartCacheKey(sym, 'yahoo'), chartCacheKey(sym, 'stooq')];
+  for(const k of keys){
+    const data = unpackChartData(chartCache[k]);
+    if(data) return Object.assign(data, {cacheFallback:true, source:data.source || 'cache'});
+  }
+  return null;
+}
 function toHalfWidth(v){
   return String(v||'').replace(/[Ａ-Ｚａ-ｚ０-９．－]/g, ch =>
     String.fromCharCode(ch.charCodeAt(0)-0xFEE0)).replace(/　/g,' ');
@@ -759,6 +1111,7 @@ function symbolSuggestionItems(){
   };
   stocks.forEach(s=>add(s, s.shares && s.cost ? '保有/ウォッチ' : 'ウォッチ'));
   activeUniverse().forEach(u=>add(u, '主要銘柄'));
+  recentUniverse().forEach(u=>add(u, '新規上場候補'));
   lastScreenerRows.forEach(r=>add(r, 'スクリーナー'));
   Object.keys(paper?.pos || {}).forEach(sym=>add({sym, sector:'保有建玉'}, '建玉'));
   return Array.from(map.values()).sort((a,b)=>displaySymbol(a.sym).localeCompare(displaySymbol(b.sym), 'ja'));
@@ -791,6 +1144,7 @@ function addStock(){
   const shares = parseFloat(document.getElementById('inShares').value) || null;
   const cost = parseFloat(document.getElementById('inCost').value) || null;
   stocks.push({sym, sector:document.getElementById('inSector').value, shares, cost});
+  if(!selectedForecastSym) selectedForecastSym = sym;
   saveStocks();
   document.getElementById('inSym').value='';
   document.getElementById('inShares').value='';
@@ -803,6 +1157,9 @@ function removeStock(sym){
   if(!confirm(displaySymbol(sym)+' を削除しますか？')) return;
   stocks = stocks.filter(s=>s.sym!==sym);
   delete marketData[sym];
+  openWatchForecastSyms.delete(sym);
+  destroyWatchForecastChart(sym);
+  if(selectedForecastSym===sym) selectedForecastSym = stocks[0]?.sym || null;
   saveStocks();
   renderAll();
   updateSymbolSuggestions();
@@ -819,7 +1176,7 @@ function updateModeControls(){
   setPressed('beginnerToggle', beginnerMode);
   setPressed('viewToggle', document.body.classList.contains('trade-mode'));
 }
-function setMarketMode(next){
+function setMarketMode(next, opts={}){
   next = next || document.getElementById('marketMode')?.value || currentMarket;
   if(!MARKET_CONFIGS[next]){
     updateModeControls();
@@ -843,6 +1200,10 @@ function setMarketMode(next){
   setStatus('');
   if(perfChart){ perfChart.destroy(); perfChart=null; }
   if(sectorChart){ sectorChart.destroy(); sectorChart=null; }
+  if(forecastChart){ forecastChart.destroy(); forecastChart=null; }
+  destroyAllWatchForecastCharts();
+  openWatchForecastSyms.clear();
+  selectedForecastSym = stocks[0]?.sym || null;
   if(pickChart){ pickChart.destroy(); pickChart=null; }
   if(longChart){ longChart.destroy(); longChart=null; }
   if(eqChart){ eqChart.destroy(); eqChart=null; }
@@ -861,7 +1222,10 @@ function setMarketMode(next){
   if(ptScreenDetail){ ptScreenDetail.style.display = 'none'; ptScreenDetail.innerHTML = ''; }
   updateMarketUI();
   renderAll();
-  refreshAll();
+  if(!opts.skipRefresh){
+    refreshAll();
+    maybeShowTradeSetup();
+  }
 }
 function setBeginnerMode(next){
   beginnerMode = (typeof next==='boolean') ? next : !beginnerMode;
@@ -1137,6 +1501,21 @@ function resetTradeLayout(){
   saveTradeLayout();
   applyTradeLayout();
 }
+function loadTradeSettingsOpen(){
+  try{
+    const saved = localStorage.getItem(TRADE_SETTINGS_OPEN_KEY);
+    return saved == null ? true : saved === '1';
+  }catch(e){ return true; }
+}
+function saveTradeSettingsOpen(){
+  const el = document.getElementById('tradeSettingsDetails');
+  if(!el) return;
+  try{ localStorage.setItem(TRADE_SETTINGS_OPEN_KEY, el.open ? '1' : '0'); }catch(e){}
+}
+function applyTradeSettingsOpen(){
+  const el = document.getElementById('tradeSettingsDetails');
+  if(el) el.open = loadTradeSettingsOpen();
+}
 function tradeDragAfterElement(container, y){
   const items = Array.from(container.children)
     .filter(el=>el.matches?.('.trade-widget') && !el.classList.contains('dragging') && !el.classList.contains('trade-hidden'));
@@ -1227,6 +1606,7 @@ function setupPointerTradeDrag(){
   });
 }
 function initTradeCustomization(){
+  applyTradeSettingsOpen();
   decorateTradeWidgets();
   applyTradeLayout();
   setupTradeDrag();
@@ -1279,7 +1659,31 @@ async function fetchText(url){
   throw lastErr || new Error('取得失敗');
 }
 
-function sourceLabel(src){ return DATA_SOURCES[src] || src || '不明'; }
+function sourceLabel(src){ return src==='cache' ? 'キャッシュ' : (DATA_SOURCES[src] || src || '不明'); }
+function rememberSourceHealth(sym, src, ok, msg=''){
+  sourceHealth.unshift({
+    sym,
+    src,
+    ok,
+    msg,
+    time:new Date().toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'}),
+  });
+  sourceHealth = sourceHealth.slice(0,6);
+  renderSourceHealth();
+}
+function renderSourceHealth(){
+  const el = document.getElementById('sourceHealth');
+  if(!el) return;
+  if(!sourceHealth.length){
+    el.innerHTML = '<div>取得状態: 待機中。初回更新後にデータソースの状態を表示します。</div>';
+    return;
+  }
+  el.innerHTML = sourceHealth.slice(0,4).map(i=>{
+    const cls = i.ok ? '取得成功' : '取得注意';
+    const note = i.msg ? ` / ${i.msg}` : '';
+    return `<div>${cls}: ${displaySymbol(i.sym)} / ${sourceLabel(i.src)}${note} / ${i.time}</div>`;
+  }).join('');
+}
 function setDataSource(){
   const sel = document.getElementById('dataSource');
   currentDataSource = DATA_SOURCES[sel?.value] ? sel.value : 'auto';
@@ -1301,10 +1705,11 @@ function updateSourceBadge(){
   const used = [...new Set(Object.values(Object.assign({}, marketData, screenData)).map(d=>d.source).filter(Boolean))];
   const actual = used.length ? ` / 取得: ${used.map(sourceLabel).join(', ')}` : '';
   el.textContent = `株価ソース: ${sourceLabel(currentDataSource)}${actual}`;
+  renderSourceHealth();
 }
 
 async function fetchChartYahoo(sym){
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=6mo&interval=1d`;
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=2y&interval=1d`;
   const j = await fetchJson(url);
   const res = j.chart && j.chart.result && j.chart.result[0];
   if(!res) throw new Error('データなし: '+sym);
@@ -1353,7 +1758,7 @@ async function fetchChartStooq(sym){
   if(!stooqSym) throw new Error('Stooq非対応: '+sym);
   const end = new Date();
   const start = new Date();
-  start.setMonth(start.getMonth()-8);
+  start.setMonth(start.getMonth()-26);
   const url = `https://stooq.com/q/d/l/?s=${encodeURIComponent(stooqSym)}&i=d&d1=${ymd(start)}&d2=${ymd(end)}`;
   return parseStooqCsv(await fetchText(url), sym);
 }
@@ -1365,9 +1770,21 @@ async function fetchChart(sym){
     try{
       const data = src==='stooq' ? await fetchChartStooq(sym) : await fetchChartYahoo(sym);
       data.requestedSource = currentDataSource;
+      data.cachedAt = Date.now();
+      rememberChartCache(sym, data);
+      rememberSourceHealth(sym, src, true);
       return data;
     }catch(e){ lastErr = e; }
   }
+  if(cacheFallbackEnabled){
+    const cached = cachedChart(sym);
+    if(cached){
+      cached.requestedSource = currentDataSource;
+      rememberSourceHealth(sym, cached.source || 'cache', false, '通信失敗のため前回データを使用');
+      return cached;
+    }
+  }
+  rememberSourceHealth(sym, currentDataSource, false, lastErr?.message || '取得失敗');
   throw lastErr || new Error('取得失敗: '+sym);
 }
 
@@ -1432,6 +1849,7 @@ function toggleView(){
   const tm = document.body.classList.toggle('trade-mode');
   try{ localStorage.setItem('us_stock_view', tm? 'trade':'analysis'); }catch(e){}
   updateViewBtn();
+  maybeShowTradeSetup();
 }
 function updateViewBtn(){
   const b = document.getElementById('viewToggle');
@@ -1537,9 +1955,158 @@ function fmtMoney(v){
     maximumFractionDigits:cfg.currencyDigits,
   }).format(v);
 }
+function forecastPeriodOptionsHtml(){
+  const opts = [
+    ['21','過去1ヶ月'], ['63','過去3ヶ月'], ['126','過去6ヶ月'],
+    ['252','過去1年'], ['504','過去2年'], ['0','取得分すべて'],
+  ];
+  return opts.map(([v,label])=>`<option value="${v}" ${String(watchForecastPeriod)===v?'selected':''}>${label}</option>`).join('');
+}
+function forecastPeriodLabel(period=watchForecastPeriod){
+  const map = {21:'過去1ヶ月', 63:'過去3ヶ月', 126:'過去6ヶ月', 252:'過去1年', 504:'過去2年', 0:'取得分すべて'};
+  return map[period] || map[126];
+}
+function sliceChartData(data, period=watchForecastPeriod){
+  if(!data || !Array.isArray(data.closes)) return null;
+  const p = parseInt(period);
+  if(!p || data.closes.length <= p) return data;
+  return Object.assign({}, data, {
+    dates:data.dates.slice(-p),
+    closes:data.closes.slice(-p),
+  });
+}
+function rollingSma(closes, n=50){
+  return closes.map((_,i)=>{
+    if(i+1<n) return null;
+    let s=0; for(let j=i-n+1;j<=i;j++) s += closes[j];
+    return s/n;
+  });
+}
+function forecastChartData(sym, period=watchForecastPeriod){
+  const raw = marketData[sym] || screenData[sym];
+  const data = sliceChartData(raw, period);
+  if(!raw || !data || !data.closes.length) return null;
+  const fc = forecast(raw.closes);
+  const labels = data.dates.map(d=>`${d.getMonth()+1}/${d.getDate()}`);
+  const future = fc ? futureBizDates(raw.dates.at(-1), FC_HORIZON).map(d=>`${d.getMonth()+1}/${d.getDate()}*`) : [];
+  const allLabels = labels.concat(future);
+  const closes = data.closes;
+  const actual = closes.concat(new Array(future.length).fill(null));
+  const smaValues = rollingSma(raw.closes, 50).slice(-data.closes.length).concat(new Array(future.length).fill(null));
+  const datasets = [
+    {label:'株価', data:actual, borderColor:'#4da3ff', backgroundColor:'rgba(77,163,255,.12)', fill:false, pointRadius:0, borderWidth:2, tension:.18},
+  ];
+  if(smaValues.some(v=>v!=null)){
+    datasets.push({label:'50日線', data:smaValues, borderColor:'#f5b041', borderWidth:1.4, pointRadius:0, tension:.18});
+  }
+  if(fc){
+    const connect = new Array(closes.length-1).fill(null);
+    connect.push(raw.closes.at(-1));
+    datasets.push({label:'30日予想', data:connect.concat(fc.mid), borderColor:'#2ecc71', borderDash:[4,3], pointRadius:0, borderWidth:2, tension:.18});
+    datasets.push({label:'予想上限', data:connect.concat(fc.hi), borderColor:'rgba(46,204,113,.45)', borderDash:[2,3], pointRadius:0, borderWidth:1, tension:.18});
+    datasets.push({label:'予想下限', data:connect.concat(fc.lo), borderColor:'rgba(255,92,92,.45)', borderDash:[2,3], pointRadius:0, borderWidth:1, tension:.18});
+  }
+  const periodRet = closes.length>1 ? (closes.at(-1)/closes[0]-1)*100 : null;
+  return {labels:allLabels, datasets, raw, data, fc, periodRet};
+}
+function forecastChartOptions(compact=false){
+  return {responsive:true, maintainAspectRatio:false,
+    interaction:{mode:'index', intersect:false},
+    plugins:{legend:{display:!compact, labels:{color:'#e8edf2', font:{size:11}}},
+      tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${fmtMoney(c.parsed.y)}`}}},
+    scales:{x:{ticks:{color:'#8a99a8', maxTicksLimit:compact?6:12}, grid:{color:'#2c3a47'}},
+      y:{ticks:{color:'#8a99a8', callback:v=>fmtMoney(v)}, grid:{color:'#2c3a47'}}}};
+}
+function forecastMetricsHtml(sym, payload){
+  if(!payload) return '';
+  const m = rowMetrics(stocks.find(s=>s.sym===sym) || {sym});
+  const fc = payload.fc;
+  const range = fc ? `${fc.lo30>=0?'+':''}${fc.lo30.toFixed(1)}% 〜 ${fc.hi30>=0?'+':''}${fc.hi30.toFixed(1)}%` : '—';
+  return `
+    <div class="forecast-detail-metric"><div class="label">${forecastPeriodLabel()}の騰落率</div><div class="value">${fmtPct(payload.periodRet)}</div></div>
+    <div class="forecast-detail-metric"><div class="label">30営業日予想</div><div class="value">${fc?fmtPct(fc.exp30):'—'}</div></div>
+    <div class="forecast-detail-metric"><div class="label">予想レンジ</div><div class="value" style="font-size:13px;">${range}</div></div>
+    <div class="forecast-detail-metric"><div class="label">RSI / 50日線</div><div class="value" style="font-size:13px;">${m?.rsi!=null?m.rsi.toFixed(0):'—'} / ${m?.sma50!=null?fmtMoney(m.sma50):'—'}</div></div>`;
+}
+function destroyWatchForecastChart(sym){
+  const k = symbolDomId(sym);
+  if(watchForecastCharts[k]){ watchForecastCharts[k].destroy(); delete watchForecastCharts[k]; }
+}
+function destroyAllWatchForecastCharts(){
+  Object.values(watchForecastCharts).forEach(c=>c.destroy());
+  watchForecastCharts = {};
+}
+function setForecastSymbol(sym){
+  selectedForecastSym = sym || stocks[0]?.sym || null;
+  try{ selectedForecastSym ? localStorage.setItem(WATCH_FORECAST_SYMBOL_KEY, selectedForecastSym) : localStorage.removeItem(WATCH_FORECAST_SYMBOL_KEY); }catch(e){}
+  renderForecastPanel();
+}
+function setForecastPeriod(value){
+  const v = parseInt(value);
+  watchForecastPeriod = Number.isFinite(v) ? v : 126;
+  try{ localStorage.setItem(WATCH_FORECAST_PERIOD_KEY, String(watchForecastPeriod)); }catch(e){}
+  document.querySelectorAll('#forecastPeriod,.forecastPeriodMirror').forEach(sel=>{ if(sel) sel.value = String(watchForecastPeriod); });
+  renderForecastPanel();
+  renderOpenWatchForecasts();
+}
+function updateForecastSymbolOptions(){
+  const sel = document.getElementById('forecastSymbol');
+  if(!sel) return;
+  if(selectedForecastSym && !stocks.some(s=>s.sym===selectedForecastSym)) selectedForecastSym = stocks[0]?.sym || null;
+  if(!selectedForecastSym && stocks.length) selectedForecastSym = stocks[0].sym;
+  sel.innerHTML = '<option value="">銘柄を選択</option>' + stocks.map(s=>{
+    const selected = s.sym===selectedForecastSym ? 'selected' : '';
+    return `<option value="${s.sym}" ${selected}>${displaySymbol(s.sym)}${s.sector?` / ${s.sector}`:''}</option>`;
+  }).join('');
+  const per = document.getElementById('forecastPeriod');
+  if(per) per.value = String(watchForecastPeriod);
+}
+function toggleWatchForecast(sym){
+  if(openWatchForecastSyms.has(sym)){
+    openWatchForecastSyms.delete(sym);
+    destroyWatchForecastChart(sym);
+  } else {
+    openWatchForecastSyms.add(sym);
+    selectedForecastSym = sym;
+    try{ localStorage.setItem(WATCH_FORECAST_SYMBOL_KEY, selectedForecastSym); }catch(e){}
+  }
+  renderTable();
+  renderForecastPanel();
+}
+function renderOpenWatchForecasts(){
+  openWatchForecastSyms.forEach(sym=>renderWatchForecastChart(sym));
+}
+function renderWatchForecastChart(sym){
+  const canvas = document.getElementById(`watchForecastCanvas_${symbolDomId(sym)}`);
+  if(!canvas || typeof Chart==='undefined') return;
+  const payload = forecastChartData(sym);
+  const metrics = document.getElementById(`watchForecastMetrics_${symbolDomId(sym)}`);
+  if(metrics) metrics.innerHTML = forecastMetricsHtml(sym, payload);
+  destroyWatchForecastChart(sym);
+  if(!payload) return;
+  watchForecastCharts[symbolDomId(sym)] = new Chart(canvas, {type:'line',
+    data:{labels:payload.labels, datasets:payload.datasets},
+    options:forecastChartOptions(true)});
+}
+function renderForecastPanel(){
+  updateForecastSymbolOptions();
+  const canvas = document.getElementById('forecastChart');
+  const empty = document.getElementById('forecastEmpty');
+  const metrics = document.getElementById('forecastMetrics');
+  if(!canvas || typeof Chart==='undefined') return;
+  if(forecastChart){ forecastChart.destroy(); forecastChart=null; }
+  const sym = selectedForecastSym || stocks[0]?.sym;
+  const payload = sym ? forecastChartData(sym) : null;
+  if(empty) empty.style.display = payload ? 'none' : 'block';
+  if(metrics) metrics.innerHTML = payload ? forecastMetricsHtml(sym, payload) : '';
+  if(!payload) return;
+  forecastChart = new Chart(canvas, {type:'line',
+    data:{labels:payload.labels, datasets:payload.datasets},
+    options:forecastChartOptions(false)});
+}
 
 // ===== 描画 =====
-function renderAll(){ renderTable(); renderSummary(); renderBeginnerGuide(); renderPerfChart(); renderPicks(); renderTradeResearch(); renderSellCheck(); renderPaper(); renderTradeBeginnerCoach(); renderReview(); renderDiagnosis(); updateSymbolSuggestions(); decorateDashboardWidgets(); decorateTradeWidgets(); }
+function renderAll(){ renderTable(); renderForecastPanel(); renderSummary(); renderBeginnerGuide(); renderPerfChart(); renderPicks(); renderTradeResearch(); renderSellCheck(); renderPaper(); renderTradeBeginnerCoach(); renderReview(); renderDiagnosis(); renderSourceHealth(); updateSymbolSuggestions(); decorateDashboardWidgets(); decorateTradeWidgets(); }
 
 function rowMetrics(s){
   const d = marketData[s.sym];
@@ -1589,6 +2156,21 @@ function renderTable(){
       : '<span class="sector-tag">ウォッチ</span>';
     const beginnerSma = beginnerMode ? '<span class="beginner-hint">50日平均より上なら中期の流れは強めです。</span>' : '';
     const beginnerRsi = beginnerMode ? '<span class="beginner-hint">RSIは70以上で過熱、30以下で売られすぎの目安です。</span>' : '';
+    const isOpen = openWatchForecastSyms.has(s.sym);
+    const detail = isOpen ? `<tr class="forecast-detail-row">
+      <td colspan="12" class="forecast-detail-cell">
+        <div class="forecast-detail-head">
+          <div><b>${displaySymbol(s.sym)} 過去推移・30営業日予想</b><br><span class="sector-tag">${forecastPeriodLabel()} / 予想は過去60営業日のトレンド延長</span></div>
+          <div class="forecast-tools">
+            <select class="forecastPeriodMirror" onchange="setForecastPeriod(this.value)">${forecastPeriodOptionsHtml()}</select>
+            <button onclick="setForecastSymbol('${s.sym}')">専用パネルで見る</button>
+            <button onclick="toggleWatchForecast('${s.sym}')">閉じる</button>
+          </div>
+        </div>
+        <div class="forecast-mini-chart"><canvas id="watchForecastCanvas_${symbolDomId(s.sym)}"></canvas></div>
+        <div class="forecast-detail-metrics" id="watchForecastMetrics_${symbolDomId(s.sym)}"></div>
+      </td>
+    </tr>` : '';
     return `<tr>
       <td><span class="sym">${displaySymbol(s.sym)}</span><br><span class="sector-tag">${s.sector}${s.shares?` / ${s.shares}株`:''}</span>${beginnerMode?'<span class="beginner-hint">まずは前日比、1ヶ月、3ヶ月の向きを見ます。</span>':''}</td>
       <td>${fmtMoney(m.price)}</td>
@@ -1596,9 +2178,13 @@ function renderTable(){
       <td>${fmtPct(m.vsSpx)}</td>
       <td>${smaCell}${beginnerSma}</td><td>${rsiCell}${beginnerRsi}</td><td>${plCell}</td>
       <td>${news}</td>
-      <td><button class="danger" onclick="removeStock('${s.sym}')">削除</button></td>
-    </tr>`;
+      <td><div class="row" style="justify-content:flex-end; gap:4px;">
+        <button onclick="toggleWatchForecast('${s.sym}')">${isOpen?'閉じる':'グラフ'}</button>
+        <button class="danger" onclick="removeStock('${s.sym}')">削除</button>
+      </div></td>
+    </tr>${detail}`;
   }).join('');
+  renderOpenWatchForecasts();
 }
 
 function renderSummary(){
@@ -1654,9 +2240,9 @@ function renderPerfChart(){
   if(!chartStocks.length){ if(perfChart) perfChart.destroy(); return; }
 
   // 基準ラベル: 最も長い履歴を持つ系列
-  let refData = spxData;
+  let refData = spxData ? sliceChartData(spxData, 126) : null;
   chartStocks.forEach(s=>{
-    const d = marketData[s.sym];
+    const d = sliceChartData(marketData[s.sym], 126);
     if(d && (!refData || d.dates.length>refData.dates.length)) refData = d;
   });
   if(!refData){ if(perfChart) perfChart.destroy(); return; }
@@ -1667,8 +2253,9 @@ function renderPerfChart(){
       .map(d=>`${d.getMonth()+1}/${d.getDate()}*`));
   }
 
-  const addSeries = (name, data, color, dashed)=>{
-    if(!data) return;
+  const addSeries = (name, rawData, color, dashed)=>{
+    if(!rawData) return;
+    const data = sliceChartData(rawData, 126);
     const base = data.closes[0];
     const pad = histLen - data.closes.length;
     const series = new Array(Math.max(pad,0)).fill(null)
@@ -1677,7 +2264,7 @@ function renderPerfChart(){
       borderDash:dashed?[6,4]:[], pointRadius:0, tension:.2});
     // 予測延長（点線）
     if(showFc && !dashed){
-      const fc = forecast(data.closes);
+      const fc = forecast(rawData.closes);
       if(fc){
         const fcSeries = new Array(histLen-1).fill(null);
         fcSeries.push((data.closes.at(-1)/base-1)*100); // 接続点
@@ -1736,7 +2323,7 @@ function renderPicks(){
   if(!rows.length){
     if(title){
       title.textContent = usingScreener
-        ? `🔮 注目ピック（スクリーナー結果${lastScreenerMeta?.sector?` / ${lastScreenerMeta.sector}`:''}）`
+        ? `🔮 注目ピック（スクリーナー結果${screenerScopeSuffix()}）`
         : '🔮 注目ピック（スクリーナー連動・予想30日変化率）';
     }
     ul.innerHTML = usingScreener
@@ -1748,7 +2335,7 @@ function renderPicks(){
   const chartRows = rows.slice(0,10);
   if(title){
     const scope = usingScreener
-      ? `スクリーナー結果${lastScreenerMeta?.sector?` / ${lastScreenerMeta.sector}`:''}`
+      ? `スクリーナー結果${screenerScopeSuffix()}`
       : 'ウォッチリスト';
     title.textContent = `🔮 注目ピック（${scope}）`;
   }
@@ -1798,11 +2385,13 @@ function renderPicks(){
 
 function tradeWatchRows(){
   return stocks.map(s=>{
+    const ref = universeLookup(s.sym) || {};
     const m = rowMetrics(s);
     const d = marketData[s.sym] || screenData[s.sym];
     const fc = d ? forecast(d.closes) : null;
     return {
-      sym:s.sym, sector:s.sector, name:s.name || '', desc:'',
+      sym:s.sym, sector:s.sector || ref.sector, name:s.name || ref.name || '', desc:ref.desc || '',
+      listedAt:s.listedAt || ref.listedAt || null,
       source:'watch', inList:true, held:!!(s.shares && s.cost),
       price:m?.price ?? ptPrice(s.sym), m1:m?.m1 ?? null, m3:m?.m3 ?? null,
       exp30:fc?.exp30 ?? null, rsi:m?.rsi ?? null, score:m ? momentumScore(m) : null,
@@ -1850,11 +2439,12 @@ function tradeCandidateCard(r, opts={}){
   const addBtn = inList ? '<span class="sector-tag">登録済</span>' : `<button onclick="addFromScreener('${r.sym}','${r.sector||'その他'}')">＋ウォッチ</button>`;
   const detailBtn = opts.detail ? `<button onclick="showTradeScreenerDetail('${r.sym}')">詳細</button>` : '';
   const sourceNote = opts.note || tradeCandidateReason(r);
+  const listed = listingText(r);
   return `<div class="trade-candidate">
     <div class="trade-candidate-head">
       <div>
         <div class="trade-candidate-title">${displaySymbol(r.sym)} ${held?'<span class="badge buy">保有中</span>':''}</div>
-        <div class="trade-candidate-meta">${[r.name, r.sector].filter(Boolean).join(' / ') || 'ウォッチリスト'}</div>
+        <div class="trade-candidate-meta">${[r.name, r.sector, listed].filter(Boolean).join(' / ') || 'ウォッチリスト'}</div>
       </div>
       <div>${fmtMoney(r.price)}</div>
     </div>
@@ -1897,7 +2487,7 @@ function renderTradeResearch(){
   }
 }
 function copyTradeScanControlsToMain(){
-  const pairs = [['ptScanSector','scanSector'], ['ptScanSort','scanSort'], ['ptScanMinScore','scanMinScore']];
+  const pairs = [['ptScanSector','scanSector'], ['ptScanSort','scanSort'], ['ptScanMinScore','scanMinScore'], ['ptScanListedWithin','scanListedWithin']];
   pairs.forEach(([from,to])=>{
     const a=document.getElementById(from), b=document.getElementById(to);
     if(a && b) b.value = a.value;
@@ -1906,7 +2496,7 @@ function copyTradeScanControlsToMain(){
   if(a && b) b.checked = a.checked;
 }
 function copyMainScanControlsToTrade(){
-  const pairs = [['scanSector','ptScanSector'], ['scanSort','ptScanSort'], ['scanMinScore','ptScanMinScore']];
+  const pairs = [['scanSector','ptScanSector'], ['scanSort','ptScanSort'], ['scanMinScore','ptScanMinScore'], ['scanListedWithin','ptScanListedWithin']];
   pairs.forEach(([from,to])=>{
     const a=document.getElementById(from), b=document.getElementById(to);
     if(a && b) b.value = a.value;
@@ -1916,8 +2506,7 @@ function copyMainScanControlsToTrade(){
 }
 async function runTradeScreener(){
   copyTradeScanControlsToMain();
-  const secFilter = document.getElementById('scanSector')?.value || '';
-  const targets = activeUniverse().filter(u=>!secFilter || u.sector===secFilter);
+  const targets = screenTargetsFromControls();
   lastScreenerTargets = targets;
   const st = document.getElementById('scanStatus');
   const ptSt = document.getElementById('ptScanStatus');
@@ -1975,6 +2564,7 @@ function showTradeScreenerDetail(sym){
       <div class="screen-detail-metric"><div class="label">vs ${marketConfig().benchmarkShort}</div><div class="value ${metricTone(r.vsSpx,0,0)}">${pctTextPlain(r.vsSpx)}</div></div>
       <div class="screen-detail-metric"><div class="label">予想30日</div><div class="value ${metricTone(r.exp30,0,0)}">${pctTextPlain(r.exp30)}</div></div>
       <div class="screen-detail-metric"><div class="label">RSI</div><div class="value ${r.rsi>=70?'warn':(r.rsi<=30?'warn':'')}">${r.rsi!=null?r.rsi.toFixed(0):'—'}</div></div>
+      <div class="screen-detail-metric"><div class="label">上場</div><div class="value" style="font-size:14px;">${listingText(r) || '—'}</div></div>
     </div>
     <h3 style="margin-top:10px;">根拠</h3>
     <ul class="rationale-list">
@@ -2112,10 +2702,71 @@ function normalizePaper(p){
   p.rules = Object.assign({maxPosPct:20, minCashPct:10, stopLossPct:8, liquidationPct:25, marginWarnPct:40}, p.rules || {});
   p.leverage = +p.leverage || 1;
   p.allowShort = !!p.allowShort;
+  p.orderLevel = ORDER_LEVEL_TYPES[p.orderLevel] ? p.orderLevel : (p.mode==='pro' ? 'pro' : 'market');
+  p.tradeSizeMode = p.tradeSizeMode === 'small' ? 'small' : 'normal';
+  p.preflightMode = p.preflightMode === 'block' ? 'block' : 'warn';
+  p.journalAssist = p.journalAssist !== false;
   p.sessionStarted = p.sessionStarted || Date.now();
   p.sessionDays = (p.sessionDays!=null)? +p.sessionDays : 30;
   p.lastRiskNotice = p.lastRiskNotice || '';
   return p;
+}
+function tradeQtyRule(market=currentMarket, sizeMode=paper?.tradeSizeMode || 'normal'){
+  const small = sizeMode === 'small';
+  if(market==='jp'){
+    return small
+      ? {market, sizeMode, min:1, step:1, label:'少額単位', detail:'日本株は1株から練習できます', example:'1、2、10株'}
+      : {market, sizeMode, min:100, step:100, label:'通常単位', detail:'日本株は100株単位で練習します', example:'100、200、300株'};
+  }
+  return small
+    ? {market, sizeMode, min:0.01, step:0.01, label:'少額単位', detail:'米国株は0.01株から練習できます', example:'0.01、0.5、1株'}
+    : {market, sizeMode, min:1, step:1, label:'通常単位', detail:'米国株は1株単位で練習します', example:'1、2、10株'};
+}
+function fmtQty(v){
+  if(v==null || !Number.isFinite(+v)) return '—';
+  const n = +v;
+  return Number.isInteger(n) ? String(n) : String(Math.round(n*10000)/10000).replace(/\.?0+$/,'');
+}
+function qtyMultipleOk(qty, step){
+  const units = qty / step;
+  return Math.abs(units - Math.round(units)) < 1e-8;
+}
+function isClosingExistingPosition(sym, side, qty){
+  const pos = paper.pos?.[sym];
+  if(!pos || !Number.isFinite(qty)) return false;
+  if(side==='sell' && pos.qty > 0 && qty <= pos.qty + 1e-8) return true;
+  if(side==='buy' && pos.qty < 0 && qty <= Math.abs(pos.qty) + 1e-8) return true;
+  return false;
+}
+function validateTradeQuantity(sym, qty, side='buy'){
+  const rule = tradeQtyRule();
+  if(!Number.isFinite(qty) || qty <= 0){
+    return {ok:false, cls:'bad', rule, message:'株数を入力してください。'};
+  }
+  const minOk = qty + 1e-8 >= rule.min;
+  const stepOk = qtyMultipleOk(qty, rule.step);
+  if(minOk && stepOk){
+    return {ok:true, cls:'good', rule, message:`${rule.label}: ${rule.detail}（例: ${rule.example}）`};
+  }
+  if(isClosingExistingPosition(sym, side, qty)){
+    return {ok:true, cls:'caution', rule, closeOnly:true, message:`現在の${rule.label}とは違う数量ですが、既存建玉の決済として許可します。新規注文は ${rule.example} の単位で入力します。`};
+  }
+  return {ok:false, cls:'bad', rule, message:`${rule.label}では ${fmtQty(rule.min)}株以上、${fmtQty(rule.step)}株単位で入力してください（例: ${rule.example}）。`};
+}
+function fitQtyToTradeRule(rawQty, rule=tradeQtyRule()){
+  const raw = +rawQty;
+  if(!Number.isFinite(raw) || raw < rule.min) return 0;
+  const units = Math.floor((raw + 1e-8) / rule.step);
+  const qty = units * rule.step;
+  return qty >= rule.min ? Math.round(qty*10000)/10000 : 0;
+}
+function updateQtyInputRule(){
+  const el = document.getElementById('ptQty');
+  if(!el) return;
+  const rule = tradeQtyRule();
+  el.min = String(rule.min);
+  el.step = String(rule.step);
+  el.placeholder = `株数（${rule.label}）`;
 }
 function defaultPaperCash(){ return currentMarket==='jp'? 1000000 : 10000; }
 function paperKey(market=currentMarket){ return market==='us'? PT_KEY : `${PT_KEY}_${market}`; }
@@ -2126,6 +2777,273 @@ function loadPaper(market=currentMarket){
 }
 let paper = loadPaper();
 function savePaper(){ try{ localStorage.setItem(paperKey(), JSON.stringify(paper)); }catch(e){} }
+function tradeSetupKey(market=currentMarket){ return market==='us'? TRADE_SETUP_KEY : `${TRADE_SETUP_KEY}_${market}`; }
+function tradeSetupDone(market=currentMarket){
+  try{ return !!JSON.parse(localStorage.getItem(tradeSetupKey(market)) || 'null')?.completedAt; }catch(e){ return false; }
+}
+function saveTradeSetupState(data, market=currentMarket){
+  try{ localStorage.setItem(tradeSetupKey(market), JSON.stringify(Object.assign({completedAt:Date.now()}, data || {}))); }catch(e){}
+}
+function setupEl(id){ return document.getElementById(id); }
+function setSetupValue(id, value){ const el = setupEl(id); if(el) el.value = value; }
+function setSetupChecked(id, checked){ const el = setupEl(id); if(el) el.checked = !!checked; }
+function setupCurrencyUnit(market){
+  const cfg = MARKET_CONFIGS[market] || MARKET_CONFIGS.us;
+  return cfg.currency === 'JPY' ? 'JPY' : 'USD';
+}
+function setupCashDefault(market, preset='standard'){
+  if(market==='jp') return preset==='pro' ? 3000000 : 1000000;
+  return preset==='pro' ? 50000 : 10000;
+}
+function tradeSetupPreset(name, market=currentMarket){
+  const presets = {
+    beginner:{
+      experience:'beginner', sessionDays:30, seedMode:'watch', orderLevel:'market',
+      tradeSizeMode:'small',
+      feeRate:0.1, slippageRate:0.03, maxPosPct:15, minCashPct:20, stopLossPct:8,
+      liquidationPct:30, leverage:1, allowShort:false, preflightMode:'warn',
+      journalAssist:true, dataSource:'auto', autoRefresh:0, cacheFallback:true,
+      panels:{coach:true, watch:true, picks:true, screener:true, risk:true, stress:true, alerts:false, events:false, stats:false, history:true},
+    },
+    standard:{
+      experience:'normal', sessionDays:60, seedMode:'watch', orderLevel:'basic',
+      tradeSizeMode:'normal',
+      feeRate:0.1, slippageRate:0.03, maxPosPct:20, minCashPct:10, stopLossPct:8,
+      liquidationPct:25, leverage:1, allowShort:false, preflightMode:'warn',
+      journalAssist:true, dataSource:'auto', autoRefresh:300, cacheFallback:true,
+      panels:{coach:false, watch:true, picks:true, screener:true, risk:true, stress:true, alerts:true, events:false, stats:true, history:true},
+    },
+    pro:{
+      experience:'pro', sessionDays:0, seedMode:'demo', orderLevel:'pro',
+      tradeSizeMode:'normal',
+      feeRate:0.1, slippageRate:0.03, maxPosPct:20, minCashPct:10, stopLossPct:8,
+      liquidationPct:25, leverage:2, allowShort:false, preflightMode:'warn',
+      journalAssist:true, dataSource:'auto', autoRefresh:60, cacheFallback:true,
+      panels:{coach:false, watch:true, picks:true, screener:true, risk:true, stress:true, alerts:true, events:true, stats:true, history:true},
+    },
+  };
+  const p = presets[name] || presets.standard;
+  return Object.assign({cash:setupCashDefault(market, name)}, p);
+}
+function setupPanelIds(){
+  return {
+    coach:'setupPanelCoach', watch:'setupPanelWatch', picks:'setupPanelPicks',
+    screener:'setupPanelScreener', risk:'setupPanelRisk', stress:'setupPanelStress',
+    alerts:'setupPanelAlerts', events:'setupPanelEvents', stats:'setupPanelStats',
+    history:'setupPanelHistory',
+  };
+}
+function setSetupPanels(panels){
+  const ids = setupPanelIds();
+  Object.keys(ids).forEach(k=>setSetupChecked(ids[k], panels?.[k] !== false));
+}
+function readSetupPanels(){
+  const ids = setupPanelIds(), out = {};
+  Object.keys(ids).forEach(k=>{ out[k] = !!setupEl(ids[k])?.checked; });
+  return out;
+}
+function syncTradeSetupMarket(){
+  const market = setupEl('setupMarket')?.value || currentMarket;
+  const unit = setupEl('setupCashUnit');
+  if(unit) unit.textContent = `(${setupCurrencyUnit(market)})`;
+  const cash = setupEl('setupCash');
+  if(cash && (!cash.value || cash.dataset.autoDefault === '1')){
+    cash.value = setupCashDefault(market, setupEl('setupExperience')?.value === 'pro' ? 'pro' : 'standard');
+    cash.dataset.autoDefault = '1';
+  }
+}
+function syncTradeSetupExperience(){
+  const exp = setupEl('setupExperience')?.value || 'normal';
+  if(exp==='beginner'){
+    setSetupValue('setupOrderLevel', 'market');
+    setSetupValue('setupLeverage', '1');
+    setSetupChecked('setupAllowShort', false);
+  } else if(exp==='pro'){
+    setSetupValue('setupOrderLevel', 'pro');
+  } else {
+    setSetupValue('setupOrderLevel', 'basic');
+    setSetupValue('setupLeverage', '1');
+  }
+}
+function applyTradeSetupPreset(name){
+  const market = setupEl('setupMarket')?.value || currentMarket;
+  const p = tradeSetupPreset(name, market);
+  setSetupValue('setupExperience', p.experience);
+  setSetupValue('setupCash', p.cash);
+  const cash = setupEl('setupCash');
+  if(cash) cash.dataset.autoDefault = '1';
+  setSetupValue('setupSessionDays', p.sessionDays);
+  setSetupValue('setupSeedMode', p.seedMode);
+  setSetupValue('setupOrderLevel', p.orderLevel);
+  setSetupValue('setupTradeSizeMode', p.tradeSizeMode);
+  setSetupValue('setupFee', p.feeRate);
+  setSetupValue('setupSlip', p.slippageRate);
+  setSetupValue('setupMaxPos', p.maxPosPct);
+  setSetupValue('setupMinCash', p.minCashPct);
+  setSetupValue('setupStopLoss', p.stopLossPct);
+  setSetupValue('setupLiquidation', p.liquidationPct);
+  setSetupValue('setupLeverage', p.leverage);
+  setSetupChecked('setupAllowShort', p.allowShort);
+  setSetupValue('setupPreflightMode', p.preflightMode);
+  setSetupChecked('setupJournalAssist', p.journalAssist);
+  setSetupValue('setupDataSource', p.dataSource);
+  setSetupValue('setupAutoRefresh', p.autoRefresh);
+  setSetupChecked('setupCacheFallback', p.cacheFallback);
+  setSetupPanels(p.panels);
+  syncTradeSetupMarket();
+}
+function fillTradeSetupFromCurrent(){
+  setSetupValue('setupMarket', currentMarket);
+  setSetupValue('setupExperience', beginnerMode ? 'beginner' : (paper.mode==='pro' ? 'pro' : 'normal'));
+  setSetupValue('setupCash', Math.max(0, Math.round(paper.initial || defaultPaperCash())));
+  const cash = setupEl('setupCash');
+  if(cash) cash.dataset.autoDefault = '0';
+  setSetupValue('setupSessionDays', paper.sessionDays || 0);
+  setSetupValue('setupSeedMode', Object.keys(paper.pos||{}).length ? 'demo' : 'watch');
+  setSetupValue('setupOrderLevel', paper.orderLevel || (paper.mode==='pro'?'pro':'market'));
+  setSetupValue('setupTradeSizeMode', paper.tradeSizeMode || 'normal');
+  setSetupValue('setupFee', paper.feeRate ?? 0.1);
+  setSetupValue('setupSlip', paper.slippageRate ?? 0.03);
+  setSetupValue('setupMaxPos', paper.rules?.maxPosPct ?? 20);
+  setSetupValue('setupMinCash', paper.rules?.minCashPct ?? 10);
+  setSetupValue('setupStopLoss', paper.rules?.stopLossPct ?? 8);
+  setSetupValue('setupLiquidation', paper.rules?.liquidationPct ?? 25);
+  setSetupValue('setupLeverage', paper.leverage || 1);
+  setSetupChecked('setupAllowShort', paper.allowShort);
+  setSetupValue('setupPreflightMode', paper.preflightMode || 'warn');
+  setSetupChecked('setupJournalAssist', paper.journalAssist !== false);
+  setSetupValue('setupDataSource', currentDataSource);
+  setSetupValue('setupAutoRefresh', parseInt(localStorage.getItem('us_stock_autorefresh')||'0') || 0);
+  setSetupChecked('setupCacheFallback', cacheFallbackEnabled);
+  setSetupPanels({
+    coach:tradeLayout.visible.coach !== false, watch:tradeLayout.visible.watch !== false,
+    picks:tradeLayout.visible.picks !== false, screener:tradeLayout.visible.screener !== false,
+    risk:tradeLayout.visible.risk !== false, stress:tradeLayout.visible.stress !== false,
+    alerts:tradeLayout.visible.alerts !== false, events:tradeLayout.visible.events !== false,
+    stats:tradeLayout.visible.stats !== false, history:tradeLayout.visible.history !== false,
+  });
+  syncTradeSetupMarket();
+}
+function openTradeSetup(useCurrent=true, opts={}){
+  if(useCurrent) fillTradeSetupFromCurrent();
+  const title = setupEl('tradeSetupTitle');
+  const lead = setupEl('tradeSetupLead');
+  if(title) title.textContent = opts.reset ? 'デモトレード初期設定（リセット）' : 'デモトレード初期設定';
+  if(lead) lead.textContent = opts.reset
+    ? '初期資金、市場、通常/少額単位、リスクルール、表示パネルをまとめて再設定します。「この設定で開始」を押すまでは現在のデモ口座は残ります。'
+    : '最初に市場、資金、リスクルール、表示パネルを決めます。おすすめ設定から始めて、細かい項目だけ調整できます。';
+  const overlay = setupEl('tradeSetupOverlay');
+  if(overlay) overlay.hidden = false;
+}
+function closeTradeSetup(){
+  const overlay = setupEl('tradeSetupOverlay');
+  if(overlay) overlay.hidden = true;
+}
+function skipTradeSetup(){
+  saveTradeSetupState({skipped:true, market:currentMarket});
+  closeTradeSetup();
+}
+function collectTradeSetup(){
+  const market = setupEl('setupMarket')?.value || currentMarket;
+  const experience = setupEl('setupExperience')?.value || 'normal';
+  const cash = parseFloat(setupEl('setupCash')?.value);
+  return {
+    market,
+    experience,
+    mode: experience === 'pro' ? 'pro' : 'simple',
+    cash: Number.isFinite(cash) && cash > 0 ? cash : setupCashDefault(market, experience==='pro'?'pro':'standard'),
+    sessionDays: parseInt(setupEl('setupSessionDays')?.value || '30') || 0,
+    seedMode: setupEl('setupSeedMode')?.value || 'watch',
+    orderLevel: setupEl('setupOrderLevel')?.value || 'market',
+    tradeSizeMode: setupEl('setupTradeSizeMode')?.value === 'small' ? 'small' : 'normal',
+    feeRate: Math.max(0, parseFloat(setupEl('setupFee')?.value) || 0),
+    slippageRate: Math.max(0, parseFloat(setupEl('setupSlip')?.value) || 0),
+    rules:{
+      maxPosPct: Math.max(1, parseFloat(setupEl('setupMaxPos')?.value) || 20),
+      minCashPct: Math.max(0, parseFloat(setupEl('setupMinCash')?.value) || 0),
+      stopLossPct: Math.max(1, parseFloat(setupEl('setupStopLoss')?.value) || 8),
+      liquidationPct: Math.max(5, parseFloat(setupEl('setupLiquidation')?.value) || 25),
+      marginWarnPct: Math.max((parseFloat(setupEl('setupLiquidation')?.value) || 25)+10, 40),
+    },
+    leverage: Math.max(1, parseInt(setupEl('setupLeverage')?.value || '1') || 1),
+    allowShort: !!setupEl('setupAllowShort')?.checked,
+    preflightMode: setupEl('setupPreflightMode')?.value === 'block' ? 'block' : 'warn',
+    journalAssist: !!setupEl('setupJournalAssist')?.checked,
+    dataSource: DATA_SOURCES[setupEl('setupDataSource')?.value] ? setupEl('setupDataSource').value : 'auto',
+    autoRefresh: parseInt(setupEl('setupAutoRefresh')?.value || '0') || 0,
+    cacheFallback: !!setupEl('setupCacheFallback')?.checked,
+    panels: readSetupPanels(),
+  };
+}
+function paperHasActivity(p=paper){
+  return Object.keys(p.pos||{}).length || (p.hist||[]).length || (p.orders||[]).length || (p.alerts||[]).length;
+}
+function applyTradeSetupPanels(panels){
+  tradeLayout = tradeLayout || defaultTradeLayout();
+  tradeLayout.visible = tradeLayout.visible || {};
+  Object.assign(tradeLayout.visible, {
+    summary:true, order:true, positions:true,
+    coach:!!panels.coach, watch:!!panels.watch, picks:!!panels.picks, screener:!!panels.screener,
+    risk:!!panels.risk, stress:!!panels.stress, alerts:!!panels.alerts, events:!!panels.events,
+    stats:!!panels.stats, history:!!panels.history,
+  });
+  saveTradeLayout();
+  applyTradeLayout();
+}
+async function applyTradeSetup(){
+  const cfg = collectTradeSetup();
+  const targetPaper = cfg.market === currentMarket ? paper : loadPaper(cfg.market);
+  if(paperHasActivity(targetPaper) && !confirm('現在のデモ口座を初期設定で作り直します。建玉・注文・履歴は上書きされます。続行しますか？')) return;
+  if(cfg.market !== currentMarket) setMarketMode(cfg.market, {skipRefresh:true});
+
+  beginnerMode = cfg.experience === 'beginner';
+  document.body.classList.toggle('beginner-mode', beginnerMode);
+  try{ localStorage.setItem(BEGINNER_KEY, beginnerMode?'1':'0'); }catch(e){}
+
+  currentDataSource = cfg.dataSource;
+  try{ localStorage.setItem(DATA_SOURCE_KEY, currentDataSource); }catch(e){}
+  cacheFallbackEnabled = cfg.cacheFallback;
+  try{ localStorage.setItem(CACHE_FALLBACK_KEY, cacheFallbackEnabled ? '1' : '0'); }catch(e){}
+  const autoSel = setupEl('autoRefresh');
+  if(autoSel) autoSel.value = String(cfg.autoRefresh);
+  setAutoRefresh();
+
+  paper = normalizePaper({
+    cash:cfg.cash, initial:cfg.cash, mode:cfg.mode, feeRate:cfg.feeRate,
+    slippageRate:cfg.slippageRate, rules:cfg.rules, leverage:cfg.leverage,
+    allowShort:cfg.allowShort && cfg.mode==='pro', sessionDays:cfg.sessionDays,
+    sessionStarted:Date.now(), orderLevel:cfg.mode==='pro' ? cfg.orderLevel : 'market',
+    tradeSizeMode:cfg.tradeSizeMode,
+    preflightMode:cfg.preflightMode, journalAssist:cfg.journalAssist,
+  });
+  paperEvent('setup', `初期設定を適用: ${MARKET_CONFIGS[cfg.market].marketLabel} / ${cfg.experience==='beginner'?'初心者':(cfg.experience==='pro'?'本格':'通常')} / ${tradeQtyRule(cfg.market, cfg.tradeSizeMode).label} / 初期資金 ${fmtMoney(cfg.cash)}`, 'good');
+
+  if(cfg.seedMode === 'empty') stocks = [];
+  else stocks = MARKET_CONFIGS[currentMarket].samples.map(s=>({...s}));
+  saveStocks();
+  applyTradeSetupPanels(cfg.panels);
+  saveTradeSetupState(cfg, currentMarket);
+  savePaper();
+  document.body.classList.add('trade-mode');
+  try{ localStorage.setItem('us_stock_view', 'trade'); }catch(e){}
+  updateMarketUI();
+  updateViewBtn();
+  closeTradeSetup();
+
+  if(cfg.seedMode === 'demo'){
+    await seedDemoPaper({skipConfirm:true, cash:cfg.cash, settings:cfg});
+  } else {
+    recordEquity();
+    renderAll();
+    refreshAll();
+  }
+}
+function maybeShowTradeSetup(){
+  if(!document.body.classList.contains('trade-mode')) return;
+  if(tradeSetupDone()) return;
+  const overlay = setupEl('tradeSetupOverlay');
+  if(overlay && overlay.hidden) openTradeSetup(true);
+}
 function round2(v){ return Math.round((+v||0)*100)/100; }
 function pad2(n){ return String(n).padStart(2,'0'); }
 function nowStr(){
@@ -2164,6 +3082,20 @@ function applySlippage(p, side){
   return Math.round(fill*10000)/10000;
 }
 function ptFee(amount){ return paper.mode==='pro'? amount*(parseFloat(paper.feeRate)||0)/100 : 0; }
+function allowedOrderTypes(){
+  return ORDER_LEVEL_TYPES[paper.orderLevel] || ORDER_LEVEL_TYPES.pro;
+}
+function syncOrderTypeOptions(){
+  const sel = document.getElementById('ptType');
+  if(!sel) return;
+  const allowed = paper.mode === 'pro' ? allowedOrderTypes() : ['market'];
+  Array.from(sel.options).forEach(o=>{
+    const ok = allowed.includes(o.value);
+    o.disabled = !ok;
+    o.hidden = !ok;
+  });
+  if(!allowed.includes(sel.value)) sel.value = 'market';
+}
 function equityTotal(){
   let t = paper.cash;
   Object.entries(paper.pos).forEach(([s,po])=>{ const p=ptPrice(s); if(p!=null) t += po.qty*p; });
@@ -2187,6 +3119,54 @@ function portfolioSnapshot(){
   const marginRatio = gross>0? total/gross*100 : Infinity;
   return {stockVal, unknown, total, gross, lev, buyPower, marginRatio,
     pl: total-paper.initial, plPct: paper.initial? (total/paper.initial-1)*100 : 0};
+}
+function stressSnapshot(pct, onlySym=null){
+  const snap = portfolioSnapshot();
+  let delta = 0, grossAfter = 0, missing = [];
+  Object.entries(paper.pos).forEach(([sym,pos])=>{
+    const p = ptPrice(sym);
+    if(p==null){ missing.push(sym); return; }
+    const move = onlySym && sym!==onlySym ? 0 : pct/100;
+    delta += pos.qty * p * move;
+    grossAfter += Math.abs(pos.qty) * p * Math.max(0.01, 1 + move);
+  });
+  const total = snap.total + delta;
+  const marginRatio = grossAfter>0 ? total/grossAfter*100 : Infinity;
+  return {total, delta, marginRatio, missing};
+}
+function renderStressTest(){
+  const el = document.getElementById('ptStressList');
+  if(!el) return;
+  const entries = Object.entries(paper.pos);
+  if(!entries.length){
+    el.innerHTML = '<p class="table-empty">建玉を持つと、相場下落・個別急落時の総資産変化を確認できます。</p>';
+    return;
+  }
+  const custom = parseFloat(document.getElementById('ptStressPct')?.value);
+  const largest = entries.map(([sym,pos])=>({sym, value:Math.abs(pos.qty)*(ptPrice(sym)||0)}))
+    .sort((a,b)=>b.value-a.value)[0]?.sym;
+  const scenarios = [
+    {label:`全建玉 ${Number.isFinite(custom)?custom:-10}%`, pct:Number.isFinite(custom)?custom:-10, only:null},
+    {label:'全建玉 -5%', pct:-5, only:null},
+    {label:'全建玉 -15%', pct:-15, only:null},
+    ...(largest ? [{label:`最大建玉 ${displaySymbol(largest)} -20%`, pct:-20, only:largest}] : []),
+  ];
+  const seen = new Set();
+  el.innerHTML = scenarios.filter(s=>{
+    const key = `${s.label}:${s.only||'all'}`;
+    if(seen.has(key)) return false;
+    seen.add(key); return true;
+  }).map(s=>{
+    const r = stressSnapshot(s.pct, s.only);
+    const cls = r.total<=0 || r.marginRatio<=paper.rules.liquidationPct ? 'down' :
+      (r.marginRatio<=paper.rules.marginWarnPct ? 'warn' : (r.delta>=0?'up':'down'));
+    const ratio = Number.isFinite(r.marginRatio) ? `${r.marginRatio.toFixed(0)}%` : '—';
+    const missing = r.missing.length ? ` / 未取得 ${r.missing.map(displaySymbol).join(', ')}` : '';
+    return `<div class="stress-row">
+      <div><b>${s.label}</b><br><span class="trade-note">総資産 ${fmtMoney(r.total)} / 維持率 ${ratio}${missing}</span></div>
+      <div class="${cls}">${fmtSignedMoney(r.delta)}</div>
+    </div>`;
+  }).join('');
 }
 function sessionText(){
   if(!paper.sessionDays) return '期限なし';
@@ -2217,7 +3197,7 @@ function execTrade(sym, side, qty, rawPrice, label, note, opts={}){
   }
   const lev = paper.mode==='pro'? (paper.leverage||1) : 1;
   if(eq <= 0 || g > eq*lev + 1e-6)
-    return `買付余力不足です（約定後の建玉総額 $${g.toFixed(0)} > 余力 $${(Math.max(eq,0)*lev).toFixed(0)}）。レバレッジ設定や数量を見直してください`;
+    return `買付余力不足です（約定後の建玉総額 ${fmtMoney(g)} > 余力 ${fmtMoney(Math.max(eq,0)*lev)}）。レバレッジ設定や数量を見直してください`;
   let realized = null;
   if(pos.qty !== 0 && Math.sign(delta) !== Math.sign(pos.qty)){
     const closed = Math.min(Math.abs(delta), Math.abs(pos.qty));
@@ -2284,6 +3264,9 @@ async function placeOrder(){
   const tif = pro? document.getElementById('ptTif').value : 'gtc';
   const note = pro? document.getElementById('ptNote').value.trim() : '';
   if(!sym || !qty || qty<=0){ alert('ティッカーと株数を入力してください'); return; }
+  const qtyCheck = validateTradeQuantity(sym, qty, side);
+  if(!qtyCheck.ok){ alert(qtyCheck.message); return; }
+  if(pro && !allowedOrderTypes().includes(type)){ alert('初期設定で許可されていない注文種別です。初期設定から注文機能を変更してください'); return; }
   if(['limit','stoplimit'].includes(type) && (!limit || limit<=0)){ alert('指値価格を入力してください'); return; }
   if(['stop','stoplimit'].includes(type) && (!stop || stop<=0)){ alert('逆指値価格を入力してください'); return; }
   if(['oco','ifdoco'].includes(type) && ((!limit || limit<=0) || (!stop || stop<=0))){ alert('OCO/IFD-OCOには利確用の指値と損切り用の逆指値を入力してください'); return; }
@@ -2294,6 +3277,8 @@ async function placeOrder(){
   if(pro){
     const snap = portfolioSnapshot();
     const newExposure = (Math.abs(paper.pos[sym]?.qty||0)*p + p*qty) / Math.max(snap.total, 1) * 100;
+    if(paper.preflightMode==='block' && note.length<8){ alert('厳格チェック設定では、取引メモ・根拠を8文字以上入力してください'); return; }
+    if(paper.preflightMode==='block' && side==='buy' && newExposure > paper.rules.maxPosPct){ alert(`厳格チェック設定では、1銘柄上限 ${paper.rules.maxPosPct}% を超える買い注文は実行できません`); return; }
     if(side==='buy' && newExposure > paper.rules.maxPosPct &&
        !confirm(`ルール警告: この注文で ${sym} が資産の${newExposure.toFixed(0)}%になります（上限 ${paper.rules.maxPosPct}%）。続行しますか？`)) return;
   }
@@ -2453,6 +3438,12 @@ function setRules(){
   savePaper(); renderPaper();
 }
 function setPaperMode(){ paper.mode = document.getElementById('ptMode').value; savePaper(); renderPaper(); }
+function setTradeSizeMode(){
+  paper.tradeSizeMode = document.getElementById('ptTradeSizeMode')?.value === 'small' ? 'small' : 'normal';
+  paperEvent('setup', `取引単位を${tradeQtyRule().label}に変更しました。${tradeQtyRule().detail}。`, 'caution');
+  savePaper();
+  renderPaper();
+}
 function setFeeRate(){ paper.feeRate = Math.max(0, parseFloat(document.getElementById('ptFee').value)||0); savePaper(); renderPaper(); }
 function setSlippageRate(){ paper.slippageRate = Math.max(0, parseFloat(document.getElementById('ptSlip').value)||0); savePaper(); renderPaper(); }
 function setLeverage(){ paper.leverage = parseInt(document.getElementById('ptLev').value)||1; savePaper(); renderPaper(); }
@@ -2492,8 +3483,9 @@ function setQtyPreset(pct){
   document.getElementById('ptSym').value = displaySymbol(sym);
   const p = ptPrice(sym);
   if(p==null){ alert('株価未取得です。データ更新後に使えます。'); return; }
-  const qty = Math.floor((portfolioSnapshot().buyPower * pct/100) / p);
-  document.getElementById('ptQty').value = Math.max(qty, 0);
+  const rawQty = (portfolioSnapshot().buyPower * pct/100) / p;
+  const fitted = fitQtyToTradeRule(rawQty);
+  document.getElementById('ptQty').value = fitted ? fmtQty(fitted) : '';
   renderOrderPreview();
 }
 function copyTradeSymbol(){
@@ -2506,20 +3498,18 @@ function closePosition(sym){
   if(p==null){ alert('株価未取得のため決済できません。「データ更新」を押してください'); return; }
   const absQty = Math.abs(pos.qty);
   const dir = pos.qty>0? '売却':'買い戻し';
-  const q = parseFloat(prompt(`${sym} を何株${dir}しますか？（建玉 ${absQty}株 / 現在値 $${p.toFixed(2)}）`, absQty));
+  const q = parseFloat(prompt(`${displaySymbol(sym)} を何株${dir}しますか？（建玉 ${fmtQty(absQty)}株 / 現在値 ${fmtMoney(p)}）`, fmtQty(absQty)));
   if(!q || q<=0) return;
-  const err = execTrade(sym, pos.qty>0?'sell':'buy', Math.min(q,absQty), p, '決済');
+  const closeSide = pos.qty>0?'sell':'buy';
+  const closeQty = Math.min(q, absQty);
+  const qtyCheck = validateTradeQuantity(sym, closeQty, closeSide);
+  if(!qtyCheck.ok){ alert(qtyCheck.message); return; }
+  const err = execTrade(sym, closeSide, closeQty, p, '決済');
   if(err){ alert(err); return; }
   recordEquity(); savePaper(); renderPaper();
 }
 function paperReset(){
-  if(!confirm('デモトレードをリセットしますか？（建玉・注文・取引履歴・資産推移がすべて消えます）')) return;
-  const init = parseFloat(prompt(`初期資金(${marketConfig().currency})を入力してください`, String(defaultPaperCash()))) || defaultPaperCash();
-  paper = normalizePaper({cash:init, initial:init, mode:paper.mode, feeRate:paper.feeRate,
-    slippageRate:paper.slippageRate, rules:paper.rules, leverage:paper.leverage,
-    allowShort:paper.allowShort, sessionDays:paper.sessionDays});
-  paperEvent('reset', `デモ口座を ${fmtMoney(init)} で再作成`, 'caution');
-  savePaper(); renderPaper();
+  openTradeSetup(true, {reset:true});
 }
 function demoPaperTargets(){
   return currentMarket==='jp'
@@ -2559,8 +3549,8 @@ function demoEquitySeries(targets, cash){
     return {d:`${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`, v:round2(v), spx:null};
   });
 }
-async function seedDemoPaper(){
-  if(!confirm('現在のデモ口座を、実在銘柄のサンプルデータで上書きしますか？')) return;
+async function seedDemoPaper(options={}){
+  if(!options.skipConfirm && !confirm('現在のデモ口座を、実在銘柄のサンプルデータで上書きしますか？')) return false;
   const targets = demoPaperTargets();
   setStatus('デモ用の実データを取得中...');
   try{
@@ -2581,41 +3571,50 @@ async function seedDemoPaper(){
       currentValue += current*t.qty;
       const fee = round2(ptFee(avg*t.qty));
       hist.unshift({d:dateFromOffset(t.entryOffset), side:'買', sym:t.sym, qty:t.qty, price:avg, fee, realized:null,
-        note:'実データサンプル: 過去終値を取得単価として登録'});
+        note:'実データサンプル: 主要銘柄の値動き確認 / 50日線とRSIを見て練習 / 損切り目安を後で確認'});
       const existing = stocks.find(s=>s.sym===t.sym);
       if(existing){ existing.shares = existing.shares || t.qty; existing.cost = existing.cost || avg; existing.sector = existing.sector || t.sector; }
       else stocks.push({sym:t.sym, sector:t.sector, shares:t.qty, cost:avg});
     });
-    const cash = currentMarket==='jp' ? 350000 : 12000;
+    const cash = Number.isFinite(+options.cash) ? +options.cash : (currentMarket==='jp' ? 350000 : 12000);
     const initial = round2(investedAtEntry + cash);
     const now = Date.now();
     const first = targets[0];
     const firstPrice = ptPrice(first.sym) || positions[first.sym].avg;
     const firstQty = Math.max(1, Math.floor(first.qty/2));
     const gid = 'sample-' + now;
+    const sampleMode = options.settings?.mode || 'pro';
+    const sampleOrders = sampleMode === 'pro' ? [
+      {id:now+1, sym:first.sym, side:'sell', type:'ocoLimit', qty:firstQty, limit:round2(firstPrice*1.08), stop:null, tif:'gtc', created:nowStr(), createdDay:todayStr(), note:'サンプル: 利確予約', groupId:gid, reduceOnly:true},
+      {id:now+2, sym:first.sym, side:'sell', type:'ocoStop', qty:firstQty, limit:null, stop:round2(firstPrice*0.92), tif:'gtc', created:nowStr(), createdDay:todayStr(), note:'サンプル: 損切り予約', groupId:gid, reduceOnly:true},
+    ] : [];
+    const sampleAlerts = sampleMode === 'pro' ? [
+      {id:now+3, sym:targets[1].sym, cond:'above', price:round2((ptPrice(targets[1].sym)||positions[targets[1].sym].avg)*1.05), created:nowStr(), fired:false},
+    ] : [];
+    const sampleEvents = [
+      {d:nowStr(), kind:'sample', text:`${marketConfig().marketLabel}の実データサンプルを投入しました。現在評価額 ${fmtMoney(currentValue)}。`, cls:'good'},
+      ...(sampleMode === 'pro' ? [{d:nowStr(), kind:'order', text:`${displaySymbol(first.sym)} にOCOの利確・損切り予約を設定しました。`, cls:'caution'}] : []),
+    ];
     paper = normalizePaper({
       cash,
       initial,
       pos:positions,
       hist,
-      mode:'pro',
-      feeRate:0.1,
-      slippageRate:0.03,
-      leverage:1,
-      allowShort:false,
-      sessionDays:30,
+      mode:sampleMode,
+      feeRate:options.settings?.feeRate ?? paper.feeRate ?? 0.1,
+      slippageRate:options.settings?.slippageRate ?? paper.slippageRate ?? 0.03,
+      rules:options.settings?.rules || paper.rules,
+      leverage:options.settings?.leverage || paper.leverage || 1,
+      allowShort:!!(options.settings?.allowShort && (options.settings?.mode || 'pro') === 'pro'),
+      sessionDays:options.settings?.sessionDays ?? paper.sessionDays ?? 30,
       sessionStarted:now,
-      orders:[
-        {id:now+1, sym:first.sym, side:'sell', type:'ocoLimit', qty:firstQty, limit:round2(firstPrice*1.08), stop:null, tif:'gtc', created:nowStr(), createdDay:todayStr(), note:'サンプル: 利確予約', groupId:gid, reduceOnly:true},
-        {id:now+2, sym:first.sym, side:'sell', type:'ocoStop', qty:firstQty, limit:null, stop:round2(firstPrice*0.92), tif:'gtc', created:nowStr(), createdDay:todayStr(), note:'サンプル: 損切り予約', groupId:gid, reduceOnly:true},
-      ],
-      alerts:[
-        {id:now+3, sym:targets[1].sym, cond:'above', price:round2((ptPrice(targets[1].sym)||positions[targets[1].sym].avg)*1.05), created:nowStr(), fired:false},
-      ],
-      events:[
-        {d:nowStr(), kind:'sample', text:`${marketConfig().marketLabel}の実データサンプルを投入しました。現在評価額 ${fmtMoney(currentValue)}。`, cls:'good'},
-        {d:nowStr(), kind:'order', text:`${displaySymbol(first.sym)} にOCOの利確・損切り予約を設定しました。`, cls:'caution'},
-      ],
+      orderLevel:options.settings?.orderLevel || paper.orderLevel || 'pro',
+      tradeSizeMode:options.settings?.tradeSizeMode || paper.tradeSizeMode || 'normal',
+      preflightMode:options.settings?.preflightMode || paper.preflightMode || 'warn',
+      journalAssist:options.settings?.journalAssist ?? paper.journalAssist ?? true,
+      orders:sampleOrders,
+      alerts:sampleAlerts,
+      events:sampleEvents,
       equity:demoEquitySeries(targets, cash),
       realized:0,
       wins:0,
@@ -2627,9 +3626,11 @@ async function seedDemoPaper(){
     if(ptSym) ptSym.value = displaySymbol(first.sym);
     setStatus('');
     renderAll();
+    return true;
   }catch(e){
     setStatus('⚠ デモ用データの取得に失敗しました');
     alert('実データサンプルの作成に失敗しました: ' + e.message);
+    return false;
   }
 }
 
@@ -2657,6 +3658,40 @@ function computeStats(){
     avgLoss: losses.length? grossLoss/losses.length:null,
     fees, maxDD, sharpe, bySym};
 }
+function journalScore(h){
+  let score = 45;
+  const notes = [];
+  const note = h.note || '';
+  if(note.length >= 12){ score += 20; notes.push('根拠メモあり'); }
+  else notes.push('根拠メモが短め');
+  if(/損切|利確|逆指値|OCO|IFD|50日|RSI|決算|ルール|押し目|反発/.test(note)){
+    score += 20; notes.push('判断材料あり');
+  } else {
+    notes.push('指標・出口条件の記録が少なめ');
+  }
+  if(h.realized!=null){ score += 15; notes.push('結果まで記録済み'); }
+  else notes.push('未決済。出口条件を後で確認');
+  return {score:Math.max(0, Math.min(100, score)), notes};
+}
+function renderJournalReview(){
+  const el = document.getElementById('ptJournalReview');
+  if(!el) return;
+  if(paper.journalAssist === false){
+    el.innerHTML = '<li>取引日誌レビューは初期設定でオフになっています。</li>';
+    return;
+  }
+  const trades = paper.hist.filter(h=>h.side==='買' || h.side==='売').slice(0,5);
+  if(!trades.length){
+    el.innerHTML = '<li>売買履歴ができると、根拠メモ・出口ルール・結果記録をもとに振り返りポイントを表示します。</li>';
+    return;
+  }
+  el.innerHTML = trades.map(h=>{
+    const r = journalScore(h);
+    const cls = r.score>=80 ? 'good' : (r.score>=60 ? 'caution' : 'bad');
+    const result = h.realized!=null ? ` / 損益 ${fmtSignedMoney(h.realized)}` : '';
+    return `<li class="${cls}"><b>${displaySymbol(h.sym)} ${h.side} 日誌スコア ${r.score}点</b>${result}<br>${r.notes.join(' / ')}</li>`;
+  }).join('');
+}
 function exportCsv(){
   const rows = [['日時','売買','銘柄','株数','価格$','手数料$','実現損益$','メモ']];
   [...paper.hist].reverse().forEach(h=>rows.push(
@@ -2683,36 +3718,115 @@ function renderQuote(){
     <div class="quote-cell"><div class="label">Bid / Ask</div><div class="value">${q? `${fmtMoney(q.bid)} / ${fmtMoney(q.ask)}`:'—'}</div></div>
     <div class="quote-cell"><div class="label">前日比</div><div class="value">${fmtPct(d1)}</div></div>`;
 }
+function currentOrderDraft(){
+  const side = document.getElementById('ptSide')?.value || 'buy';
+  const sym = normalizeSymbol(document.getElementById('ptSym')?.value);
+  const qtyRaw = document.getElementById('ptQty')?.value ?? '';
+  const qty = parseFloat(qtyRaw);
+  const hasQty = qtyRaw !== '' && Number.isFinite(qty) && qty > 0;
+  const pro = paper.mode === 'pro';
+  const type = pro? (document.getElementById('ptType')?.value || 'market') : 'market';
+  const limit = parseFloat(document.getElementById('ptLimit')?.value);
+  const stop = parseFloat(document.getElementById('ptStop')?.value);
+  const trailPct = parseFloat(document.getElementById('ptTrailPct')?.value);
+  const note = pro? (document.getElementById('ptNote')?.value || '').trim() : '';
+  const chart = sym ? (marketData[sym] || screenData[sym]) : null;
+  const price = chart ? (chart.live ?? chart.closes[chart.closes.length-1]) : null;
+  const fill = price!=null ? applySlippage(price, side) : null;
+  const notional = (fill!=null && hasQty) ? fill * qty : null;
+  const fee = notional!=null ? ptFee(notional) : null;
+  const snap = portfolioSnapshot();
+  const weight = (notional!=null && snap.total>0) ? notional/snap.total*100 : null;
+  const qtyRule = tradeQtyRule();
+  const qtyCheck = hasQty ? validateTradeQuantity(sym, qty, side) : {ok:false, cls:'caution', rule:qtyRule, message:`${qtyRule.label}: ${qtyRule.detail}（例: ${qtyRule.example}）`};
+  return {side, sym, qty, hasQty, pro, type, limit, stop, trailPct, note, price, fill, notional, fee, weight, snap, cacheFallback:!!chart?.cacheFallback, qtyRule, qtyCheck};
+}
+function preflightCard(title, cls, text){
+  return `<div class="preflight-item ${cls}"><b>${title}</b>${text}</div>`;
+}
+function renderOrderPreflight(draft=currentOrderDraft()){
+  const el = document.getElementById('ptPreflight');
+  if(!el) return;
+  const items = [];
+  const symText = draft.sym ? `${displaySymbol(draft.sym)} を選択中` : 'ティッカーまたは銘柄コードが未入力です。候補検索から選ぶと入力ミスを減らせます。';
+  items.push(preflightCard('銘柄', draft.sym?'good':'bad', symText));
+
+  if(draft.hasQty && draft.notional!=null)
+    items.push(preflightCard('数量・金額', 'good', `${draft.qty}株 / 概算 ${fmtMoney(draft.notional)} / 手数料 ${fmtMoney(draft.fee)}`));
+  else if(draft.hasQty)
+    items.push(preflightCard('数量・金額', 'caution', `${draft.qty}株。価格未取得のため概算金額は未計算です。`));
+  else
+    items.push(preflightCard('数量・金額', 'bad', '株数が未入力です。価格や候補情報は表示しますが、注文実行には株数が必要です。'));
+
+  items.push(preflightCard('取引単位', draft.qtyCheck.cls, draft.qtyCheck.message));
+
+  if(draft.price!=null)
+    items.push(preflightCard('データ', draft.cacheFallback?'caution':'good', `現在値 ${fmtMoney(draft.price)}${draft.cacheFallback?'（前回データ）':''}`));
+  else
+    items.push(preflightCard('データ', draft.sym?'caution':'bad', draft.sym?'価格未取得です。価格更新で取得します。':'銘柄入力後に価格取得できます。'));
+
+  const exitMissing = [];
+  if(['limit','stoplimit','oco','ifdoco'].includes(draft.type) && !(draft.limit>0)) exitMissing.push('指値/利確');
+  if(['stop','stoplimit','oco','ifdoco'].includes(draft.type) && !(draft.stop>0)) exitMissing.push('逆指値/損切り');
+  if(draft.type==='ifd' && !(draft.limit>0) && !(draft.stop>0)) exitMissing.push('決済予約');
+  if(draft.type==='trailing' && !(draft.trailPct>0)) exitMissing.push('追跡幅');
+  if(draft.pro && exitMissing.length)
+    items.push(preflightCard('出口ルール', 'bad', `${exitMissing.join('・')} が未入力です。注文種別によっては実行前に入力が必要です。`));
+  else if(draft.pro && (draft.stop>0 || ['oco','ifd','ifdoco','trailing'].includes(draft.type)))
+    items.push(preflightCard('出口ルール', 'good', `${orderLabel(draft.type)} の出口条件を確認中です。`));
+  else
+    items.push(preflightCard('出口ルール', 'caution', draft.pro?'損切り・利確の目安が未設定です。先に出口を決める練習がおすすめです。':'初心者モードでは、買う前に「いくら下がったら見直すか」を決めておくと練習効果が上がります。'));
+
+  if(draft.weight!=null){
+    const cls = draft.weight > paper.rules.maxPosPct ? 'caution' : 'good';
+    items.push(preflightCard('資産比', cls, `この注文は総資産の約 ${draft.weight.toFixed(1)}%。目安上限 ${paper.rules.maxPosPct}% です。`));
+  } else {
+    items.push(preflightCard('資産比', 'caution', '株数と価格がそろうと、資産に対する大きさを計算します。'));
+  }
+
+  if(draft.pro)
+    items.push(preflightCard('根拠メモ', draft.note.length>=8?'good':'caution', draft.note.length>=8?'取引根拠が記録されます。':'取引メモが短めです。後で振り返れる根拠を1行入れると成績分析が使いやすくなります。'));
+  if(draft.pro)
+    items.push(preflightCard('チェック方針', paper.preflightMode==='block'?'caution':'good',
+      paper.preflightMode==='block'?'厳格モードです。根拠不足や上限超過は注文前に止めます。':'警告のみです。不足項目は表示しますが、最低限の注文条件以外は止めません。'));
+
+  el.innerHTML = `<div class="preflight-grid">${items.join('')}</div>`;
+}
 function renderOrderPreview(){
   renderQuote();
   const el = document.getElementById('ptPreview');
   if(!el) return;
-  const side = document.getElementById('ptSide')?.value || 'buy';
-  const sym = normalizeSymbol(document.getElementById('ptSym')?.value);
-  const qty = parseFloat(document.getElementById('ptQty')?.value);
-  const type = paper.mode==='pro'? (document.getElementById('ptType')?.value || 'market') : 'market';
-  if(!sym || !qty || qty<=0){
-    el.textContent = 'ティッカーと株数を入力すると、概算約定額・手数料・ルール警告を表示します。';
+  const d = currentOrderDraft();
+  renderOrderPreflight(d);
+  if(!d.sym && !d.hasQty){
+    el.textContent = '未入力項目があります。銘柄を入れると価格・値動き情報、株数を入れると概算約定額を表示します。';
     renderTradeBeginnerCoach();
     return;
   }
-  const p0 = ptPrice(sym);
-  if(p0==null){
-    el.innerHTML = `${sym} の価格が未取得です。価格更新を押してください。`;
+  if(!d.sym){
+    el.innerHTML = `株数 ${d.qty}株。銘柄が未入力のため、価格と約定代金はまだ計算できません。`;
     renderTradeBeginnerCoach();
     return;
   }
-  const fill = applySlippage(p0, side);
-  const notional = fill*qty;
-  const fee = ptFee(notional);
-  const snap = portfolioSnapshot();
-  const weight = snap.total>0? notional/snap.total*100 : 0;
+  if(d.price==null){
+    el.innerHTML = `${displaySymbol(d.sym)} の価格が未取得です。価格更新を押すと、入力済み条件に反映します。${d.hasQty?` 株数 ${d.qty}株は保持されています。`:''}`;
+    renderTradeBeginnerCoach();
+    return;
+  }
+  if(!d.hasQty){
+    el.innerHTML = `${displaySymbol(d.sym)} 現在値 ${fmtMoney(d.price)}。株数を入れると概算約定額・手数料・資産比を計算します。`;
+    renderTradeBeginnerCoach();
+    return;
+  }
   const warnings=[];
-  if(side==='buy' && weight > paper.rules.maxPosPct) warnings.push(`1銘柄上限 ${paper.rules.maxPosPct}% を超える可能性`);
-  if(side==='sell' && !paper.allowShort && (paper.pos[sym]?.qty||0) < qty) warnings.push('保有数量を超える売り注文です');
-  if(type==='trailing') warnings.push('更新時点の高値/安値から追跡幅で逆指値を動かします');
-  if(['oco','ifd','ifdoco'].includes(type)) warnings.push('複合注文は練習用の近似判定です');
-  el.innerHTML = `想定価格 ${fmtMoney(fill)} / 約定代金 ${fmtMoney(notional)} / 手数料 ${fmtMoney(fee)} / 資産比 ${weight.toFixed(1)}%`
+  if(d.qtyCheck && !d.qtyCheck.ok) warnings.push(d.qtyCheck.message);
+  else if(d.qtyCheck?.closeOnly) warnings.push(d.qtyCheck.message);
+  if(d.side==='buy' && d.weight > paper.rules.maxPosPct) warnings.push(`1銘柄上限 ${paper.rules.maxPosPct}% を超える可能性`);
+  if(d.side==='sell' && !paper.allowShort && (paper.pos[d.sym]?.qty||0) < d.qty) warnings.push('保有数量を超える売り注文です');
+  if(d.type==='trailing') warnings.push('更新時点の高値/安値から追跡幅で逆指値を動かします');
+  if(['oco','ifd','ifdoco'].includes(d.type)) warnings.push('複合注文は練習用の近似判定です');
+  if(d.cacheFallback) warnings.push('通信失敗時の前回データを使用中です');
+  el.innerHTML = `想定価格 ${fmtMoney(d.fill)} / 約定代金 ${fmtMoney(d.notional)} / 手数料 ${fmtMoney(d.fee)} / 資産比 ${d.weight.toFixed(1)}%`
     + (warnings.length? `<br><span class="warn">${warnings.join('。')}</span>`:'');
   renderTradeBeginnerCoach();
 }
@@ -2889,6 +4003,9 @@ function renderPaper(){
   const pro = paper.mode==='pro';
   const modeSel = document.getElementById('ptMode');
   if(modeSel && modeSel.value!==paper.mode) modeSel.value = paper.mode;
+  const sizeSel = document.getElementById('ptTradeSizeMode');
+  if(sizeSel && sizeSel.value!==paper.tradeSizeMode) sizeSel.value = paper.tradeSizeMode;
+  updateQtyInputRule();
   const sessionSel = document.getElementById('ptSessionDays');
   if(sessionSel) sessionSel.value = String(paper.sessionDays||0);
   const feeIn = document.getElementById('ptFee');
@@ -2900,6 +4017,7 @@ function renderPaper(){
   const shortCb = document.getElementById('ptShort');
   if(shortCb) shortCb.checked = !!paper.allowShort;
   document.querySelectorAll('.pro-only').forEach(el=>{ el.style.display = pro? '' : 'none'; });
+  syncOrderTypeOptions();
   const t = document.getElementById('ptType')?.value || 'market';
   const stopEl = document.getElementById('ptStop'), limEl = document.getElementById('ptLimit'), trEl=document.getElementById('ptTrailPct');
   if(limEl) limEl.style.display = (pro && ['limit','stoplimit','oco','ifd','ifdoco'].includes(t))? '' : 'none';
@@ -2907,6 +4025,7 @@ function renderPaper(){
   if(trEl) trEl.style.display = (pro && t==='trailing')? '' : 'none';
 
   const snap = portfolioSnapshot();
+  const qtyRule = tradeQtyRule();
   let vsSpxCard = '';
   const baseE = paper.equity.find(e=>e.spx!=null);
   const lastE = [...paper.equity].reverse().find(e=>e.spx!=null);
@@ -2923,10 +4042,12 @@ function renderPaper(){
     <div class="scard"><div class="label">建玉評価額</div><div class="value">${fmtMoney(snap.stockVal)}${snap.unknown?' <span class="warn">*</span>':''}</div></div>
     <div class="scard"><div class="label">総資産</div><div class="value">${fmtMoney(snap.total)}</div></div>
     ${pro? `<div class="scard"><div class="label">買付余力（${snap.lev}倍）</div><div class="value">${fmtMoney(snap.buyPower)}</div></div>`:''}
+    <div class="scard"><div class="label">取引単位</div><div class="value">${qtyRule.label}</div><div style="font-size:11px; color:var(--muted); margin-top:2px;">${qtyRule.detail}</div></div>
     <div class="scard"><div class="label">累計損益</div>
       <div class="value ${snap.pl>=0?'up':'down'}">${fmtSignedMoney(snap.pl)} (${fmtPct(snap.plPct)})</div></div>`
     + vsSpxCard;
   renderRiskMeter(snap);
+  renderStressTest();
   renderRuleCheck(snap.total);
   renderQuote();
   renderOrderPreview();
@@ -3016,6 +4137,7 @@ function renderPaper(){
       <td><span class="sym">${displaySymbol(sym)}</span></td><td>${v.n}</td>
       <td class="${v.pl>=0?'up':'down'}">${fmtSignedMoney(v.pl)}</td></tr>`).join('');
   }
+  renderJournalReview();
 
   const eqc = document.getElementById('ptEquityChart');
   if(eqChart){ eqChart.destroy(); eqChart=null; }
@@ -3151,11 +4273,172 @@ const JP_UNIVERSE = [
   {sym:'9020.T', name:'JR東日本', sector:'サービス', desc:'鉄道大手。人流、観光、駅ナカ消費が材料'},
   {sym:'9022.T', name:'JR東海', sector:'サービス', desc:'東海道新幹線が主力。出張・観光需要に左右される'},
 ];
+
+const RECENT_US_UNIVERSE = [
+  {sym:'FIG', name:'Figma', sector:'情報技術', listedAt:'2025-07-31', desc:'デザイン協業プラットフォーム。近年IPOした成長株候補'},
+  {sym:'CRCL', name:'Circle Internet Group', sector:'金融', listedAt:'2025-06-05', desc:'USDC発行元のステーブルコイン関連企業'},
+  {sym:'CRWV', name:'CoreWeave', sector:'情報技術', listedAt:'2025-03-28', desc:'AI向けGPUクラウドを提供するAIインフラ企業'},
+  {sym:'ETOR', name:'eToro Group', sector:'金融', listedAt:'2025-05-14', desc:'個人投資家向け投資プラットフォーム'},
+  {sym:'HNGE', name:'Hinge Health', sector:'ヘルスケア', listedAt:'2025-05-22', desc:'デジタル理学療法・筋骨格ケア'},
+  {sym:'MNTN', name:'MNTN', sector:'通信サービス', listedAt:'2025-05-22', desc:'コネクテッドTV広告プラットフォーム'},
+  {sym:'RDDT', name:'Reddit', sector:'通信サービス', listedAt:'2024-03-21', desc:'掲示板・コミュニティ型SNS。広告とデータライセンスが収益源'},
+  {sym:'ALAB', name:'Astera Labs', sector:'情報技術', listedAt:'2024-03-20', desc:'AIサーバー向け接続半導体'},
+  {sym:'RBRK', name:'Rubrik', sector:'情報技術', listedAt:'2024-04-25', desc:'クラウドデータ保護・サイバー復旧'},
+  {sym:'TEM', name:'Tempus AI', sector:'ヘルスケア', listedAt:'2024-06-14', desc:'医療データとAI解析'},
+  {sym:'TTAN', name:'ServiceTitan', sector:'情報技術', listedAt:'2024-12-12', desc:'住宅設備・現場サービス向けSaaS'},
+  {sym:'LINE', name:'Lineage', sector:'不動産', listedAt:'2024-07-25', desc:'温度管理物流・冷蔵倉庫REIT'},
+  {sym:'ARM', name:'Arm Holdings', sector:'情報技術', listedAt:'2023-09-14', desc:'半導体IP設計大手'},
+  {sym:'CART', name:'Instacart', sector:'一般消費財', listedAt:'2023-09-19', desc:'食品宅配プラットフォーム'},
+  {sym:'KVYO', name:'Klaviyo', sector:'情報技術', listedAt:'2023-09-20', desc:'EC向けマーケティング自動化SaaS'},
+  {sym:'BIRK', name:'Birkenstock', sector:'一般消費財', listedAt:'2023-10-11', desc:'フットウェアブランド'},
+  {sym:'CAVA', name:'Cava Group', sector:'一般消費財', listedAt:'2023-06-15', desc:'地中海料理レストランチェーン'},
+  {sym:'DUOL', name:'Duolingo', sector:'情報技術', listedAt:'2021-07-28', desc:'語学学習アプリ'},
+  {sym:'TOST', name:'Toast', sector:'情報技術', listedAt:'2021-09-22', desc:'飲食店向け決済・業務SaaS'},
+  {sym:'RIVN', name:'Rivian Automotive', sector:'一般消費財', listedAt:'2021-11-10', desc:'EVピックアップ・商用EV'},
+  {sym:'GTLB', name:'GitLab', sector:'情報技術', listedAt:'2021-10-14', desc:'DevOpsプラットフォーム'},
+  {sym:'GFS', name:'GlobalFoundries', sector:'情報技術', listedAt:'2021-10-28', desc:'半導体ファウンドリ'},
+  {sym:'HOOD', name:'Robinhood Markets', sector:'金融', listedAt:'2021-07-29', desc:'個人投資家向け証券アプリ'},
+  {sym:'ABNB', name:'Airbnb', sector:'一般消費財', listedAt:'2020-12-10', desc:'民泊・旅行予約プラットフォーム'},
+  {sym:'DASH', name:'DoorDash', sector:'一般消費財', listedAt:'2020-12-09', desc:'フードデリバリー'},
+  {sym:'SNOW', name:'Snowflake', sector:'情報技術', listedAt:'2020-09-16', desc:'クラウドデータウェアハウス'},
+  {sym:'PLTR', name:'Palantir', sector:'情報技術', listedAt:'2020-09-30', desc:'政府・企業向けデータ解析'},
+  {sym:'U', name:'Unity Software', sector:'情報技術', listedAt:'2020-09-18', desc:'ゲーム・3D開発エンジン'},
+  {sym:'CRWD', name:'CrowdStrike', sector:'情報技術', listedAt:'2019-06-12', desc:'クラウド型サイバーセキュリティ'},
+  {sym:'UBER', name:'Uber Technologies', sector:'一般消費財', listedAt:'2019-05-10', desc:'ライドシェア・配送プラットフォーム'},
+  {sym:'ZM', name:'Zoom Video', sector:'情報技術', listedAt:'2019-04-18', desc:'ビデオ会議サービス'},
+  {sym:'PINS', name:'Pinterest', sector:'通信サービス', listedAt:'2019-04-18', desc:'画像共有・広告プラットフォーム'},
+  {sym:'SPOT', name:'Spotify', sector:'通信サービス', listedAt:'2018-04-03', desc:'音楽ストリーミング'},
+  {sym:'TEAM', name:'Atlassian', sector:'情報技術', listedAt:'2015-12-10', desc:'Jiraなど開発・業務コラボレーションSaaS'},
+  {sym:'SHOP', name:'Shopify', sector:'情報技術', listedAt:'2015-05-21', desc:'ECサイト構築・決済プラットフォーム'},
+];
+
+const RECENT_JP_UNIVERSE = [
+  {sym:'575A.T', name:'前澤ホールディングス', sector:'その他', listedAt:'2026-06-01', desc:'JPX新規上場銘柄。前澤グループの持株会社'},
+  {sym:'559A.T', name:'梅乃宿酒造', sector:'食品', listedAt:'2026-04-24', desc:'日本酒・リキュールなどの酒造企業'},
+  {sym:'556A.T', name:'犬猫生活', sector:'小売', listedAt:'2026-04-23', desc:'ペットフード・ペット関連EC'},
+  {sym:'558A.T', name:'SQUEEZE', sector:'サービス', listedAt:'2026-04-22', desc:'宿泊施設運営・スマートホテル関連'},
+  {sym:'554A.T', name:'バトンズ', sector:'サービス', listedAt:'2026-04-21', desc:'M&Aマッチングサービス'},
+  {sym:'550A.T', name:'ソフトテックス', sector:'情報・通信', listedAt:'2026-04-09', desc:'医療・介護系ITサービス'},
+  {sym:'549A.T', name:'ヒトトヒトHD', sector:'サービス', listedAt:'2026-04-07', desc:'警備・施設運営サービス'},
+  {sym:'548A.T', name:'システムエグゼ', sector:'情報・通信', listedAt:'2026-04-06', desc:'システム開発・クラウドサービス'},
+  {sym:'542A.T', name:'ビタブリッドジャパン', sector:'小売', listedAt:'2026-04-02', desc:'美容・健康関連D2C'},
+  {sym:'523A.T', name:'セイワホールディングス', sector:'サービス', listedAt:'2026-03-27', desc:'自動車関連サービス'},
+  {sym:'519A.T', name:'ベーシック', sector:'サービス', listedAt:'2026-03-25', desc:'BtoBマーケティング支援'},
+  {sym:'520A.T', name:'ジェイファーマ', sector:'医薬品', listedAt:'2026-03-25', desc:'創薬・バイオ関連'},
+  {sym:'505A.T', name:'ギークリー', sector:'サービス', listedAt:'2026-02-27', desc:'IT人材紹介サービス'},
+  {sym:'504A.T', name:'イノバセル', sector:'医薬品', listedAt:'2026-02-24', desc:'医療・バイオ関連'},
+  {sym:'500A.T', name:'TOブックス', sector:'情報・通信', listedAt:'2026-02-13', desc:'出版・メディア関連'},
+  {sym:'480A.T', name:'フィットクルー', sector:'サービス', listedAt:'2025-12-26', desc:'フィットネス・ヘルスケア関連サービス'},
+  {sym:'478A.T', name:'LIFE CREATE', sector:'サービス', listedAt:'2025-12-24', desc:'女性向けフィットネス・ウェルネス事業'},
+  {sym:'479A.T', name:'平山HD', sector:'サービス', listedAt:'2025-12-24', desc:'製造派遣・人材サービス'},
+  {sym:'483A.T', name:'ラクオリア創薬', sector:'医薬品', listedAt:'2025-12-24', desc:'創薬研究開発'},
+  {sym:'477A.T', name:'エータイ', sector:'サービス', listedAt:'2025-12-23', desc:'寺院・墓地関連サービス'},
+  {sym:'475A.T', name:'リオン不動産', sector:'不動産', listedAt:'2025-12-22', desc:'不動産関連サービス'},
+  {sym:'476A.T', name:'インフキュリオン', sector:'情報・通信', listedAt:'2025-12-22', desc:'決済・金融DXプラットフォーム'},
+  {sym:'302A.T', name:'ビースタイルHD', sector:'サービス', listedAt:'2024-12-27', desc:'人材サービス'},
+  {sym:'285A.T', name:'キオクシアHD', sector:'電気機器', listedAt:'2024-12-18', desc:'NAND型フラッシュメモリ大手'},
+  {sym:'290A.T', name:'Synspective', sector:'情報・通信', listedAt:'2024-12-19', desc:'小型SAR衛星データサービス'},
+  {sym:'299A.T', name:'dely', sector:'サービス', listedAt:'2024-12-19', desc:'クラシルなどのライフスタイルメディア'},
+  {sym:'288A.T', name:'ラクサス・テクノロジーズ', sector:'サービス', listedAt:'2024-12-13', desc:'ブランドバッグシェアリング'},
+  {sym:'291A.T', name:'リスキル', sector:'サービス', listedAt:'2024-12-17', desc:'人材研修・リスキリング'},
+  {sym:'4419.T', name:'Finatext HD', sector:'情報・通信', listedAt:'2021-12-22', desc:'金融DX・証券基盤サービス'},
+  {sym:'4375.T', name:'セーフィー', sector:'情報・通信', listedAt:'2021-09-29', desc:'クラウド録画カメラサービス'},
+  {sym:'6522.T', name:'アスタリスク', sector:'情報・通信', listedAt:'2021-09-30', desc:'モバイル認証・バーコード関連'},
+  {sym:'7342.T', name:'ウェルスナビ', sector:'金融', listedAt:'2020-12-22', desc:'ロボアドバイザー'},
+  {sym:'4478.T', name:'freee', sector:'情報・通信', listedAt:'2019-12-17', desc:'クラウド会計・人事労務SaaS'},
+  {sym:'4480.T', name:'メドレー', sector:'サービス', listedAt:'2019-12-12', desc:'医療人材・オンライン診療関連'},
+  {sym:'4475.T', name:'HENNGE', sector:'情報・通信', listedAt:'2019-10-08', desc:'クラウドセキュリティ'},
+  {sym:'4443.T', name:'Sansan', sector:'情報・通信', listedAt:'2019-06-19', desc:'名刺・営業DXサービス'},
+  {sym:'9434.T', name:'ソフトバンク', sector:'通信', listedAt:'2018-12-19', desc:'国内通信・法人向け事業。比較的新しい大型上場銘柄'},
+  {sym:'4385.T', name:'メルカリ', sector:'サービス', listedAt:'2018-06-19', desc:'フリマアプリ最大手'},
+  {sym:'3994.T', name:'マネーフォワード', sector:'情報・通信', listedAt:'2017-09-29', desc:'クラウド会計・個人金融管理'},
+  {sym:'3923.T', name:'ラクス', sector:'情報・通信', listedAt:'2015-12-09', desc:'経費精算・メール配信など中小企業向けクラウドサービス'},
+  {sym:'4594.T', name:'ブライトパス・バイオ', sector:'医薬品', listedAt:'2015-10-22', desc:'創薬・バイオ関連。10年以上比較用'},
+];
 let screenData = {}; // sym -> chart data (キャッシュ)
 let lastScreenerTargets = [];
 let selectedScreenerSym = null;
+const SCREENER_PRESETS = {
+  growth:{sector:'', sort:'score', minScore:'4', positiveOnly:true, listedWithin:''},
+  pullback:{sector:'', sort:'rsiLow', minScore:'0', positiveOnly:false, listedWithin:''},
+  lowRsi:{sector:'', sort:'rsiLow', minScore:'', positiveOnly:false, listedWithin:''},
+  reset:{sector:'', sort:'score', minScore:'', positiveOnly:false, listedWithin:''},
+};
 
 function activeUniverse(){ return currentMarket==='jp'? JP_UNIVERSE : UNIVERSE; }
+function recentUniverse(){ return currentMarket==='jp'? RECENT_JP_UNIVERSE : RECENT_US_UNIVERSE; }
+function mergedUniverse(primary, extra){
+  const map = new Map();
+  primary.forEach(u=>map.set(u.sym, {...u}));
+  extra.forEach(u=>map.set(u.sym, {...(map.get(u.sym)||{}), ...u}));
+  return Array.from(map.values());
+}
+function listingFilterValue(){
+  return document.getElementById('scanListedWithin')?.value || '';
+}
+function parseListingFilter(value=listingFilterValue()){
+  if(value==='older10') return {mode:'older', years:10, label:'10年以上'};
+  const years = parseInt(value, 10);
+  return Number.isFinite(years) && years>0
+    ? {mode:'within', years, label:`${years}年以内`}
+    : {mode:'all', years:null, label:''};
+}
+function listedDate(row){
+  if(!row?.listedAt) return null;
+  const d = new Date(row.listedAt + 'T00:00:00');
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+function listedAgeYears(row){
+  const d = listedDate(row);
+  if(!d) return null;
+  return Math.max(0, (Date.now() - d.getTime()) / 31557600000);
+}
+function listingCutoff(years){
+  const d = new Date();
+  d.setFullYear(d.getFullYear() - years);
+  d.setHours(0,0,0,0);
+  return d;
+}
+function isListedByFilter(row, filter=parseListingFilter()){
+  if(filter.mode==='all') return true;
+  const d = listedDate(row);
+  if(filter.mode==='older'){
+    if(!d) return true;
+    return d <= listingCutoff(filter.years);
+  }
+  if(!d || d.getTime() > Date.now()) return false;
+  return d >= listingCutoff(filter.years);
+}
+function listingLabel(row){
+  const age = listedAgeYears(row);
+  if(row?.listedAt && age!=null){
+    return `${row.listedAt.replace(/-/g,'/')}<br><span class="sector-tag">${age.toFixed(1)}年</span>`;
+  }
+  const filter = parseListingFilter();
+  if(filter.mode==='older') return '<span class="sector-tag">10年以上</span>';
+  return '—';
+}
+function listingText(row){
+  const age = listedAgeYears(row);
+  if(row?.listedAt && age!=null) return `上場 ${row.listedAt.replace(/-/g,'/')} (${age.toFixed(1)}年)`;
+  if(parseListingFilter().mode==='older') return '上場 10年以上';
+  return '';
+}
+function screenerUniverse(filter=parseListingFilter()){
+  return filter.mode==='all' ? activeUniverse() : mergedUniverse(activeUniverse(), recentUniverse());
+}
+function universeLookup(sym){
+  return mergedUniverse(activeUniverse(), recentUniverse()).find(u=>u.sym===sym) || null;
+}
+function screenTargetsFromControls(){
+  const filter = parseListingFilter();
+  const secFilter = document.getElementById('scanSector')?.value || '';
+  return screenerUniverse(filter).filter(u=>(!secFilter || u.sector===secFilter) && isListedByFilter(u, filter));
+}
+function screenerScopeSuffix(meta=lastScreenerMeta){
+  if(!meta) return '';
+  return [meta.sector, meta.listedLabel].filter(Boolean).map(x=>` / ${x}`).join('');
+}
 function fillSelectOptions(sel, values, includeAll=false){
   if(!sel) return;
   sel.innerHTML = includeAll ? '<option value="">全セクター</option>' : '';
@@ -3203,14 +4486,56 @@ function updateMarketUI(){
   const longHelp = document.getElementById('longHelp');
   if(longHelp) longHelp.textContent = `登録銘柄＋${cfg.benchmarkName}の全履歴（取得できる限り、最大数十年分）をブラウザ内に保存します。一度取得すれば次回以降も保持され、再実行で最新分まで更新されます。`;
   fillSelectOptions(document.getElementById('inSector'), cfg.sectors, false);
-  fillSelectOptions(document.getElementById('scanSector'), [...new Set(activeUniverse().map(u=>u.sector))], true);
-  fillSelectOptions(document.getElementById('ptScanSector'), [...new Set(activeUniverse().map(u=>u.sector))], true);
+  const screenSectors = [...new Set(mergedUniverse(activeUniverse(), recentUniverse()).map(u=>u.sector))];
+  fillSelectOptions(document.getElementById('scanSector'), screenSectors, true);
+  fillSelectOptions(document.getElementById('ptScanSector'), screenSectors, true);
+  updateQtyInputRule();
   updateSymbolSuggestions();
 }
 
+function setScreenerControls(prefix, preset){
+  const p = SCREENER_PRESETS[preset] || SCREENER_PRESETS.reset;
+  const ids = {
+    sector:prefix + 'ScanSector',
+    sort:prefix + 'ScanSort',
+    min:prefix + 'ScanMinScore',
+    positive:prefix + 'ScanPositiveOnly',
+    listed:prefix + 'ScanListedWithin',
+  };
+  const sec = document.getElementById(ids.sector);
+  const sort = document.getElementById(ids.sort);
+  const min = document.getElementById(ids.min);
+  const pos = document.getElementById(ids.positive);
+  const listed = document.getElementById(ids.listed);
+  if(sec) sec.value = p.sector;
+  if(sort) sort.value = p.sort;
+  if(min) min.value = p.minScore;
+  if(pos) pos.checked = p.positiveOnly;
+  if(listed) listed.value = p.listedWithin;
+}
+function applyScreenerPreset(preset){
+  const p = SCREENER_PRESETS[preset] || SCREENER_PRESETS.reset;
+  const sec = document.getElementById('scanSector');
+  const sort = document.getElementById('scanSort');
+  const min = document.getElementById('scanMinScore');
+  const pos = document.getElementById('scanPositiveOnly');
+  const listed = document.getElementById('scanListedWithin');
+  if(sec) sec.value = p.sector;
+  if(sort) sort.value = p.sort;
+  if(min) min.value = p.minScore;
+  if(pos) pos.checked = p.positiveOnly;
+  if(listed) listed.value = p.listedWithin;
+  copyMainScanControlsToTrade();
+  rerenderScreener();
+}
+function applyTradeScreenerPreset(preset){
+  setScreenerControls('pt', preset);
+  copyTradeScanControlsToMain();
+  rerenderScreener();
+}
+
 async function runScreener(){
-  const secFilter = document.getElementById('scanSector').value;
-  const targets = activeUniverse().filter(u=>!secFilter || u.sector===secFilter);
+  const targets = screenTargetsFromControls();
   lastScreenerTargets = targets;
   const st = document.getElementById('scanStatus');
   let done=0;
@@ -3229,11 +4554,7 @@ async function runScreener(){
   updateSymbolSuggestions();
 }
 function rerenderScreener(){
-  const targets = lastScreenerTargets.length ? lastScreenerTargets : activeUniverse().filter(u=>{
-    const f=document.getElementById('scanSector')?.value || '';
-    return !f || u.sector===f;
-  });
-  renderScreener(targets);
+  renderScreener(screenTargetsFromControls());
 }
 function pctTextPlain(v, digits=1){
   if(v==null || !Number.isFinite(v)) return '—';
@@ -3253,6 +4574,12 @@ function screenerJudgement(r){
 }
 function screenerRationales(r){
   const items = [];
+  const age = listedAgeYears(r);
+  if(age!=null && age<=1) items.push({cls:'caution', text:`上場から${age.toFixed(1)}年です。新規上場直後は値動きが荒く、決算回数も少ないため、ポジションサイズは小さめに確認します。`});
+  else if(age!=null && age<=3) items.push({cls:'caution', text:`上場から${age.toFixed(1)}年です。成長期待は見られやすい一方、業績予想のブレと出来高の変化を確認します。`});
+  else if(age!=null && age>=10) items.push({cls:'good', text:`上場から${age.toFixed(1)}年です。長期の株価履歴を使って、景気後退時や金利変化時の耐性も確認しやすい銘柄です。`});
+  else if(!r.listedAt && parseListingFilter().mode==='older') items.push({cls:'good', text:'10年以上上場している主要銘柄として扱っています。長期の値動きと業績の安定性を合わせて確認します。'});
+
   if((r.m3??0) > 10) items.push({cls:'good', text:`3ヶ月リターンが${pctTextPlain(r.m3)}で、中期モメンタムが強いです。`});
   else if((r.m3??0) < -10) items.push({cls:'bad', text:`3ヶ月リターンが${pctTextPlain(r.m3)}で、中期トレンドは弱めです。`});
   else if(r.m3!=null) items.push({cls:'caution', text:`3ヶ月リターンは${pctTextPlain(r.m3)}で、強いトレンドというより様子見寄りです。`});
@@ -3307,6 +4634,7 @@ function showScreenerDetail(sym){
       <div class="screen-detail-metric"><div class="label">予想30日</div><div class="value ${metricTone(r.exp30,0,0)}">${pctTextPlain(r.exp30)}</div></div>
       <div class="screen-detail-metric"><div class="label">50日線乖離</div><div class="value ${metricTone(r.smaDev,0,0)}">${pctTextPlain(r.smaDev)}</div></div>
       <div class="screen-detail-metric"><div class="label">RSI</div><div class="value ${r.rsi>=70?'warn':(r.rsi<=30?'warn':'')}">${r.rsi!=null?r.rsi.toFixed(0):'—'}</div></div>
+      <div class="screen-detail-metric"><div class="label">上場</div><div class="value" style="font-size:14px;">${listingText(r) || '—'}</div></div>
       <div class="screen-detail-metric"><div class="label">総合スコア</div><div class="value ${metricTone(r.score,0,0)}">${r.score!=null?r.score.toFixed(1):'—'}</div></div>
     </div>
     <h3 style="margin-top:10px;">根拠</h3>
@@ -3355,6 +4683,8 @@ function renderScreener(targets){
   lastScreenerMeta = {
     market: currentMarket,
     sector: document.getElementById('scanSector')?.value || '',
+    listedLabel: parseListingFilter().label,
+    listedMode: parseListingFilter().mode,
     count: filtered.length,
   };
   const tbl = document.getElementById('screenTable');
@@ -3369,6 +4699,7 @@ function renderScreener(targets){
       <td>${fmtMoney(r.price)}</td><td>${fmtPct(r.m1)}</td><td>${fmtPct(r.m3)}</td>
       <td>${fmtPct(r.vsSpx)}</td><td>${fmtPct(r.exp30)}</td>
       <td>${r.rsi!=null? r.rsi.toFixed(0):'—'}</td>
+      <td>${listingLabel(r)}</td>
       <td><b>${r.score!=null? r.score.toFixed(1):'—'}</b></td>
       <td><div class="row" style="justify-content:flex-end;">
         <button onclick="showScreenerDetail('${r.sym}')">詳細</button>
@@ -3388,7 +4719,8 @@ function renderScreener(targets){
 
 function addFromScreener(sym, sector){
   if(stocks.some(s=>s.sym===sym)) return;
-  stocks.push({sym, sector, shares:null, cost:null});
+  const ref = lastScreenerRows.find(r=>r.sym===sym) || universeLookup(sym) || {};
+  stocks.push({sym, sector:sector || ref.sector, name:ref.name || '', desc:ref.desc || '', listedAt:ref.listedAt || null, shares:null, cost:null});
   if(screenData[sym]) marketData[sym] = screenData[sym];
   saveStocks();
   renderAll();
@@ -3595,6 +4927,7 @@ renderAll();
   // 画面モード復元
   try{ if(localStorage.getItem('us_stock_view')==='trade') document.body.classList.add('trade-mode'); }catch(e){}
   updateViewBtn();
+  maybeShowTradeSetup();
 })();
 window.addEventListener('load', ()=>{
   refreshAll();
