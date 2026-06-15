@@ -194,6 +194,8 @@
   .forecast-detail-metric{background:var(--card2); border:1px solid var(--border); border-radius:6px; padding:8px;}
   .forecast-detail-metric .label{font-size:11px; color:var(--muted);}
   .forecast-detail-metric .value{font-size:15px; font-weight:bold; margin-top:3px;}
+  .forecast-rationale-card{grid-column:1/-1; background:rgba(15,20,25,.42); border:1px solid var(--border); border-radius:7px; padding:9px;}
+  .forecast-rationale-title{font-size:12px; color:var(--muted); margin-bottom:6px;}
   .forecast-mini-chart{height:220px; position:relative;}
   .trend-fallback{height:100%; min-height:220px; display:none;}
   .trend-fallback svg{width:100%; height:100%; display:block;}
@@ -2140,16 +2142,86 @@ function forecastChartOptions(compact=false){
     scales:{x:{ticks:{color:'#8a99a8', maxTicksLimit:compact?6:12}, grid:{color:'#2c3a47'}},
       y:{ticks:{color:'#8a99a8', callback:v=>fmtMoney(v)}, grid:{color:'#2c3a47'}}}};
 }
+function chartMetricSnapshot(sym, payload){
+  const raw = payload?.raw || marketData[sym] || screenData[sym];
+  const closes = raw?.closes || [];
+  if(!closes.length) return null;
+  const price = raw.live ?? closes.at(-1);
+  return {
+    price,
+    d1:pctChange(closes,1), w1:pctChange(closes,5),
+    m1:pctChange(closes,21), m3:pctChange(closes,63),
+    sma50:sma(closes,50), rsi:rsi(closes),
+    smaDev:sma(closes,50)!=null ? (price/sma(closes,50)-1)*100 : null,
+    vsSpx:(spxData && pctChange(closes,63)!=null) ? pctChange(closes,63) - (pctChange(spxData.closes,63)??0) : null,
+  };
+}
+function forecastRationales(sym, payload, period=watchForecastPeriod){
+  if(!payload) return [];
+  const items = [];
+  const rawCloses = payload.raw?.closes || [];
+  const lookback = Math.min(60, rawCloses.length);
+  const fc = payload.fc;
+  const m = chartMetricSnapshot(sym, payload);
+  if(fc){
+    items.push({cls:'', text:`計算方法: 直近${lookback}営業日の対数株価を線形回帰し、30営業日先まで延長しています。予想レンジは日次変動率から作った±1σの機械的な幅です。`});
+    if(fc.exp30 >= 5) items.push({cls:'good', text:`30営業日予想は${pctTextPlain(fc.exp30)}で、直近60営業日の傾きは上向きです。`});
+    else if(fc.exp30 <= -5) items.push({cls:'bad', text:`30営業日予想は${pctTextPlain(fc.exp30)}で、直近60営業日の傾きは下向きです。`});
+    else items.push({cls:'caution', text:`30営業日予想は${pctTextPlain(fc.exp30)}で、上昇/下落の方向感はまだ強くありません。`});
+  } else {
+    items.push({cls:'caution', text:`予想には最低20営業日程度の価格データが必要です。現在の取得データは${rawCloses.length}営業日分のため、予想根拠は限定的です。`});
+  }
+  if(payload.periodRet!=null){
+    const cls = payload.periodRet >= 3 ? 'good' : (payload.periodRet <= -3 ? 'bad' : 'caution');
+    items.push({cls, text:`表示期間（${forecastPeriodLabel(period)}）の騰落率は${pctTextPlain(payload.periodRet)}です。足元の値動きが予想方向と同じかを確認する材料です。`});
+  }
+  if(m?.m1!=null || m?.m3!=null){
+    const alignedUp = fc && fc.exp30 > 0 && (m.m1??0) > 0 && (m.m3??0) > 0;
+    const alignedDown = fc && fc.exp30 < 0 && (m.m1??0) < 0 && (m.m3??0) < 0;
+    const cls = alignedUp ? 'good' : (alignedDown ? 'bad' : 'caution');
+    items.push({cls, text:`モメンタム: 1ヶ月${pctTextPlain(m.m1)}、3ヶ月${pctTextPlain(m.m3)}。短期と中期がそろうほど、予想の方向を補強します。`});
+  }
+  if(m?.vsSpx!=null){
+    const cls = m.vsSpx >= 5 ? 'good' : (m.vsSpx <= -5 ? 'bad' : 'caution');
+    items.push({cls, text:`市場比較: 直近3ヶ月で${marketConfig().benchmarkName}に対して${pctTextPlain(m.vsSpx)}です。市場平均より強いか弱いかを見ています。`});
+  }
+  if(m?.smaDev!=null){
+    const cls = m.smaDev >= 3 ? 'good' : (m.smaDev <= -3 ? 'bad' : 'caution');
+    items.push({cls, text:`50日線: 現在値は50日線から${pctTextPlain(m.smaDev)}の位置です。上にあるほど中期トレンドは強め、下にあるほど戻り待ち寄りです。`});
+  }
+  if(m?.rsi!=null){
+    const cls = m.rsi >= 70 || m.rsi <= 30 ? 'caution' : 'good';
+    const note = m.rsi >= 70 ? '買われすぎ圏で、良い予想でも短期反落に注意します。'
+      : (m.rsi <= 30 ? '売られすぎ圏で、反発候補か下落継続かを分けて確認します。' : '過熱しすぎではない水準です。');
+    items.push({cls, text:`RSI: ${m.rsi.toFixed(0)}。${note}`});
+  }
+  if(fc){
+    const width = fc.hi30 - fc.lo30;
+    const cls = width >= 25 ? 'caution' : 'good';
+    items.push({cls, text:`予想レンジ幅は約${width.toFixed(1)}ptです。幅が広いほど値動きの不確実性が高く、少額・分割での練習向きです。`});
+  }
+  items.push({cls:'caution', text:'注意: この根拠は価格データと単純なテクニカル指標だけです。決算、業績予想、ニュース、金利、為替、出来高などは別途確認してください。'});
+  return items;
+}
+function forecastRationaleHtml(sym, payload, period=watchForecastPeriod){
+  const items = forecastRationales(sym, payload, period);
+  if(!items.length) return '';
+  return `<div class="forecast-rationale-card">
+    <div class="forecast-rationale-title">予想の根拠</div>
+    <ul class="rationale-list">${items.map(i=>`<li class="${i.cls}">${escapeHtml(i.text)}</li>`).join('')}</ul>
+  </div>`;
+}
 function forecastMetricsHtml(sym, payload, period=watchForecastPeriod){
   if(!payload) return '';
-  const m = rowMetrics(stocks.find(s=>s.sym===sym) || {sym});
+  const m = chartMetricSnapshot(sym, payload);
   const fc = payload.fc;
   const range = fc ? `${fc.lo30>=0?'+':''}${fc.lo30.toFixed(1)}% 〜 ${fc.hi30>=0?'+':''}${fc.hi30.toFixed(1)}%` : '—';
   return `
     <div class="forecast-detail-metric"><div class="label">${forecastPeriodLabel(period)}の騰落率</div><div class="value">${fmtPct(payload.periodRet)}</div></div>
     <div class="forecast-detail-metric"><div class="label">30営業日予想</div><div class="value">${fc?fmtPct(fc.exp30):'—'}</div></div>
     <div class="forecast-detail-metric"><div class="label">予想レンジ</div><div class="value" style="font-size:13px;">${range}</div></div>
-    <div class="forecast-detail-metric"><div class="label">RSI / 50日線</div><div class="value" style="font-size:13px;">${m?.rsi!=null?m.rsi.toFixed(0):'—'} / ${m?.sma50!=null?fmtMoney(m.sma50):'—'}</div></div>`;
+    <div class="forecast-detail-metric"><div class="label">RSI / 50日線</div><div class="value" style="font-size:13px;">${m?.rsi!=null?m.rsi.toFixed(0):'—'} / ${m?.sma50!=null?fmtMoney(m.sma50):'—'}</div></div>
+    ${forecastRationaleHtml(sym, payload, period)}`;
 }
 function destroyWatchForecastChart(sym){
   const k = symbolDomId(sym);
