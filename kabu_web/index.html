@@ -107,7 +107,7 @@
   .drag-handle{position:absolute; top:10px; right:10px; z-index:5; width:28px; height:28px; border:1px solid var(--border);
     border-radius:6px; display:grid; place-items:center; color:var(--muted); background:rgba(33,42,53,.95); font-size:14px;}
   .drag-handle:hover{color:var(--text); border-color:var(--accent);}
-  .widget-toggle-list{display:grid; gap:6px;}
+  .widget-toggle-list{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:6px;}
   .widget-toggle-list label{display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text);
     background:var(--card2); border:1px solid var(--border); border-radius:6px; padding:7px 8px; cursor:pointer;}
   .widget-toggle-list input{accent-color:var(--accent);}
@@ -152,6 +152,8 @@
   .trade-metric .value{font-size:13px; font-weight:bold; margin-top:2px;}
   .trade-actions{display:flex; gap:6px; flex-wrap:wrap; margin-top:8px;}
   .trade-actions button{min-height:30px; padding:5px 8px; font-size:12px;}
+  .trade-candidate .rationale-list{margin-top:8px; gap:5px;}
+  .trade-candidate .rationale-list li{font-size:11px; padding:6px 7px;}
   .trade-mini-tools{display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-bottom:10px;}
   .trade-mini-tools select,.trade-mini-tools input{min-height:32px; font-size:12px;}
   .trade-layout-settings{margin-bottom:14px;}
@@ -167,6 +169,13 @@
   .preflight-item.caution{border-left-color:var(--warn);}
   .preflight-item.bad{border-left-color:var(--down);}
   .preflight-item b{display:block; font-size:11px; color:var(--muted); margin-bottom:2px;}
+  .order-guide-list{display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:8px;}
+  .order-guide-item{background:rgba(15,20,25,.42); border:1px solid var(--border); border-radius:7px; padding:9px; font-size:12px; line-height:1.55;}
+  .order-guide-item b{display:block; color:var(--text); margin-bottom:3px;}
+  .sell-check-list{display:grid; gap:8px;}
+  .sell-check-item{background:rgba(15,20,25,.42); border:1px solid var(--border); border-radius:7px; padding:9px; font-size:12px; line-height:1.55;}
+  .sell-check-item .head{display:flex; justify-content:space-between; gap:8px; align-items:flex-start; margin-bottom:5px;}
+  .sell-check-item .signals{color:var(--muted);}
   .stress-row{display:grid; grid-template-columns:1fr auto; gap:8px; align-items:center; padding:8px 0; border-bottom:1px solid var(--border);}
   .stress-row:last-child{border-bottom:none;}
   .source-health{display:grid; gap:6px; margin-top:8px;}
@@ -196,7 +205,7 @@
   .setup-field.wide{grid-column:1/-1;}
   .setup-field input,.setup-field select{width:100%; min-width:0;}
   .setup-field input[type="checkbox"]{width:auto; min-height:auto;}
-  .setup-checks{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px;}
+  .setup-checks{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:6px;}
   .setup-checks label{display:flex; gap:7px; align-items:center; min-height:34px; background:var(--card2); border:1px solid var(--border); border-radius:6px; padding:6px 8px; color:var(--text); font-size:12px; cursor:pointer;}
   .setup-actions{display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; margin-top:14px;}
   .trade-widget{position:relative;}
@@ -502,9 +511,11 @@
         <option value="60">デモ期限: 60日</option>
         <option value="0">デモ期限: なし</option>
       </select>
+      <button class="primary" onclick="refreshAll()">データ更新</button>
       <button onclick="openTradeSetup(true)">初期設定</button>
       <button onclick="seedDemoPaper()">実データサンプル投入</button>
       <button class="danger" onclick="paperReset()">リセット / 初期設定</button>
+      <span id="tradeStatus" class="source-note"></span>
     </div>
   </div>
   <p class="sub" style="margin-top:6px;">仮想資金を使って実際の株価で売買練習ができます。<b>本格モード</b>では複合注文、注文照会、デモ入金、価格アラート、証拠金維持率、ロスカット判定、取引日誌、成績分析が有効になります。</p>
@@ -640,6 +651,10 @@
         </div>
       </div>
     </div>
+    <div class="pt-panel trade-widget" data-trade-widget="orderGuide">
+      <h3>発注入力ガイド</h3>
+      <div id="ptOrderGuide"></div>
+    </div>
     </div>
 
     <div class="trade-side-col" data-trade-zone="side">
@@ -653,6 +668,11 @@
         </div>
         <div id="ptRiskMeter" style="margin-top:10px;"></div>
         <ul class="review" id="ptRules" style="margin-top:10px;"></ul>
+      </div>
+
+      <div class="pt-panel trade-widget" data-trade-widget="sellCheck">
+        <h3>売り時チェック</h3>
+        <div id="ptSellCheck" class="sell-check-list"></div>
       </div>
 
       <div class="pt-panel trade-widget" data-trade-widget="positions">
@@ -778,10 +798,12 @@
           </label>
           <label class="setup-field">初期データ
             <select id="setupSeedMode">
-              <option value="watch">ウォッチリストだけ作る</option>
+              <option value="watch">現在のウォッチリストを引き継ぐ</option>
+              <option value="sample">市場サンプルだけ作る</option>
               <option value="demo">実データサンプル建玉を入れる</option>
               <option value="empty">空の状態で始める</option>
             </select>
+            <span class="beginner-hint">分析画面のウォッチリストを使うか、デモ用サンプルに差し替えるかを選べます。</span>
           </label>
         </div>
       </section>
@@ -870,7 +892,9 @@
           <label><input id="setupPanelWatch" type="checkbox"> ウォッチリスト候補</label>
           <label><input id="setupPanelPicks" type="checkbox"> 注目ピック</label>
           <label><input id="setupPanelScreener" type="checkbox"> 銘柄発掘スクリーナー</label>
+          <label><input id="setupPanelOrderGuide" type="checkbox"> 発注入力ガイド</label>
           <label><input id="setupPanelRisk" type="checkbox"> リスク管理</label>
+          <label><input id="setupPanelSellCheck" type="checkbox"> 売り時チェック</label>
           <label><input id="setupPanelStress" type="checkbox"> ストレステスト</label>
           <label><input id="setupPanelAlerts" type="checkbox"> 価格アラート</label>
           <label><input id="setupPanelEvents" type="checkbox"> イベントログ</label>
@@ -933,7 +957,9 @@ const TRADE_WIDGETS = [
   {id:'picks', label:'注目ピック', zone:'research'},
   {id:'screener', label:'スクリーナー', zone:'research'},
   {id:'order', label:'発注パネル', zone:'main'},
+  {id:'orderGuide', label:'発注入力ガイド', zone:'main'},
   {id:'risk', label:'リスク管理', zone:'side'},
+  {id:'sellCheck', label:'売り時チェック', zone:'side'},
   {id:'positions', label:'建玉・注文照会', zone:'side'},
   {id:'stress', label:'ストレステスト', zone:'side'},
   {id:'alerts', label:'価格アラート', zone:'side'},
@@ -1797,6 +1823,11 @@ async function refreshOne(sym){
   }catch(e){ setStatus('⚠ '+sym+' の取得に失敗 ('+e.message+')'); }
   renderAll();
 }
+function activeInputSymbols(){
+  return ['inSym','ptSym','ptAlertSym']
+    .map(id=>normalizeSymbol(document.getElementById(id)?.value || ''))
+    .filter(Boolean);
+}
 
 let refreshing = false;
 let refreshRunId = 0;
@@ -1807,9 +1838,13 @@ async function refreshAll(){
   refreshing = true;
   try{
     // 登録銘柄＋デモトレード保有銘柄＋未約定注文＋価格アラートの銘柄をまとめて取得
-    const syms = [...new Set([...stocks.map(s=>s.sym), ...Object.keys(paper.pos),
+    const syms = [...new Set([...stocks.map(s=>s.sym), ...activeInputSymbols(), ...Object.keys(paper.pos),
       ...paper.orders.map(o=>o.sym), ...(paper.alerts||[]).map(a=>a.sym)])];
-    if(syms.length===0){ renderAll(); return; }
+    if(syms.length===0){
+      setStatus('更新対象の銘柄がありません');
+      renderAll();
+      return;
+    }
     setStatus('取得中... (0/'+(syms.length+1)+')');
     let done=0;
     try{ spxData = await fetchChart(marketConfig().benchmark); }catch(e){ spxData=null; }
@@ -1834,7 +1869,12 @@ async function refreshAll(){
     renderAll();
   } finally { if(runId===refreshRunId) refreshing = false; }
 }
-function setStatus(msg){ document.getElementById('status').textContent = msg; }
+function setStatus(msg){
+  const status = document.getElementById('status');
+  const tradeStatus = document.getElementById('tradeStatus');
+  if(status) status.textContent = msg;
+  if(tradeStatus) tradeStatus.textContent = msg;
+}
 
 // ===== 自動更新＋市場ステータス =====
 let autoTimer = null;
@@ -2394,6 +2434,7 @@ function tradeWatchRows(){
       listedAt:s.listedAt || ref.listedAt || null,
       source:'watch', inList:true, held:!!(s.shares && s.cost),
       price:m?.price ?? ptPrice(s.sym), m1:m?.m1 ?? null, m3:m?.m3 ?? null,
+      smaDev:m?.sma50!=null ? (m.price/m.sma50-1)*100 : null,
       exp30:fc?.exp30 ?? null, rsi:m?.rsi ?? null, score:m ? momentumScore(m) : null,
     };
   });
@@ -2439,6 +2480,11 @@ function tradeCandidateCard(r, opts={}){
   const addBtn = inList ? '<span class="sector-tag">登録済</span>' : `<button onclick="addFromScreener('${r.sym}','${r.sector||'その他'}')">＋ウォッチ</button>`;
   const detailBtn = opts.detail ? `<button onclick="showTradeScreenerDetail('${r.sym}')">詳細</button>` : '';
   const sourceNote = opts.note || tradeCandidateReason(r);
+  const reasonLabel = opts.reasonLabel || ((r.source === 'screen' || opts.detail) ? 'スクリーニング根拠' : '注目理由');
+  const reasons = opts.reasons === false ? [] : screenerRationales(r).slice(0,2);
+  const reasonHtml = reasons.length
+    ? `<ul class="rationale-list">${reasons.map(i=>`<li class="${i.cls}">${i.text}</li>`).join('')}</ul>`
+    : '';
   const listed = listingText(r);
   return `<div class="trade-candidate">
     <div class="trade-candidate-head">
@@ -2448,7 +2494,8 @@ function tradeCandidateCard(r, opts={}){
       </div>
       <div>${fmtMoney(r.price)}</div>
     </div>
-    <div class="trade-candidate-meta">${sourceNote}</div>
+    <div class="trade-candidate-meta"><b>${reasonLabel}:</b> ${sourceNote}</div>
+    ${reasonHtml}
     <div class="trade-candidate-metrics">
       <div class="trade-metric"><div class="label">1ヶ月</div><div class="value">${fmtPct(r.m1)}</div></div>
       <div class="trade-metric"><div class="label">3ヶ月</div><div class="value">${fmtPct(r.m3)}</div></div>
@@ -2476,7 +2523,7 @@ function renderTradeResearch(){
   if(pickEl){
     const rows = tradePickRows();
     pickEl.innerHTML = rows.length
-      ? rows.slice(0,5).map(r=>tradeCandidateCard(r, {allowAdd:r.source==='screen'})).join('')
+      ? rows.slice(0,5).map(r=>tradeCandidateCard(r, {allowAdd:r.source==='screen', detail:r.source==='screen'})).join('')
       : '<p class="table-empty">データ更新、またはスクリーナー実行後に注目ピックが表示されます。</p>';
   }
   if(screenEl){
@@ -2803,7 +2850,7 @@ function tradeSetupPreset(name, market=currentMarket){
       feeRate:0.1, slippageRate:0.03, maxPosPct:15, minCashPct:20, stopLossPct:8,
       liquidationPct:30, leverage:1, allowShort:false, preflightMode:'warn',
       journalAssist:true, dataSource:'auto', autoRefresh:0, cacheFallback:true,
-      panels:{coach:true, watch:true, picks:true, screener:true, risk:true, stress:true, alerts:false, events:false, stats:false, history:true},
+      panels:{coach:true, watch:true, picks:true, screener:true, orderGuide:true, risk:true, sellCheck:true, stress:true, alerts:false, events:false, stats:false, history:true},
     },
     standard:{
       experience:'normal', sessionDays:60, seedMode:'watch', orderLevel:'basic',
@@ -2811,7 +2858,7 @@ function tradeSetupPreset(name, market=currentMarket){
       feeRate:0.1, slippageRate:0.03, maxPosPct:20, minCashPct:10, stopLossPct:8,
       liquidationPct:25, leverage:1, allowShort:false, preflightMode:'warn',
       journalAssist:true, dataSource:'auto', autoRefresh:300, cacheFallback:true,
-      panels:{coach:false, watch:true, picks:true, screener:true, risk:true, stress:true, alerts:true, events:false, stats:true, history:true},
+      panels:{coach:false, watch:true, picks:true, screener:true, orderGuide:true, risk:true, sellCheck:true, stress:true, alerts:true, events:false, stats:true, history:true},
     },
     pro:{
       experience:'pro', sessionDays:0, seedMode:'demo', orderLevel:'pro',
@@ -2819,7 +2866,7 @@ function tradeSetupPreset(name, market=currentMarket){
       feeRate:0.1, slippageRate:0.03, maxPosPct:20, minCashPct:10, stopLossPct:8,
       liquidationPct:25, leverage:2, allowShort:false, preflightMode:'warn',
       journalAssist:true, dataSource:'auto', autoRefresh:60, cacheFallback:true,
-      panels:{coach:false, watch:true, picks:true, screener:true, risk:true, stress:true, alerts:true, events:true, stats:true, history:true},
+      panels:{coach:false, watch:true, picks:true, screener:true, orderGuide:true, risk:true, sellCheck:true, stress:true, alerts:true, events:true, stats:true, history:true},
     },
   };
   const p = presets[name] || presets.standard;
@@ -2828,7 +2875,8 @@ function tradeSetupPreset(name, market=currentMarket){
 function setupPanelIds(){
   return {
     coach:'setupPanelCoach', watch:'setupPanelWatch', picks:'setupPanelPicks',
-    screener:'setupPanelScreener', risk:'setupPanelRisk', stress:'setupPanelStress',
+    screener:'setupPanelScreener', orderGuide:'setupPanelOrderGuide',
+    risk:'setupPanelRisk', sellCheck:'setupPanelSellCheck', stress:'setupPanelStress',
     alerts:'setupPanelAlerts', events:'setupPanelEvents', stats:'setupPanelStats',
     history:'setupPanelHistory',
   };
@@ -2918,7 +2966,9 @@ function fillTradeSetupFromCurrent(){
   setSetupPanels({
     coach:tradeLayout.visible.coach !== false, watch:tradeLayout.visible.watch !== false,
     picks:tradeLayout.visible.picks !== false, screener:tradeLayout.visible.screener !== false,
-    risk:tradeLayout.visible.risk !== false, stress:tradeLayout.visible.stress !== false,
+    orderGuide:tradeLayout.visible.orderGuide !== false,
+    risk:tradeLayout.visible.risk !== false, sellCheck:tradeLayout.visible.sellCheck !== false,
+    stress:tradeLayout.visible.stress !== false,
     alerts:tradeLayout.visible.alerts !== false, events:tradeLayout.visible.events !== false,
     stats:tradeLayout.visible.stats !== false, history:tradeLayout.visible.history !== false,
   });
@@ -2984,7 +3034,8 @@ function applyTradeSetupPanels(panels){
   Object.assign(tradeLayout.visible, {
     summary:true, order:true, positions:true,
     coach:!!panels.coach, watch:!!panels.watch, picks:!!panels.picks, screener:!!panels.screener,
-    risk:!!panels.risk, stress:!!panels.stress, alerts:!!panels.alerts, events:!!panels.events,
+    orderGuide:!!panels.orderGuide,
+    risk:!!panels.risk, sellCheck:!!panels.sellCheck, stress:!!panels.stress, alerts:!!panels.alerts, events:!!panels.events,
     stats:!!panels.stats, history:!!panels.history,
   });
   saveTradeLayout();
@@ -2993,6 +3044,7 @@ function applyTradeSetupPanels(panels){
 async function applyTradeSetup(){
   const cfg = collectTradeSetup();
   const targetPaper = cfg.market === currentMarket ? paper : loadPaper(cfg.market);
+  const selectedWatchlist = (cfg.market === currentMarket ? stocks : loadStocks(cfg.market)).map(s=>({...s}));
   if(paperHasActivity(targetPaper) && !confirm('現在のデモ口座を初期設定で作り直します。建玉・注文・履歴は上書きされます。続行しますか？')) return;
   if(cfg.market !== currentMarket) setMarketMode(cfg.market, {skipRefresh:true});
 
@@ -3019,6 +3071,7 @@ async function applyTradeSetup(){
   paperEvent('setup', `初期設定を適用: ${MARKET_CONFIGS[cfg.market].marketLabel} / ${cfg.experience==='beginner'?'初心者':(cfg.experience==='pro'?'本格':'通常')} / ${tradeQtyRule(cfg.market, cfg.tradeSizeMode).label} / 初期資金 ${fmtMoney(cfg.cash)}`, 'good');
 
   if(cfg.seedMode === 'empty') stocks = [];
+  else if(cfg.seedMode === 'watch') stocks = selectedWatchlist.length ? selectedWatchlist : MARKET_CONFIGS[currentMarket].samples.map(s=>({...s}));
   else stocks = MARKET_CONFIGS[currentMarket].samples.map(s=>({...s}));
   saveStocks();
   applyTradeSetupPanels(cfg.panels);
@@ -3829,12 +3882,36 @@ function renderOrderPreflight(draft=currentOrderDraft()){
 
   el.innerHTML = `<div class="preflight-grid">${items.join('')}</div>`;
 }
+function renderOrderGuide(draft=currentOrderDraft()){
+  const el = document.getElementById('ptOrderGuide');
+  if(!el) return;
+  const qtyRule = draft.qtyRule || tradeQtyRule();
+  const symbolText = draft.sym
+    ? `${displaySymbol(draft.sym)} を入力中です。未登録銘柄でも「データ更新」で価格取得対象に入ります。`
+    : 'ティッカーまたは銘柄コードを入れます。入力補助から選ぶと、米国株/日本株の形式ミスを減らせます。';
+  const qtyText = draft.hasQty
+    ? `${draft.qty}株で練習中です。${draft.qtyCheck?.message || qtyRule.detail}`
+    : `${qtyRule.label}では ${qtyRule.detail}。まずは小さい数量で注文後の資金変化を見ると理解しやすいです。`;
+  const amountText = draft.settlement
+    ? `約定代金は ${fmtMoney(draft.settlement.notional)}、手数料込みの決済額は ${fmtMoney(draft.settlement.settlement)}、注文後現金は ${fmtMoney(draft.settlement.cashAfter)} の見込みです。`
+    : '株数と価格がそろうと、約定代金、手数料、支払/受取予定額、注文後現金を自動計算します。';
+  const exitText = draft.pro
+    ? '本格モードでは、買う前に利確と損切りの価格を置く練習ができます。OCOやIFDは出口を先に決める練習に向きます。'
+    : 'シンプルモードでは成行中心です。実行前に「いくら下がったら見直すか」をメモしておくと振り返りやすくなります。';
+  el.innerHTML = `<div class="order-guide-list">
+    <div class="order-guide-item"><b>銘柄</b>${symbolText}</div>
+    <div class="order-guide-item"><b>数量</b>${qtyText}</div>
+    <div class="order-guide-item"><b>金額</b>${amountText}</div>
+    <div class="order-guide-item"><b>出口</b>${exitText}</div>
+  </div>`;
+}
 function renderOrderPreview(){
   renderQuote();
   const el = document.getElementById('ptPreview');
   if(!el) return;
   const d = currentOrderDraft();
   renderOrderPreflight(d);
+  renderOrderGuide(d);
   if(!d.sym && !d.hasQty){
     el.textContent = '未入力項目があります。銘柄を入れると価格・値動き情報、株数を入れると概算約定額を表示します。';
     renderTradeBeginnerCoach();
@@ -4041,6 +4118,81 @@ function renderRiskMeter(snap){
     <div class="mini-card"><div class="label">デモ口座</div><div class="value">${sessionText()}</div></div>
   </div>`;
 }
+function tradeSellSignal(sym, pos){
+  const d = marketData[sym] || screenData[sym];
+  const price = ptPrice(sym);
+  if(!d || price==null) return {cls:'caution', verdict:'データ待ち', notes:['データ更新後に売り時チェックを表示します。'], price};
+  const closes = d.closes || [];
+  const isLong = pos.qty > 0;
+  const plPct = pos.avg ? (isLong ? (price/pos.avg-1)*100 : (pos.avg/price-1)*100) : null;
+  const peak = closes.length ? Math.max(...closes) : null;
+  const fromPeak = peak ? (price/peak-1)*100 : null;
+  const sma50 = sma(closes,50);
+  const smaDev = sma50 ? (price/sma50-1)*100 : null;
+  const rsiVal = rsi(closes);
+  let score = 0;
+  const notes = [];
+  if(plPct!=null && plPct <= -paper.rules.stopLossPct){
+    score += 3;
+    notes.push(`損益 ${pctTextPlain(plPct)}。損切り目安 -${paper.rules.stopLossPct}% を下回っています。`);
+  } else if(plPct!=null && plPct >= 20){
+    score += 1;
+    notes.push(`含み益 ${pctTextPlain(plPct)}。一部利確や逆指値の引き上げを検討する練習向きです。`);
+  }
+  if(isLong && fromPeak!=null && fromPeak <= -10){
+    score += 2;
+    notes.push(`直近高値から ${pctTextPlain(fromPeak)}。トレーリングストップ確認の目安です。`);
+  }
+  if(isLong && smaDev!=null && smaDev < 0){
+    score += 1;
+    notes.push(`50日線を ${pctTextPlain(smaDev)} 下回っています。中期トレンド悪化に注意します。`);
+  }
+  if(!isLong && smaDev!=null && smaDev > 0){
+    score += 1;
+    notes.push(`ショート建玉に対して株価が50日線を ${pctTextPlain(smaDev)} 上回っています。買い戻しリスクを確認します。`);
+  }
+  if(rsiVal!=null && rsiVal>=70){
+    score += isLong ? 1 : 2;
+    notes.push(`RSI ${rsiVal.toFixed(0)}。${isLong?'過熱による利確検討':'ショートは踏み上げリスク'}を見ます。`);
+  } else if(rsiVal!=null && rsiVal<=30){
+    notes.push(`RSI ${rsiVal.toFixed(0)}。${isLong?'売られすぎで反発余地もあります':'ショートの利益確定を考える場面'}です。`);
+  }
+  if(!notes.length) notes.push('強い売りシグナルは出ていません。損切りラインと利確ラインを維持して監視します。');
+  const cls = score>=3 ? 'bad' : (score>=1 ? 'caution' : 'good');
+  const verdict = score>=3 ? '決済候補' : (score>=1 ? '警戒' : '継続確認');
+  return {cls, verdict, notes, price, plPct, fromPeak, rsiVal, smaDev};
+}
+function renderTradeSellCheck(){
+  const el = document.getElementById('ptSellCheck');
+  if(!el) return;
+  const syms = Object.keys(paper.pos || {});
+  if(!syms.length){
+    el.innerHTML = `<div class="sell-check-item">
+      デモ建玉を持つと、利確・損切り・50日線・RSIから決済タイミングの練習ポイントを表示します。
+    </div>`;
+    return;
+  }
+  el.innerHTML = syms.map(sym=>{
+    const pos = paper.pos[sym];
+    const sig = tradeSellSignal(sym, pos);
+    const closeSide = pos.qty > 0 ? 'sell' : 'buy';
+    const closeLabel = pos.qty > 0 ? '売り決済' : '買い戻し';
+    return `<div class="sell-check-item">
+      <div class="head">
+        <div><b>${displaySymbol(sym)}</b> <span class="badge ${pos.qty>0?'buy':'sell'}">${pos.qty>0?'ロング':'ショート'}</span><br>
+          <span class="signals">現在値 ${fmtMoney(sig.price)} / 損益 ${fmtPct(sig.plPct)} / 高値比 ${fmtPct(sig.fromPeak)} / RSI ${sig.rsiVal!=null?sig.rsiVal.toFixed(0):'—'}</span>
+        </div>
+        <span class="badge ${sig.cls==='bad'?'sell':(sig.cls==='good'?'buy':'neutral')}">${sig.verdict}</span>
+      </div>
+      <div class="signals">${sig.notes.join(' ')}</div>
+      <div class="trade-actions">
+        <button onclick="selectTradeSymbol('${sym}','${closeSide}','売り時チェック: ${sig.verdict}')">${closeLabel}練習へ</button>
+        <button class="danger" onclick="closePosition('${sym}')">デモ成行決済</button>
+        ${sig.price==null?`<button onclick="refreshOne('${sym}')">データ更新</button>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
 function renderPaper(){
   const sum = document.getElementById('ptSummary');
   if(!sum) return;
@@ -4095,6 +4247,7 @@ function renderPaper(){
   renderRuleCheck(snap.total);
   renderQuote();
   renderOrderPreview();
+  renderTradeSellCheck();
 
   const otbl = document.getElementById('ptOrderTable');
   const oempty = document.getElementById('ptOrderEmpty');
@@ -4638,8 +4791,8 @@ function screenerRationales(r){
   if(r.smaDev!=null && r.smaDev > 5) items.push({cls:'good', text:`株価は50日線を${pctTextPlain(r.smaDev)}上回り、中期の流れは上向きです。`});
   else if(r.smaDev!=null && r.smaDev < -5) items.push({cls:'bad', text:`株価は50日線を${pctTextPlain(r.smaDev)}下回り、戻り待ちの状態です。`});
 
-  if((r.rsi??0) >= 70) items.push({cls:'caution', text:`RSIが${r.rsi.toFixed(0)}で買われすぎ圏です。良い銘柄でも短期の反落には注意します。`});
-  else if((r.rsi??0) <= 30) items.push({cls:'caution', text:`RSIが${r.rsi.toFixed(0)}で売られすぎ圏です。反発狙いか、下落継続かをニュースで確認します。`});
+  if(r.rsi!=null && r.rsi >= 70) items.push({cls:'caution', text:`RSIが${r.rsi.toFixed(0)}で買われすぎ圏です。良い銘柄でも短期の反落には注意します。`});
+  else if(r.rsi!=null && r.rsi <= 30) items.push({cls:'caution', text:`RSIが${r.rsi.toFixed(0)}で売られすぎ圏です。反発狙いか、下落継続かをニュースで確認します。`});
   else if(r.rsi!=null) items.push({cls:'good', text:`RSIは${r.rsi.toFixed(0)}で、過熱しすぎではありません。`});
 
   items.push({cls:'', text:`総合スコアは、1週・1ヶ月・3ヶ月リターン、50日線乖離、RSI過熱ペナルティを合成した機械的な順位です。`});
