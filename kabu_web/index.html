@@ -2142,19 +2142,78 @@ function forecastChartOptions(compact=false){
     scales:{x:{ticks:{color:'#8a99a8', maxTicksLimit:compact?6:12}, grid:{color:'#2c3a47'}},
       y:{ticks:{color:'#8a99a8', callback:v=>fmtMoney(v)}, grid:{color:'#2c3a47'}}}};
 }
+const PATTERN_LIBRARY = {
+  momentum:{name:'中期モメンタム', source:'Jegadeesh & Titman 1993', confidence:'高'},
+  maTrend:{name:'移動平均トレンド', source:'Brock, Lakonishok & LeBaron 1992', confidence:'中'},
+  rangeBreak:{name:'レンジブレイク', source:'Brock, Lakonishok & LeBaron 1992', confidence:'中'},
+  relativeStrength:{name:'市場相対強度', source:'モメンタム研究系', confidence:'中'},
+  rsiExhaustion:{name:'RSI過熱/売られすぎ', source:'補助シグナル', confidence:'低'},
+};
+function clamp(v, min, max){ return Math.max(min, Math.min(max, v)); }
 function chartMetricSnapshot(sym, payload){
   const raw = payload?.raw || marketData[sym] || screenData[sym];
   const closes = raw?.closes || [];
   if(!closes.length) return null;
   const price = raw.live ?? closes.at(-1);
+  const sma50Val = sma(closes,50);
   return {
     price,
     d1:pctChange(closes,1), w1:pctChange(closes,5),
     m1:pctChange(closes,21), m3:pctChange(closes,63),
-    sma50:sma(closes,50), rsi:rsi(closes),
-    smaDev:sma(closes,50)!=null ? (price/sma(closes,50)-1)*100 : null,
+    sma50:sma50Val, rsi:rsi(closes),
+    smaDev:sma50Val!=null ? (price/sma50Val-1)*100 : null,
     vsSpx:(spxData && pctChange(closes,63)!=null) ? pctChange(closes,63) - (pctChange(spxData.closes,63)??0) : null,
   };
+}
+function addPatternSignal(items, id, impact, text, cls){
+  const p = PATTERN_LIBRARY[id];
+  items.push({id, cls, impact, text:`${p.name}: ${text}（根拠: ${p.source} / 信頼度 ${p.confidence}）`});
+}
+function forecastPatternAdjustment(sym, payload){
+  const raw = payload?.raw || marketData[sym] || screenData[sym];
+  const closes = raw?.closes || [];
+  const m = chartMetricSnapshot(sym, payload);
+  const items = [];
+  if(!m || closes.length < 50) return {raw:0, capped:0, items, confidence:'低', adjusted:null};
+
+  if(m.m3!=null && m.m1!=null){
+    if(m.m3 >= 12 && m.m1 > 0) addPatternSignal(items, 'momentum', 2.0, `3ヶ月${pctTextPlain(m.m3)}かつ1ヶ月${pctTextPlain(m.m1)}で、上昇モメンタムが継続しています。`, 'good');
+    else if(m.m3 >= 5 && m.m1 > 0) addPatternSignal(items, 'momentum', 1.2, `3ヶ月${pctTextPlain(m.m3)}、1ヶ月${pctTextPlain(m.m1)}で、緩やかな上昇モメンタムです。`, 'good');
+    else if(m.m3 <= -12 && m.m1 < 0) addPatternSignal(items, 'momentum', -2.0, `3ヶ月${pctTextPlain(m.m3)}かつ1ヶ月${pctTextPlain(m.m1)}で、下落モメンタムが続いています。`, 'bad');
+    else if(m.m3 <= -5 && m.m1 < 0) addPatternSignal(items, 'momentum', -1.2, `3ヶ月${pctTextPlain(m.m3)}、1ヶ月${pctTextPlain(m.m1)}で、弱い下落モメンタムです。`, 'bad');
+  }
+
+  if(m.smaDev!=null){
+    if(m.smaDev >= 5) addPatternSignal(items, 'maTrend', 1.2, `株価が50日線を${pctTextPlain(m.smaDev)}上回り、中期トレンドが上向きです。`, 'good');
+    else if(m.smaDev > 0) addPatternSignal(items, 'maTrend', 0.5, `株価が50日線を${pctTextPlain(m.smaDev)}上回っています。`, 'good');
+    else if(m.smaDev <= -5) addPatternSignal(items, 'maTrend', -1.2, `株価が50日線を${pctTextPlain(m.smaDev)}下回り、中期トレンドは弱めです。`, 'bad');
+    else if(m.smaDev < 0) addPatternSignal(items, 'maTrend', -0.5, `株価が50日線を${pctTextPlain(m.smaDev)}下回っています。`, 'caution');
+  }
+
+  const recent = closes.slice(-60);
+  if(recent.length >= 40){
+    const hi = Math.max(...recent);
+    const lo = Math.min(...recent);
+    if(m.price >= hi*0.985 && (m.m1??0) > 0) addPatternSignal(items, 'rangeBreak', 1.4, `直近60営業日の高値圏にあり、1ヶ月リターンも${pctTextPlain(m.m1)}です。上抜け候補として扱います。`, 'good');
+    else if(m.price <= lo*1.015 && (m.m1??0) < 0) addPatternSignal(items, 'rangeBreak', -1.4, `直近60営業日の安値圏にあり、1ヶ月リターンも${pctTextPlain(m.m1)}です。下抜け警戒として扱います。`, 'bad');
+  }
+
+  if(m.vsSpx!=null){
+    if(m.vsSpx >= 5) addPatternSignal(items, 'relativeStrength', 0.9, `${marketConfig().benchmarkName}を直近3ヶ月で${pctTextPlain(m.vsSpx)}上回っています。`, 'good');
+    else if(m.vsSpx <= -5) addPatternSignal(items, 'relativeStrength', -0.9, `${marketConfig().benchmarkName}を直近3ヶ月で${pctTextPlain(m.vsSpx)}下回っています。`, 'bad');
+  }
+
+  if(m.rsi!=null){
+    if(m.rsi >= 75) addPatternSignal(items, 'rsiExhaustion', -0.8, `RSI ${m.rsi.toFixed(0)}で短期過熱です。上昇予想でも反落余地を控えめに見ます。`, 'caution');
+    else if(m.rsi <= 25) addPatternSignal(items, 'rsiExhaustion', 0.6, `RSI ${m.rsi.toFixed(0)}で売られすぎ圏です。反発余地はありますが、信頼度は低めです。`, 'caution');
+  }
+
+  const rawImpact = items.reduce((s,i)=>s+i.impact,0);
+  const capped = clamp(rawImpact, -5, 5);
+  const abs = items.reduce((s,i)=>s+Math.abs(i.impact),0);
+  const confidence = abs >= 4 ? '中〜高' : (abs >= 2 ? '中' : '低');
+  const adjusted = payload?.fc ? payload.fc.exp30 + capped : null;
+  return {raw:rawImpact, capped, items, confidence, adjusted};
 }
 function forecastRationales(sym, payload, period=watchForecastPeriod){
   if(!payload) return [];
@@ -2163,11 +2222,19 @@ function forecastRationales(sym, payload, period=watchForecastPeriod){
   const lookback = Math.min(60, rawCloses.length);
   const fc = payload.fc;
   const m = chartMetricSnapshot(sym, payload);
+  const pattern = forecastPatternAdjustment(sym, payload);
   if(fc){
     items.push({cls:'', text:`計算方法: 直近${lookback}営業日の対数株価を線形回帰し、30営業日先まで延長しています。予想レンジは日次変動率から作った±1σの機械的な幅です。`});
     if(fc.exp30 >= 5) items.push({cls:'good', text:`30営業日予想は${pctTextPlain(fc.exp30)}で、直近60営業日の傾きは上向きです。`});
     else if(fc.exp30 <= -5) items.push({cls:'bad', text:`30営業日予想は${pctTextPlain(fc.exp30)}で、直近60営業日の傾きは下向きです。`});
     else items.push({cls:'caution', text:`30営業日予想は${pctTextPlain(fc.exp30)}で、上昇/下落の方向感はまだ強くありません。`});
+    const adjCls = pattern.capped > 0 ? 'good' : (pattern.capped < 0 ? 'bad' : 'caution');
+    items.push({cls:adjCls, text:`登録済みパターン補正: ${pattern.items.length}件一致、補正${pattern.capped>=0?'+':''}${pattern.capped.toFixed(1)}pt、補正後目安は${pctTextPlain(pattern.adjusted)}です（一致度 ${pattern.confidence}）。`});
+    if(pattern.items.length){
+      pattern.items.slice(0,5).forEach(p=>items.push({cls:p.cls, text:`${p.text} 予想補正 ${p.impact>=0?'+':''}${p.impact.toFixed(1)}pt。`}));
+    } else {
+      items.push({cls:'caution', text:'登録済みの高根拠パターンには強く一致していません。通常のトレンド延長予想として扱います。'});
+    }
   } else {
     items.push({cls:'caution', text:`予想には最低20営業日程度の価格データが必要です。現在の取得データは${rawCloses.length}営業日分のため、予想根拠は限定的です。`});
   }
@@ -2215,12 +2282,15 @@ function forecastMetricsHtml(sym, payload, period=watchForecastPeriod){
   if(!payload) return '';
   const m = chartMetricSnapshot(sym, payload);
   const fc = payload.fc;
+  const pattern = forecastPatternAdjustment(sym, payload);
   const range = fc ? `${fc.lo30>=0?'+':''}${fc.lo30.toFixed(1)}% 〜 ${fc.hi30>=0?'+':''}${fc.hi30.toFixed(1)}%` : '—';
   return `
     <div class="forecast-detail-metric"><div class="label">${forecastPeriodLabel(period)}の騰落率</div><div class="value">${fmtPct(payload.periodRet)}</div></div>
     <div class="forecast-detail-metric"><div class="label">30営業日予想</div><div class="value">${fc?fmtPct(fc.exp30):'—'}</div></div>
+    <div class="forecast-detail-metric"><div class="label">パターン補正後</div><div class="value">${fc?fmtPct(pattern.adjusted):'—'}</div></div>
     <div class="forecast-detail-metric"><div class="label">予想レンジ</div><div class="value" style="font-size:13px;">${range}</div></div>
     <div class="forecast-detail-metric"><div class="label">RSI / 50日線</div><div class="value" style="font-size:13px;">${m?.rsi!=null?m.rsi.toFixed(0):'—'} / ${m?.sma50!=null?fmtMoney(m.sma50):'—'}</div></div>
+    <div class="forecast-detail-metric"><div class="label">一致パターン</div><div class="value" style="font-size:13px;">${pattern.items.length}件 / ${pattern.capped>=0?'+':''}${pattern.capped.toFixed(1)}pt</div></div>
     ${forecastRationaleHtml(sym, payload, period)}`;
 }
 function destroyWatchForecastChart(sym){
