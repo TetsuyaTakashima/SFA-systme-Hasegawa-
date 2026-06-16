@@ -300,6 +300,11 @@
       <option value="yahoo">Yahoo Finance</option>
       <option value="stooq">Stooq（米国株）</option>
     </select>
+    <select class="refreshModeSelect" onchange="setRefreshMode(this.value)">
+      <option value="quick">更新範囲: 高速</option>
+      <option value="visible">更新範囲: 表示中だけ</option>
+      <option value="full">更新範囲: 全件</option>
+    </select>
     <select id="autoRefresh" onchange="setAutoRefresh()">
       <option value="0">自動更新: オフ</option>
       <option value="60">自動更新: 1分ごと</option>
@@ -517,6 +522,11 @@
         <option value="30">デモ期限: 30日</option>
         <option value="60">デモ期限: 60日</option>
         <option value="0">デモ期限: なし</option>
+      </select>
+      <select class="refreshModeSelect" onchange="setRefreshMode(this.value)">
+        <option value="quick">更新範囲: 高速</option>
+        <option value="visible">更新範囲: 表示中だけ</option>
+        <option value="full">更新範囲: 全件</option>
       </select>
       <button class="primary data-refresh-btn" data-label="データ更新" onclick="refreshAll()">データ更新</button>
       <button onclick="openTradeSetup(true)">初期設定</button>
@@ -966,10 +976,18 @@ const WATCH_FORECAST_PERIOD_KEY = 'stock_watch_forecast_period';
 const WATCH_FORECAST_SYMBOL_KEY = 'stock_watch_forecast_symbol';
 const TRADE_TREND_PERIOD_KEY = 'stock_trade_trend_period';
 const TRADE_TREND_SYMBOL_KEY = 'stock_trade_trend_symbol';
+const REFRESH_MODE_KEY = 'stock_refresh_mode';
+const REFRESH_CACHE_TTL_MS = 5 * 60 * 1000;
+const REFRESH_CONCURRENCY = 4;
 const DATA_SOURCES = {
   auto:'自動（Yahoo優先）',
   yahoo:'Yahoo Finance',
   stooq:'Stooq（米国株優先）',
+};
+const REFRESH_MODES = {
+  quick:'高速更新',
+  visible:'表示中だけ',
+  full:'全件更新',
 };
 const DASHBOARD_WIDGETS = [
   {id:'summary', label:'サマリー', zone:'main'},
@@ -1063,6 +1081,10 @@ if(!DATA_SOURCES[currentDataSource]) currentDataSource = 'auto';
 let cacheFallbackEnabled = (function(){
   try{ return localStorage.getItem(CACHE_FALLBACK_KEY) !== '0'; }catch(e){ return true; }
 })();
+let refreshMode = (function(){
+  try{ return localStorage.getItem(REFRESH_MODE_KEY) || 'quick'; }catch(e){ return 'quick'; }
+})();
+if(!REFRESH_MODES[refreshMode]) refreshMode = 'quick';
 let stocks = loadStocks();
 let marketData = {};   // sym -> {dates[], closes[]}
 let spxData = null;
@@ -1138,6 +1160,90 @@ function cachedChart(sym){
     if(data) return Object.assign(data, {cacheFallback:true, source:data.source || 'cache'});
   }
   return null;
+}
+function dataFreshEnough(data, ttlMs=REFRESH_CACHE_TTL_MS){
+  return !!(data && data.cachedAt && Date.now() - data.cachedAt <= ttlMs);
+}
+function freshCachedChart(sym, ttlMs=REFRESH_CACHE_TTL_MS){
+  const keys = [chartCacheKey(sym, currentDataSource), chartCacheKey(sym, 'last'), chartCacheKey(sym, 'yahoo'), chartCacheKey(sym, 'stooq')];
+  for(const k of keys){
+    const packed = chartCache[k];
+    if(!packed || !dataFreshEnough(packed, ttlMs)) continue;
+    if(currentDataSource !== 'auto' && packed.source && packed.source !== currentDataSource) continue;
+    const data = unpackChartData(packed);
+    if(data) return Object.assign(data, {cacheHit:true, source:data.source || 'cache'});
+  }
+  return null;
+}
+function uniqueSymbols(list){
+  return [...new Set((list || []).map(s=>normalizeSymbol(s || '')).filter(Boolean))];
+}
+function updateRefreshModeUI(){
+  document.querySelectorAll('.refreshModeSelect').forEach(sel=>{ sel.value = refreshMode; });
+}
+function setRefreshMode(value){
+  refreshMode = REFRESH_MODES[value] ? value : 'quick';
+  try{ localStorage.setItem(REFRESH_MODE_KEY, refreshMode); }catch(e){}
+  updateRefreshModeUI();
+  setStatus(`更新範囲: ${REFRESH_MODES[refreshMode]} にしました`);
+}
+function refreshSymbolsByMode(mode=refreshMode){
+  const base = [...stocks.map(s=>s.sym), ...activeInputSymbols(), ...Object.keys(paper.pos || {}),
+    ...(paper.orders || []).map(o=>o.sym), ...(paper.alerts || []).map(a=>a.sym)];
+  if(mode === 'visible'){
+    return uniqueSymbols([selectedForecastSym, selectedTradeTrendSym, ...openWatchForecastSyms,
+      document.getElementById('ptSym')?.value, document.getElementById('inSym')?.value,
+      ...Object.keys(paper.pos || {})]);
+  }
+  if(mode === 'full'){
+    const screenSyms = (lastScreenerTargets.length ? lastScreenerTargets : screenTargetsFromControls()).map(u=>u.sym);
+    return uniqueSymbols([...base, ...screenSyms]);
+  }
+  return uniqueSymbols(base);
+}
+async function fetchChartForRefresh(sym, opts={}){
+  if(opts.useCache !== false){
+    const cached = freshCachedChart(sym);
+    if(cached){
+      rememberSourceHealth(sym, 'cache', true, '5分以内のキャッシュを使用');
+      return cached;
+    }
+  }
+  return await fetchChart(sym);
+}
+async function mapLimit(items, limit, worker){
+  let index = 0;
+  const runners = Array.from({length:Math.min(limit, items.length)}, async ()=>{
+    while(index < items.length){
+      const current = index++;
+      await worker(items[current], current);
+    }
+  });
+  await Promise.all(runners);
+}
+async function fetchChartsBatch(symbols, opts={}){
+  const list = uniqueSymbols(symbols);
+  const total = list.length;
+  const failed = [];
+  let done = 0, cacheHits = 0;
+  const concurrency = opts.concurrency || REFRESH_CONCURRENCY;
+  await mapLimit(list, concurrency, async sym=>{
+    if(opts.shouldStop?.()) return;
+    opts.onProgress?.({done, total, sym, phase:'start', cacheHits, failed});
+    try{
+      const data = await fetchChartForRefresh(sym, {useCache:opts.useCache});
+      if(data?.cacheHit) cacheHits++;
+      opts.onResult?.(sym, data);
+    }catch(e){
+      failed.push(sym);
+      console.warn(e);
+      opts.onError?.(sym, e);
+    }finally{
+      done++;
+      opts.onProgress?.({done, total, sym, phase:'done', cacheHits, failed});
+    }
+  });
+  return {done, total, failed, cacheHits};
 }
 function toHalfWidth(v){
   return String(v||'').replace(/[Ａ-Ｚａ-ｚ０-９．－]/g, ch =>
@@ -1777,6 +1883,7 @@ function setDataSource(){
 function updateDataSourceUI(){
   const sel = document.getElementById('dataSource');
   if(sel) sel.value = currentDataSource;
+  updateRefreshModeUI();
   updateSourceBadge();
 }
 function updateSourceBadge(){
@@ -1871,7 +1978,7 @@ async function fetchChart(sym){
 async function refreshOne(sym){
   setStatus(sym+' 取得中...');
   try{
-    marketData[sym] = await fetchChart(sym);
+    marketData[sym] = await fetchChartForRefresh(sym, {useCache:refreshMode !== 'full'});
     updateSourceBadge();
     setStatus('');
   }catch(e){ setStatus('⚠ '+sym+' の取得に失敗 ('+e.message+')'); }
@@ -1907,32 +2014,36 @@ async function refreshAll(){
   }
   const runId = ++refreshRunId;
   const marketAtStart = currentMarket;
+  const modeAtStart = refreshMode;
+  const useCache = modeAtStart !== 'full';
   refreshing = true;
-  setRefreshUi(true, '更新対象を確認中');
+  setRefreshUi(true, `${REFRESH_MODES[modeAtStart]} / 更新対象を確認中`);
   try{
-    // 登録銘柄＋デモトレード保有銘柄＋未約定注文＋価格アラートの銘柄をまとめて取得
-    const syms = [...new Set([...stocks.map(s=>s.sym), ...activeInputSymbols(), ...Object.keys(paper.pos),
-      ...paper.orders.map(o=>o.sym), ...(paper.alerts||[]).map(a=>a.sym)])];
+    const syms = refreshSymbolsByMode(modeAtStart);
     if(syms.length===0){
       setStatus('更新対象の銘柄がありません');
       renderAll();
       return;
     }
-    setStatus('更新中... (0/'+(syms.length+1)+')');
-    let done=0;
-    try{ spxData = await fetchChart(marketConfig().benchmark); }catch(e){ spxData=null; }
+    const total = syms.length + 1;
+    setStatus(`${REFRESH_MODES[modeAtStart]}中... (0/${total})`);
+    try{ spxData = await fetchChartForRefresh(marketConfig().benchmark, {useCache}); }catch(e){ spxData=null; }
     if(runId!==refreshRunId || marketAtStart!==currentMarket) return;
-    done++;
-    setRefreshUi(true, `${done}/${syms.length+1} ${marketConfig().benchmarkShort}`);
-    for(const sym of syms){
-      if(runId!==refreshRunId || marketAtStart!==currentMarket) return;
-      setStatus('更新中... ('+done+'/'+(syms.length+1)+') '+displaySymbol(sym));
-      setRefreshUi(true, `${done}/${syms.length+1} ${displaySymbol(sym)}`);
-      try{ marketData[sym] = await fetchChart(sym); }
-      catch(e){ console.warn(e); }
-      done++;
-      await new Promise(r=>setTimeout(r,250)); // レート制限対策
-    }
+    let completed = 1;
+    setRefreshUi(true, `${completed}/${total} ${marketConfig().benchmarkShort}`);
+    const batch = await fetchChartsBatch(syms, {
+      useCache,
+      shouldStop:()=>runId!==refreshRunId || marketAtStart!==currentMarket,
+      onResult:(sym,data)=>{ marketData[sym] = data; },
+      onProgress:({done, total:batchTotal, sym, phase, cacheHits})=>{
+        completed = 1 + done;
+        const suffix = cacheHits ? ` / キャッシュ${cacheHits}件` : '';
+        const msg = `${REFRESH_MODES[modeAtStart]}中... (${completed}/${batchTotal+1}) ${displaySymbol(sym)}${suffix}`;
+        setStatus(msg);
+        setRefreshUi(true, msg);
+      },
+    });
+    if(runId!==refreshRunId || marketAtStart!==currentMarket) return;
     setStatus('');
     updateMarketBadge();
     updateSourceBadge();
@@ -1941,6 +2052,7 @@ async function refreshAll(){
     checkMarginRisk();  // 証拠金維持率・ロスカット判定
     recordEquity();     // デモトレード資産推移の記録
     document.getElementById('lastUpdate').textContent = '最終更新: ' + new Date().toLocaleString('ja-JP');
+    if(batch?.failed?.length) setStatus(`一部取得失敗: ${batch.failed.map(displaySymbol).join(', ')}`);
     renderAll();
   } finally {
     if(runId===refreshRunId){
@@ -2913,17 +3025,17 @@ async function runTradeScreener(){
   lastScreenerTargets = targets;
   const st = document.getElementById('scanStatus');
   const ptSt = document.getElementById('ptScanStatus');
-  let done=0;
-  for(const u of targets){
-    const msg = `取得中 ${++done}/${targets.length} (${displaySymbol(u.sym)})`;
-    if(st) st.textContent = msg;
-    if(ptSt) ptSt.textContent = msg;
-    if(!screenData[u.sym]){
-      try{ screenData[u.sym] = await fetchChart(u.sym); }
-      catch(e){ console.warn('screener fail', u.sym, e); }
-      await new Promise(r=>setTimeout(r,200));
-    }
-  }
+  const targetsToFetch = targets.filter(u=>!dataFreshEnough(screenData[u.sym])).map(u=>u.sym);
+  await fetchChartsBatch(targetsToFetch, {
+    useCache:true,
+    onResult:(sym,data)=>{ screenData[sym] = data; },
+    onError:(sym,e)=>console.warn('screener fail', sym, e),
+    onProgress:({done,total,sym,cacheHits})=>{
+      const msg = total ? `取得中 ${done}/${total} (${displaySymbol(sym)})${cacheHits?` / キャッシュ${cacheHits}件`:''}` : 'キャッシュから表示中';
+      if(st) st.textContent = msg;
+      if(ptSt) ptSt.textContent = msg;
+    },
+  });
   if(st) st.textContent = '';
   if(ptSt) ptSt.textContent = '';
   updateSourceBadge();
@@ -3988,10 +4100,11 @@ async function seedDemoPaper(options={}){
   const targets = demoPaperTargets();
   setStatus('デモ用の実データを取得中...');
   try{
-    for(const t of targets){
-      if(!marketData[t.sym]) marketData[t.sym] = await fetchChart(t.sym);
-      await new Promise(r=>setTimeout(r,120));
-    }
+    await fetchChartsBatch(targets.map(t=>t.sym), {
+      useCache:true,
+      onResult:(sym,data)=>{ marketData[sym] = data; },
+      onProgress:({done,total,sym,cacheHits})=>setStatus(`デモ用データ取得中... (${done}/${total}) ${displaySymbol(sym)}${cacheHits?` / キャッシュ${cacheHits}件`:''}`),
+    });
     const positions = {};
     const hist = [];
     let investedAtEntry = 0;
@@ -5093,15 +5206,15 @@ async function runScreener(){
   const targets = screenTargetsFromControls();
   lastScreenerTargets = targets;
   const st = document.getElementById('scanStatus');
-  let done=0;
-  for(const u of targets){
-    if(!screenData[u.sym]){
-      st.textContent = `取得中 ${++done}/${targets.length} (${u.sym})`;
-      try{ screenData[u.sym] = await fetchChart(u.sym); }
-      catch(e){ console.warn('screener fail', u.sym, e); }
-      await new Promise(r=>setTimeout(r,200));
-    } else { done++; }
-  }
+  const targetsToFetch = targets.filter(u=>!dataFreshEnough(screenData[u.sym])).map(u=>u.sym);
+  await fetchChartsBatch(targetsToFetch, {
+    useCache:true,
+    onResult:(sym,data)=>{ screenData[sym] = data; },
+    onError:(sym,e)=>console.warn('screener fail', sym, e),
+    onProgress:({done,total,sym,cacheHits})=>{
+      if(st) st.textContent = total ? `取得中 ${done}/${total} (${displaySymbol(sym)})${cacheHits?` / キャッシュ${cacheHits}件`:''}` : 'キャッシュから表示中';
+    },
+  });
   st.textContent = '';
   updateSourceBadge();
   renderScreener(targets);
