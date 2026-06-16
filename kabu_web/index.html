@@ -174,6 +174,16 @@
   .trade-layout-settings:not([open]) summary:after{content:"▸";}
   .trade-layout-settings h3{margin-bottom:0;}
   .trade-settings-body{margin-top:10px;}
+  .trade-focus-band{margin-bottom:14px; border-color:rgba(77,163,255,.35); background:linear-gradient(180deg, rgba(77,163,255,.10), rgba(33,42,53,.72));}
+  .trade-focus-head{display:flex; justify-content:space-between; gap:10px; align-items:flex-start; margin-bottom:10px;}
+  .trade-focus-head h3{font-size:14px; color:var(--text); margin-bottom:3px;}
+  .trade-focus-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:8px;}
+  .trade-focus-item{background:rgba(15,20,25,.46); border:1px solid var(--border); border-left:3px solid var(--accent); border-radius:8px; padding:9px; font-size:12px; line-height:1.55;}
+  .trade-focus-item.good{border-left-color:var(--up);}
+  .trade-focus-item.caution{border-left-color:var(--warn);}
+  .trade-focus-item.bad{border-left-color:var(--down);}
+  .trade-focus-item b{display:block; color:var(--text); font-size:12px; margin-bottom:2px;}
+  .trade-focus-item button{margin-top:6px; min-height:30px; padding:5px 8px; font-size:12px;}
   .preflight-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px; margin-top:8px;}
   .preflight-item{background:rgba(15,20,25,.48); border:1px solid var(--border); border-left:3px solid var(--muted); border-radius:7px; padding:8px; font-size:12px; line-height:1.45;}
   .preflight-item.good{border-left-color:var(--up);}
@@ -544,17 +554,20 @@
     </div>
   </div>
   <p class="sub" style="margin-top:6px;">仮想資金を使って実際の株価で売買練習ができます。<b>本格モード</b>では複合注文、注文照会、デモ入金、価格アラート、証拠金維持率、ロスカット判定、取引日誌、成績分析が有効になります。</p>
-  <details class="pt-panel trade-layout-settings" id="tradeSettingsDetails" open ontoggle="saveTradeSettingsOpen()">
+  <details class="pt-panel trade-layout-settings" id="tradeSettingsDetails" ontoggle="saveTradeSettingsOpen()">
     <summary>
       <h3>デモ画面設定</h3>
     </summary>
     <div class="trade-settings-body">
       <div class="row" style="justify-content:flex-end; margin-bottom:8px;">
+        <button onclick="setTradeLayoutPreset('focus')">主要だけ</button>
+        <button onclick="setTradeLayoutPreset('all')">全部表示</button>
         <button onclick="resetTradeLayout()">初期配置</button>
       </div>
       <div class="widget-toggle-list" id="tradeWidgetToggles"></div>
     </div>
   </details>
+  <div class="pt-panel trade-focus-band" id="ptTodayFocus"></div>
   <div class="trade-top-zone" data-trade-zone="top">
     <div class="trade-widget" data-trade-widget="summary">
       <div class="summary-cards" id="ptSummary"></div>
@@ -999,8 +1012,8 @@ const LS_KEY = 'us_stock_dashboard_v1';
 const MARKET_KEY = 'stock_dashboard_market';
 const BEGINNER_KEY = 'stock_dashboard_beginner';
 const DASHBOARD_LAYOUT_KEY = 'stock_dashboard_layout_v2';
-const TRADE_LAYOUT_KEY = 'stock_trade_layout_v1';
-const TRADE_SETTINGS_OPEN_KEY = 'stock_trade_settings_open';
+const TRADE_LAYOUT_KEY = 'stock_trade_layout_v2';
+const TRADE_SETTINGS_OPEN_KEY = 'stock_trade_settings_open_v2';
 const DATA_SOURCE_KEY = 'stock_dashboard_data_source';
 const CHART_CACHE_KEY = 'stock_chart_cache_v1';
 const CACHE_FALLBACK_KEY = 'stock_cache_fallback_enabled';
@@ -1655,7 +1668,8 @@ function initDashboardCustomization(){
 // ===== デモ画面表示設定・ドラッグ並び替え =====
 function defaultTradeLayout(){
   const order = {top:[], research:[], main:[], side:[]}, visible = {};
-  TRADE_WIDGETS.forEach(w=>{ order[w.zone].push(w.id); visible[w.id] = true; });
+  const compactVisible = new Set(['summary','coach','watch','watchForecast','order','trend','sellCheck','positions']);
+  TRADE_WIDGETS.forEach(w=>{ order[w.zone].push(w.id); visible[w.id] = compactVisible.has(w.id); });
   return {order, visible};
 }
 function loadTradeLayout(){
@@ -1734,6 +1748,14 @@ function setTradeWidgetVisible(id, visible){
   if(el) el.classList.toggle('trade-hidden', !visible);
   saveTradeLayout();
 }
+function setTradeLayoutPreset(kind){
+  const focus = new Set(['summary','coach','watch','watchForecast','order','trend','sellCheck','positions']);
+  TRADE_WIDGETS.forEach(w=>{
+    tradeLayout.visible[w.id] = kind === 'all' ? true : focus.has(w.id);
+  });
+  saveTradeLayout();
+  applyTradeLayout();
+}
 function resetTradeLayout(){
   tradeLayout = defaultTradeLayout();
   saveTradeLayout();
@@ -1742,7 +1764,7 @@ function resetTradeLayout(){
 function loadTradeSettingsOpen(){
   try{
     const saved = localStorage.getItem(TRADE_SETTINGS_OPEN_KEY);
-    return saved == null ? true : saved === '1';
+    return saved == null ? false : saved === '1';
   }catch(e){ return true; }
 }
 function saveTradeSettingsOpen(){
@@ -2667,7 +2689,7 @@ function renderTradeTrendChart(){
 }
 
 // ===== 描画 =====
-function renderAll(){ renderTable(); renderForecastPanel(); renderSummary(); renderBeginnerGuide(); renderPerfChart(); renderPicks(); renderTradeResearch(); renderTradeWatchForecastPanel(); renderSellCheck(); renderPaper(); renderTradeBeginnerCoach(); renderReview(); renderDiagnosis(); renderSourceHealth(); updateSymbolSuggestions(); decorateDashboardWidgets(); decorateTradeWidgets(); }
+function renderAll(){ renderTable(); renderForecastPanel(); renderSummary(); renderBeginnerGuide(); renderPerfChart(); renderPicks(); renderTradeResearch(); renderTradeWatchForecastPanel(); renderTradeFocusBand(); renderSellCheck(); renderPaper(); renderTradeBeginnerCoach(); renderReview(); renderDiagnosis(); renderSourceHealth(); updateSymbolSuggestions(); decorateDashboardWidgets(); decorateTradeWidgets(); }
 
 function rowMetrics(s){
   const d = marketData[s.sym];
@@ -3165,6 +3187,68 @@ function renderTradeWatchForecastPanel(){
   const row = rows.find(r=>r.sym===selectedTradeWatchForecastSym);
   renderTradeWatchForecastDetail(selectedTradeWatchForecastSym, row);
 }
+function tradeFocusItem(cls, title, body, action=''){
+  return `<div class="trade-focus-item ${cls||''}">
+    <b>${escapeHtml(title)}</b>
+    <div>${body}</div>
+    ${action}
+  </div>`;
+}
+function renderTradeFocusBand(){
+  const el = document.getElementById('ptTodayFocus');
+  if(!el) return;
+  const items = [];
+  const dataReady = stocks.filter(s=>marketData[s.sym]).length;
+  const dataTotal = stocks.length;
+  if(!dataTotal){
+    items.push(tradeFocusItem('caution', '最初にやること', 'ウォッチリストに銘柄を追加すると、予想一覧と発注練習に進めます。'));
+  } else if(dataReady < dataTotal){
+    items.push(tradeFocusItem('caution', 'データ更新', `${dataReady}/${dataTotal}銘柄の価格データを取得済みです。まず最新データにそろえます。`,
+      '<button class="data-refresh-btn" data-label="データ更新" onclick="refreshAll()">データ更新</button>'));
+  } else {
+    items.push(tradeFocusItem('good', 'データ確認', `${dataReady}銘柄の価格データを表示中です。更新範囲は「${REFRESH_MODES[refreshMode]}」です。`,
+      '<button onclick="setTradeLayoutPreset(\'focus\')">主要だけ表示</button>'));
+  }
+
+  const posEntries = Object.entries(paper.pos || {});
+  const sellSignals = posEntries.map(([sym,pos])=>({sym, sig:tradeSellSignal(sym,pos)}));
+  const urgent = sellSignals.find(x=>x.sig.cls==='bad') || sellSignals.find(x=>x.sig.cls==='caution');
+  if(urgent){
+    const cls = urgent.sig.cls === 'bad' ? 'bad' : 'caution';
+    items.push(tradeFocusItem(cls, '売り時チェック', `${displaySymbol(urgent.sym)} は「${urgent.sig.verdict}」。${urgent.sig.notes[0] || '出口ルールを確認します。'}`,
+      `<button onclick="selectTradeSymbol('${urgent.sym}','${paper.pos[urgent.sym]?.qty>0?'sell':'buy'}','今日見ること: ${urgent.sig.verdict}')">決済練習へ</button>`));
+  } else if(posEntries.length){
+    items.push(tradeFocusItem('good', '保有中の確認', `${posEntries.length}銘柄を保有中です。強い売りシグナルは今のところありません。`,
+      '<button onclick="setTradeWidgetVisible(\'sellCheck\', true); tradeWidgetEl(\'sellCheck\')?.scrollIntoView({behavior:\'smooth\', block:\'start\'});">売り時を見る</button>'));
+  } else {
+    items.push(tradeFocusItem('', '注文練習', 'まだ建玉がありません。ウォッチリスト予想の詳細から1銘柄を選び、少額で注文後の資金変化を見ます。',
+      '<button onclick="scrollToTradeWatchForecast()">予想一覧を見る</button>'));
+  }
+
+  const forecastRows = tradeWatchForecastRows().filter(r=>r.payload);
+  const top = forecastRows[0];
+  if(top){
+    const cls = (top.patternAdjusted ?? top.exp30 ?? 0) >= 0 ? 'good' : 'caution';
+    items.push(tradeFocusItem(cls, 'ウォッチ予想', `${displaySymbol(top.sym)} が一覧上位です。30日予想 ${pctTextPlain(top.exp30)}、補正後 ${pctTextPlain(top.patternAdjusted)}。`,
+      `<button onclick="showTradeWatchForecastDetail('${top.sym}')">根拠を見る</button>`));
+  }
+
+  const pending = (paper.orders || []).length + (paper.alerts || []).filter(a=>!a.fired).length;
+  if(pending){
+    items.push(tradeFocusItem('caution', '予約中の設定', `未約定注文・価格アラートが合計${pending}件あります。条件が古くないか確認します。`,
+      '<button onclick="setTradeWidgetVisible(\'positions\', true); tradeWidgetEl(\'positions\')?.scrollIntoView({behavior:\'smooth\', block:\'start\'});">注文を見る</button>'));
+  }
+
+  el.innerHTML = `
+    <div class="trade-focus-head">
+      <div>
+        <h3>今日見ること</h3>
+        <p class="trade-note">デモ練習で先に確認したい項目だけを短くまとめています。</p>
+      </div>
+      <span class="badge neutral">まずここ</span>
+    </div>
+    <div class="trade-focus-grid">${items.slice(0,4).join('')}</div>`;
+}
 function tradeCandidateReason(r){
   const parts = [];
   if(r.score!=null) parts.push(`スコア ${r.score.toFixed(1)}`);
@@ -3572,7 +3656,7 @@ function tradeSetupPreset(name, market=currentMarket){
       feeRate:0.1, slippageRate:0.03, maxPosPct:15, minCashPct:20, stopLossPct:8,
       liquidationPct:30, leverage:1, allowShort:false, preflightMode:'warn',
       journalAssist:true, dataSource:'auto', autoRefresh:0, cacheFallback:true,
-      panels:{coach:true, watch:true, watchForecast:true, picks:true, screener:true, trend:true, orderGuide:true, risk:true, sellCheck:true, stress:true, alerts:false, events:false, stats:false, history:true},
+      panels:{coach:true, watch:true, watchForecast:true, picks:false, screener:false, trend:true, orderGuide:true, risk:false, sellCheck:true, stress:false, alerts:false, events:false, stats:false, history:false},
     },
     standard:{
       experience:'normal', sessionDays:60, seedMode:'watch', orderLevel:'basic',
@@ -3580,7 +3664,7 @@ function tradeSetupPreset(name, market=currentMarket){
       feeRate:0.1, slippageRate:0.03, maxPosPct:20, minCashPct:10, stopLossPct:8,
       liquidationPct:25, leverage:1, allowShort:false, preflightMode:'warn',
       journalAssist:true, dataSource:'auto', autoRefresh:300, cacheFallback:true,
-      panels:{coach:false, watch:true, watchForecast:true, picks:true, screener:true, trend:true, orderGuide:true, risk:true, sellCheck:true, stress:true, alerts:true, events:false, stats:true, history:true},
+      panels:{coach:false, watch:true, watchForecast:true, picks:false, screener:false, trend:true, orderGuide:false, risk:false, sellCheck:true, stress:false, alerts:false, events:false, stats:false, history:false},
     },
     pro:{
       experience:'pro', sessionDays:0, seedMode:'demo', orderLevel:'pro',
@@ -3588,7 +3672,7 @@ function tradeSetupPreset(name, market=currentMarket){
       feeRate:0.1, slippageRate:0.03, maxPosPct:20, minCashPct:10, stopLossPct:8,
       liquidationPct:25, leverage:2, allowShort:false, preflightMode:'warn',
       journalAssist:true, dataSource:'auto', autoRefresh:60, cacheFallback:true,
-      panels:{coach:false, watch:true, watchForecast:true, picks:true, screener:true, trend:true, orderGuide:true, risk:true, sellCheck:true, stress:true, alerts:true, events:true, stats:true, history:true},
+      panels:{coach:false, watch:true, watchForecast:true, picks:true, screener:true, trend:true, orderGuide:false, risk:true, sellCheck:true, stress:false, alerts:true, events:false, stats:true, history:false},
     },
   };
   const p = presets[name] || presets.standard;
@@ -5089,6 +5173,7 @@ function renderPaper(){
       <td>${displaySymbol(h.sym)}</td><td>${h.qty}株</td><td>${fmtMoney(h.price)}</td>
       <td style="font-size:11px; color:var(--muted); text-align:left;">${h.note||''}${h.fee? ' / 手数料 '+fmtMoney(h.fee):''}${h.realized!=null? ` / 損益 <span class="${h.realized>=0?'up':'down'}">${fmtSignedMoney(h.realized)}</span>`:''}</td>
     </tr>`).join('') || '<tr><td style="color:var(--muted); text-align:left;">まだ取引がありません</td></tr>';
+  renderTradeFocusBand();
 }
 
 // ===== 銘柄発掘スクリーナー =====
