@@ -2,6 +2,7 @@
   const config = window.CRM_SUPABASE_CONFIG || {};
   const apiKey = config.anonKey || config.publishableKey || config.key || "";
   const enabled = Boolean(config.url && apiKey);
+  const venueFetchPageSize = 1000;
   const venueUpsertBatchSize = 500;
   const client = !enabled
     ? null
@@ -115,9 +116,19 @@
   }
 
   async function fetchVenues() {
-    const { data, error } = await client.from("venues").select("*").order("updated_at", { ascending: false });
-    if (error) throw error;
-    return (data || []).map(venueRowToVenue);
+    const rows = [];
+    for (let from = 0; ; from += venueFetchPageSize) {
+      const to = from + venueFetchPageSize - 1;
+      const { data, error } = await client
+        .from("venues")
+        .select("*")
+        .order("updated_at", { ascending: false })
+        .range(from, to);
+      if (error) throw error;
+      rows.push(...(data || []));
+      if (!data || data.length < venueFetchPageSize) break;
+    }
+    return rows.map(venueRowToVenue);
   }
 
   async function fetchCallHistories() {
@@ -590,6 +601,12 @@
 
     limit(value) {
       this.params.set("limit", String(value));
+      return this;
+    }
+
+    range(from, to) {
+      this.params.set("offset", String(from));
+      this.params.set("limit", String(to - from + 1));
       return this;
     }
 

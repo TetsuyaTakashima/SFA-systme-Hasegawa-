@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>文化施設 営業管理</title>
-    <link rel="stylesheet" href="./styles.css?v=20260528-3" />
+    <link rel="stylesheet" href="./styles.css?v=20260617-import-layout" />
   </head>
   <body>
     <div class="app-shell">
@@ -218,12 +218,9 @@
                   <span>重複施設を更新</span>
                 </label>
                 <a class="secondary-link" href="./sample-facilities.csv" download>サンプルCSV</a>
-                <a class="secondary-link" href="./data/private-schools-k12.csv" download>私立学校CSV（小中高等）</a>
-                <a class="secondary-link" href="./data/private-schools-k12-contact-enriched.csv" download>私立学校CSV（連絡先補完）</a>
-                <a class="secondary-link" href="./data/private-schools-national.csv" download>私立学校CSV（全件・大容量）</a>
               </div>
               <p class="import-note">
-                私立学校CSVは文部科学省の学校コード一覧から作成しています。電話番号、メール、Webサイト、学校法人名は元データに含まれないため空欄です。全件版は約2万件あるため、まずは小中高等版や都道府県で絞った運用がおすすめです。
+                CSVの列名はサンプルCSVを参考にしてください。施設名、電話番号、住所、担当者などの列を自動判定して取り込みます。
               </p>
               <div class="import-preview" id="importPreview" hidden></div>
             </section>
