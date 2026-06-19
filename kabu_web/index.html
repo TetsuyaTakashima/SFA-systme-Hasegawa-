@@ -115,6 +115,15 @@
     background:var(--card2); border:1px solid var(--border); border-radius:6px; padding:7px 8px; cursor:pointer;}
   .widget-toggle-list input{accent-color:var(--accent);}
   .source-note{font-size:11px; color:var(--muted); line-height:1.45;}
+  .symbol-master-card .row{align-items:stretch;}
+  .symbol-master-card input,.symbol-master-card select,.symbol-master-card button{min-height:34px; font-size:12px;}
+  .symbol-master-meta{font-size:11px; color:var(--muted); line-height:1.45; margin-top:6px;}
+  .symbol-result-list{display:grid; gap:7px; margin-top:10px; max-height:380px; overflow:auto; padding-right:2px;}
+  .symbol-result{display:grid; grid-template-columns:1fr auto; gap:8px; align-items:center; background:rgba(15,20,25,.42); border:1px solid var(--border); border-radius:8px; padding:9px; font-size:12px;}
+  .symbol-result strong{display:block; color:var(--text); font-size:13px; margin-bottom:2px;}
+  .symbol-result .meta{color:var(--muted); line-height:1.45; white-space:normal;}
+  .symbol-result .actions{display:flex; gap:5px; flex-wrap:wrap; justify-content:flex-end;}
+  .symbol-result button{min-height:28px; padding:5px 7px; font-size:11px;}
   .screener-tools{display:flex; gap:8px; flex-wrap:wrap; align-items:center;}
   .screener-tools input{width:104px;}
   .screen-detail{margin-top:12px; border:1px solid var(--border); border-radius:8px; padding:14px; background:rgba(33,42,53,.72);}
@@ -294,7 +303,7 @@
 <div class="card toolbar-card">
   <h2>操作パネル</h2>
   <div class="row">
-    <input id="inSym" placeholder="ティッカー (例: AAPL)" style="width:150px" maxlength="12" list="symbolSuggestions">
+    <input id="inSym" placeholder="ティッカー (例: AAPL)" style="width:150px" maxlength="12" list="symbolSuggestions" oninput="updateSymbolSuggestions(this.value)">
     <select id="inSector">
       <option value="情報技術">情報技術</option>
       <option value="通信サービス">通信サービス</option>
@@ -335,6 +344,28 @@
   </div>
   <div id="sourceHealth" class="source-health"></div>
   <p class="sub" id="addHelp" style="margin-top:8px;">※ 株数と取得単価を入れると「保有株」として損益計算されます。空欄ならウォッチリスト扱い。</p>
+</div>
+
+<div class="card analysis-only symbol-master-card">
+  <div class="row" style="justify-content:space-between; align-items:flex-start;">
+    <div>
+      <h2>銘柄マスター検索</h2>
+      <p class="sub" style="margin:0;">現在の市場で買える候補を、コード・ティッカー・会社名から探せます。</p>
+    </div>
+    <span class="badge neutral" id="symbolMasterCount">読込中</span>
+  </div>
+  <div class="row" style="margin-top:10px;">
+    <input id="symbolMasterQuery" placeholder="例: Apple / Toyota / 7203" oninput="renderSymbolMasterSearch()" style="flex:1 1 180px;">
+    <select id="symbolMasterType" onchange="renderSymbolMasterSearch()">
+      <option value="stock">株式のみ</option>
+      <option value="all">ETF・REIT等も含む</option>
+      <option value="fund">ETF/ファンド</option>
+      <option value="reit">REIT</option>
+    </select>
+    <button onclick="renderSymbolMasterSearch()">検索</button>
+  </div>
+  <div class="symbol-master-meta" id="symbolMasterStatus">銘柄マスターを読み込んでいます。</div>
+  <div class="symbol-result-list" id="symbolMasterResults"></div>
 </div>
 
 <div class="card analysis-only" id="dashboardSettings">
@@ -660,7 +691,7 @@
         <select id="ptSymQuick" class="wide" onchange="selectQuickTradeSymbol()">
           <option value="">銘柄を検索/選択</option>
         </select>
-        <input id="ptSym" placeholder="ティッカー" maxlength="10" oninput="renderOrderPreview(); renderTradeTrendChart()" list="symbolSuggestions">
+        <input id="ptSym" placeholder="ティッカー" maxlength="10" oninput="updateSymbolSuggestions(this.value); renderOrderPreview(); renderTradeTrendChart()" list="symbolSuggestions">
         <input id="ptQty" type="number" placeholder="株数" min="0" step="any" oninput="renderOrderPreview()">
         <select id="ptType" class="pro-only" onchange="renderPaper()">
           <option value="market">成行</option>
@@ -792,7 +823,7 @@
       <div class="pt-panel pro-only trade-widget" data-trade-widget="alerts">
           <h3>価格アラート</h3>
           <div class="row">
-            <input id="ptAlertSym" placeholder="ティッカー" maxlength="10" style="width:100px;" list="symbolSuggestions">
+            <input id="ptAlertSym" placeholder="ティッカー" maxlength="10" style="width:100px;" list="symbolSuggestions" oninput="updateSymbolSuggestions(this.value)">
             <select id="ptAlertCond" style="width:88px;">
               <option value="above">以上</option>
               <option value="below">以下</option>
@@ -1023,6 +1054,7 @@ const WATCH_FORECAST_SYMBOL_KEY = 'stock_watch_forecast_symbol';
 const TRADE_TREND_PERIOD_KEY = 'stock_trade_trend_period';
 const TRADE_TREND_SYMBOL_KEY = 'stock_trade_trend_symbol';
 const REFRESH_MODE_KEY = 'stock_refresh_mode';
+const SYMBOL_MASTER_URL = 'data/symbol-master.json';
 const REFRESH_CACHE_TTL_MS = 5 * 60 * 1000;
 const REFRESH_CONCURRENCY = 4;
 const DATA_SOURCES = {
@@ -1155,6 +1187,7 @@ let selectedTradeTrendSym = (function(){
 })();
 let chartCache = loadChartCache();
 let sourceHealth = [];
+let symbolMaster = {meta:null, us:[], jp:[], loaded:false, error:null};
 
 function marketConfig(){ return MARKET_CONFIGS[currentMarket] || MARKET_CONFIGS.us; }
 function stockListKey(market=currentMarket){ return market==='us'? LS_KEY : `${LS_KEY}_${market}`; }
@@ -1322,37 +1355,105 @@ function newsLinks(sym){
   return `<span class="news-links"><a href="${yahoo}" target="_blank">Yahoo</a>
     <a href="https://news.google.com/search?q=${q}&hl=ja" target="_blank">News</a></span>`;
 }
+function normalizeSearchText(v){
+  return toHalfWidth(v).toLowerCase().replace(/[._\-]/g,'').trim();
+}
+function marketSymbolMaster(market=currentMarket){
+  const rows = symbolMaster[market] || [];
+  return rows.length ? rows : mergedUniverse(
+    market==='jp' ? JP_UNIVERSE : UNIVERSE,
+    market==='jp' ? RECENT_JP_UNIVERSE : RECENT_US_UNIVERSE
+  );
+}
+function symbolTypeText(item){
+  return item.typeLabel || (item.type==='stock' ? '株式' : (item.type || '銘柄'));
+}
+function masterSearchScore(item, q){
+  if(!q) return item.type==='stock' ? 10 : 0;
+  const sym = normalizeSearchText(displaySymbol(item.sym || ''));
+  const raw = normalizeSearchText(item.sym || '');
+  const code = normalizeSearchText(item.code || '');
+  const name = normalizeSearchText(item.name || '');
+  const nameEn = normalizeSearchText(item.nameEn || '');
+  if(sym===q || raw===q || code===q) return 100;
+  if(sym.startsWith(q) || raw.startsWith(q) || code.startsWith(q)) return 80;
+  if(name.startsWith(q) || nameEn.startsWith(q)) return 60;
+  if(sym.includes(q) || raw.includes(q) || code.includes(q)) return 45;
+  if(name.includes(q) || nameEn.includes(q)) return 30;
+  return 0;
+}
+function searchSymbolMaster(query='', opts={}){
+  const q = normalizeSearchText(query);
+  const type = opts.type || document.getElementById('symbolMasterType')?.value || 'stock';
+  const limit = opts.limit || 60;
+  let rows = marketSymbolMaster(opts.market || currentMarket);
+  if(type && type !== 'all') rows = rows.filter(r=>r.type===type);
+  const scored = rows.map(r=>({item:r, score:masterSearchScore(r, q)}))
+    .filter(x=>!q || x.score>0)
+    .sort((a,b)=>b.score-a.score || displaySymbol(a.item.sym).localeCompare(displaySymbol(b.item.sym), 'ja'));
+  return {total:rows.length, matched:scored.length, rows:scored.slice(0, limit).map(x=>x.item), query:q};
+}
+function symbolMasterLookup(sym, market=currentMarket){
+  const normalized = normalizeSymbol(sym);
+  return marketSymbolMaster(market).find(u=>u.sym===normalized) || universeLookup(normalized) || null;
+}
 function symbolOptionLabel(item){
   const name = item.name || '';
+  const nameEn = item.nameEn ? ` / ${item.nameEn}` : '';
   const sector = item.sector || '';
+  const exchange = item.exchange ? ` / ${item.exchange}` : '';
+  const type = item.typeLabel ? ` / ${item.typeLabel}` : '';
   const source = item.source ? ` / ${item.source}` : '';
-  return `${displaySymbol(item.sym)}${name?` - ${name}`:''}${sector?` (${sector})`:''}${source}`;
+  return `${displaySymbol(item.sym)}${name?` - ${name}${nameEn}`:''}${sector?` (${sector})`:''}${exchange}${type}${source}`;
 }
-function symbolSuggestionItems(){
+function symbolSuggestionItems(query=''){
   const map = new Map();
   const add = (item, source)=>{
-    if(!item?.sym || map.has(item.sym)) return;
+    if(!item?.sym) return;
+    if(map.has(item.sym)){
+      const prev = map.get(item.sym);
+      map.set(item.sym, {
+        ...item,
+        ...prev,
+        name:prev.name || item.name || '',
+        nameEn:prev.nameEn || item.nameEn || '',
+        sector:prev.sector || item.sector || '',
+        exchange:prev.exchange || item.exchange || '',
+        type:prev.type || item.type || '',
+        typeLabel:prev.typeLabel || item.typeLabel || '',
+      });
+      return;
+    }
     map.set(item.sym, {...item, source});
   };
   stocks.forEach(s=>add(s, s.shares && s.cost ? '保有/ウォッチ' : 'ウォッチ'));
   activeUniverse().forEach(u=>add(u, '主要銘柄'));
   recentUniverse().forEach(u=>add(u, '新規上場候補'));
   lastScreenerRows.forEach(r=>add(r, 'スクリーナー'));
+  const q = query || ['inSym','ptSym','ptAlertSym','symbolMasterQuery']
+    .map(id=>document.getElementById(id)?.value || '').find(Boolean) || '';
+  searchSymbolMaster(q, {type:'all', limit:q ? 120 : 40}).rows.forEach(u=>add(u, '銘柄マスター'));
   Object.keys(paper?.pos || {}).forEach(sym=>add({sym, sector:'保有建玉'}, '建玉'));
-  return Array.from(map.values()).sort((a,b)=>displaySymbol(a.sym).localeCompare(displaySymbol(b.sym), 'ja'));
+  const items = Array.from(map.values());
+  const nq = normalizeSearchText(q);
+  return items
+    .filter(item=>!nq || masterSearchScore(item, nq)>0)
+    .sort((a,b)=>(nq ? masterSearchScore(b, nq)-masterSearchScore(a, nq) : 0)
+      || displaySymbol(a.sym).localeCompare(displaySymbol(b.sym), 'ja'));
 }
-function updateSymbolSuggestions(){
-  const items = symbolSuggestionItems();
+function updateSymbolSuggestions(query=''){
+  const items = symbolSuggestionItems(query);
   const data = document.getElementById('symbolSuggestions');
   if(data){
-    data.innerHTML = items.map(item=>`<option value="${displaySymbol(item.sym)}" label="${symbolOptionLabel(item)}"></option>`).join('');
+    data.innerHTML = items.slice(0,180).map(item=>`<option value="${displaySymbol(item.sym)}" label="${escapeHtml(symbolOptionLabel(item))}"></option>`).join('');
   }
   const quick = document.getElementById('ptSymQuick');
   if(quick){
     const current = normalizeSymbol(document.getElementById('ptSym')?.value || '');
-    quick.innerHTML = '<option value="">銘柄を検索/選択</option>' + items.map(item=>{
+    const quickItems = items.slice(0,160);
+    quick.innerHTML = '<option value="">銘柄を検索/選択</option>' + quickItems.map(item=>{
       const selected = item.sym===current ? 'selected' : '';
-      return `<option value="${item.sym}" ${selected}>${symbolOptionLabel(item)}</option>`;
+      return `<option value="${item.sym}" ${selected}>${escapeHtml(symbolOptionLabel(item))}</option>`;
     }).join('');
   }
 }
@@ -1368,7 +1469,21 @@ function addStock(){
   if(stocks.some(s=>s.sym===sym)){ alert(displaySymbol(sym)+' は既に登録済みです'); return; }
   const shares = parseFloat(document.getElementById('inShares').value) || null;
   const cost = parseFloat(document.getElementById('inCost').value) || null;
-  stocks.push({sym, sector:document.getElementById('inSector').value, shares, cost});
+  const ref = symbolMasterLookup(sym) || {};
+  const meta = [ref.exchange, ref.typeLabel || ref.type, ref.source].filter(Boolean).join(' / ');
+  stocks.push({
+    sym,
+    sector:document.getElementById('inSector').value || ref.sector || 'その他',
+    shares,
+    cost,
+    name:ref.name || '',
+    nameEn:ref.nameEn || '',
+    desc:ref.desc || meta || '',
+    exchange:ref.exchange || '',
+    type:ref.type || 'stock',
+    typeLabel:ref.typeLabel || '',
+    source:ref.source || '入力',
+  });
   if(!selectedForecastSym) selectedForecastSym = sym;
   if(!selectedTradeTrendSym){
     selectedTradeTrendSym = sym;
@@ -2270,6 +2385,129 @@ function escapeHtml(v){
     '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
   })[ch]);
 }
+function jsString(v){
+  return String(v ?? '').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\r?\n/g,' ');
+}
+function ensureSectorOption(value){
+  const sector = value || 'その他';
+  const sel = document.getElementById('inSector');
+  if(sel && !Array.from(sel.options).some(o=>o.value===sector)){
+    const opt = document.createElement('option');
+    opt.value = sector;
+    opt.textContent = sector;
+    sel.appendChild(opt);
+  }
+  return sector;
+}
+function stockPayloadFromMaster(sym){
+  const ref = symbolMasterLookup(sym) || {sym:normalizeSymbol(sym), sector:document.getElementById('inSector')?.value || 'その他'};
+  const meta = [ref.exchange, ref.typeLabel || ref.type, ref.source].filter(Boolean).join(' / ');
+  return {
+    sym:ref.sym,
+    sector:ensureSectorOption(ref.sector || 'その他'),
+    name:ref.name || '',
+    nameEn:ref.nameEn || '',
+    desc:ref.desc || meta || '',
+    exchange:ref.exchange || '',
+    type:ref.type || 'stock',
+    typeLabel:ref.typeLabel || '株式',
+    source:ref.source || '入力',
+    shares:null,
+    cost:null,
+  };
+}
+function fillSymbolFromMaster(sym){
+  const ref = symbolMasterLookup(sym) || {sym:normalizeSymbol(sym)};
+  const input = document.getElementById('inSym');
+  if(input) input.value = displaySymbol(ref.sym);
+  if(ref.sector){
+    const sector = ensureSectorOption(ref.sector);
+    const sel = document.getElementById('inSector');
+    if(sel) sel.value = sector;
+  }
+  updateSymbolSuggestions(ref.sym);
+  setStatus(`${displaySymbol(ref.sym)} を入力欄へ入れました`);
+}
+function addFromMaster(sym){
+  const payload = stockPayloadFromMaster(sym);
+  if(!payload.sym) return;
+  if(stocks.some(s=>s.sym===payload.sym)){
+    fillSymbolFromMaster(payload.sym);
+    setStatus(`${displaySymbol(payload.sym)} は既にウォッチリストにあります`);
+    return;
+  }
+  stocks.push(payload);
+  if(!selectedForecastSym) selectedForecastSym = payload.sym;
+  if(!selectedTradeTrendSym){
+    selectedTradeTrendSym = payload.sym;
+    try{ localStorage.setItem(TRADE_TREND_SYMBOL_KEY, selectedTradeTrendSym); }catch(e){}
+  }
+  saveStocks();
+  renderAll();
+  refreshOne(payload.sym);
+}
+function symbolMasterSourceSummary(){
+  const meta = symbolMaster.meta;
+  if(!meta) return symbolMaster.error ? `銘柄マスター読込失敗: ${symbolMaster.error}` : '固定の主要候補を表示中です。';
+  const src = currentMarket==='jp' ? meta.sources?.jp : meta.sources?.us;
+  if(currentMarket==='jp') return `出典: ${src?.label || 'JPX'} / 基準日 ${src?.effectiveDate || '不明'}`;
+  const times = (src?.fileCreationTimes || []).filter(Boolean).join(', ');
+  return `出典: ${src?.label || 'Nasdaq Trader'}${times ? ` / 作成 ${times}` : ''}`;
+}
+function renderSymbolMasterSearch(){
+  const badge = document.getElementById('symbolMasterCount');
+  const status = document.getElementById('symbolMasterStatus');
+  const list = document.getElementById('symbolMasterResults');
+  if(!badge || !status || !list) return;
+  const query = document.getElementById('symbolMasterQuery')?.value || '';
+  const type = document.getElementById('symbolMasterType')?.value || 'stock';
+  const result = searchSymbolMaster(query, {type, limit:80});
+  const totalMarket = marketSymbolMaster().length;
+  badge.textContent = symbolMaster.loaded ? `${totalMarket.toLocaleString('ja-JP')}件` : (symbolMaster.error ? '簡易候補' : '読込中');
+  const shown = result.rows.length;
+  const matched = query ? result.matched : result.total;
+  status.textContent = `${marketConfig().marketLabel}: ${matched.toLocaleString('ja-JP')}件中 ${shown}件を表示。${symbolMasterSourceSummary()}`;
+  if(!result.rows.length){
+    list.innerHTML = '<p class="empty">該当する銘柄がありません。コード・ティッカー・会社名の一部で検索してください。</p>';
+    return;
+  }
+  list.innerHTML = result.rows.map(item=>{
+    const inList = stocks.some(s=>s.sym===item.sym);
+    const sym = displaySymbol(item.sym);
+    const nameMeta = item.nameEn && item.nameEn !== item.name ? `${item.name} / ${item.nameEn}` : item.name;
+    const meta = [nameMeta, item.sector, item.exchange, symbolTypeText(item)].filter(Boolean).join(' / ');
+    const safeSym = jsString(item.sym);
+    return `<div class="symbol-result">
+      <div>
+        <strong>${escapeHtml(sym)} ${item.name ? `<span class="sector-tag">${escapeHtml(item.name)}</span>` : ''}</strong>
+        <div class="meta">${escapeHtml(meta || '銘柄マスター')}</div>
+      </div>
+      <div class="actions">
+        <button onclick="fillSymbolFromMaster('${safeSym}')">入力へ</button>
+        ${inList ? '<span class="sector-tag">登録済</span>' : `<button class="primary" onclick="addFromMaster('${safeSym}')">＋追加</button>`}
+      </div>
+    </div>`;
+  }).join('');
+}
+async function loadSymbolMaster(){
+  renderSymbolMasterSearch();
+  try{
+    const res = await fetch(SYMBOL_MASTER_URL, {cache:'no-store'});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const data = await res.json();
+    symbolMaster = {
+      meta:data.meta || null,
+      us:Array.isArray(data.us) ? data.us : [],
+      jp:Array.isArray(data.jp) ? data.jp : [],
+      loaded:true,
+      error:null,
+    };
+  }catch(e){
+    symbolMaster = {...symbolMaster, loaded:false, error:e.message || String(e)};
+  }
+  renderSymbolMasterSearch();
+  updateSymbolSuggestions();
+}
 function forecastPeriodOptionsHtml(period=watchForecastPeriod){
   const opts = [
     ['21','過去1ヶ月'], ['63','過去3ヶ月'], ['126','過去6ヶ月'],
@@ -2689,7 +2927,7 @@ function renderTradeTrendChart(){
 }
 
 // ===== 描画 =====
-function renderAll(){ renderTable(); renderForecastPanel(); renderSummary(); renderBeginnerGuide(); renderPerfChart(); renderPicks(); renderTradeResearch(); renderTradeWatchForecastPanel(); renderTradeFocusBand(); renderSellCheck(); renderPaper(); renderTradeBeginnerCoach(); renderReview(); renderDiagnosis(); renderSourceHealth(); updateSymbolSuggestions(); decorateDashboardWidgets(); decorateTradeWidgets(); }
+function renderAll(){ renderTable(); renderForecastPanel(); renderSummary(); renderBeginnerGuide(); renderPerfChart(); renderPicks(); renderTradeResearch(); renderTradeWatchForecastPanel(); renderTradeFocusBand(); renderSellCheck(); renderPaper(); renderTradeBeginnerCoach(); renderReview(); renderDiagnosis(); renderSourceHealth(); renderSymbolMasterSearch(); updateSymbolSuggestions(); decorateDashboardWidgets(); decorateTradeWidgets(); }
 
 function rowMetrics(s){
   const d = marketData[s.sym];
@@ -5499,6 +5737,7 @@ function updateMarketUI(){
   fillSelectOptions(document.getElementById('ptScanSector'), screenSectors, true);
   updateQtyInputRule();
   updateSymbolSuggestions();
+  renderSymbolMasterSearch();
 }
 
 function setScreenerControls(prefix, preset){
@@ -5942,6 +6181,7 @@ renderAll();
   maybeShowTradeSetup();
 })();
 window.addEventListener('load', ()=>{
+  loadSymbolMaster();
   refreshAll();
   if(Object.keys(longData).length){ renderLongChart(); renderLongStats(); }
 });
