@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>文化施設 営業管理</title>
-    <link rel="stylesheet" href="./styles.css?v=20260617-import-layout" />
+    <link rel="stylesheet" href="./styles.css?v=20260619-import-checklist" />
   </head>
   <body>
     <div class="app-shell">
@@ -222,6 +222,27 @@
               <p class="import-note">
                 CSVの列名はサンプルCSVを参考にしてください。施設名、電話番号、住所、担当者などの列を自動判定して取り込みます。
               </p>
+              <section class="import-checklist" aria-labelledby="importChecklistTitle">
+                <div class="import-checklist-head">
+                  <div>
+                    <h3 id="importChecklistTitle">都道府県別 登録状況</h3>
+                    <p id="importChecklistSummary">登録状況を集計中です。</p>
+                  </div>
+                </div>
+                <div class="import-checklist-table-wrap">
+                  <table class="import-checklist-table">
+                    <thead>
+                      <tr>
+                        <th>都道府県</th>
+                        <th>施設</th>
+                        <th>学校</th>
+                        <th>合計</th>
+                      </tr>
+                    </thead>
+                    <tbody id="importChecklistBody"></tbody>
+                  </table>
+                </div>
+              </section>
               <div class="import-preview" id="importPreview" hidden></div>
             </section>
           </section>
@@ -382,6 +403,6 @@
 
     <script src="./cloud-config.js?v=20260521"></script>
     <script src="./cloud-client.js?v=20260619-record-type-filter"></script>
-    <script src="./app.js?v=20260619-record-type-filter"></script>
+    <script src="./app.js?v=20260619-import-checklist"></script>
   </body>
 </html>

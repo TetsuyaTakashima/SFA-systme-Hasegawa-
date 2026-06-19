@@ -685,6 +685,8 @@ const elements = {
   importRecordType: document.querySelector("#importRecordType"),
   mergeDuplicates: document.querySelector("#mergeDuplicates"),
   importPreview: document.querySelector("#importPreview"),
+  importChecklistSummary: document.querySelector("#importChecklistSummary"),
+  importChecklistBody: document.querySelector("#importChecklistBody"),
   searchInput: document.querySelector("#searchInput"),
   statusFilter: document.querySelector("#statusFilter"),
   prefectureFilter: document.querySelector("#prefectureFilter"),
@@ -1525,6 +1527,7 @@ function render() {
   renderDetail();
   renderNotificationPanel();
   renderCallWorkList();
+  renderImportChecklist();
   renderHistoryPage();
 }
 
@@ -2244,6 +2247,63 @@ function refreshPrefectureFilter() {
   elements.prefectureFilter.replaceChildren(new Option("すべて", ""));
   prefectures.forEach((prefecture) => elements.prefectureFilter.append(new Option(prefecture, prefecture)));
   elements.prefectureFilter.value = prefectures.includes(current) ? current : "";
+}
+
+function renderImportChecklist() {
+  if (!elements.importChecklistBody) return;
+  const stats = getImportChecklistStats();
+  const totalPrefectures = japanPrefectures.length;
+  const registeredPrefectures = stats.filter((item) => item.total > 0 && japanPrefectures.includes(item.prefecture)).length;
+  const facilityPrefectures = stats.filter((item) => item.facility > 0 && japanPrefectures.includes(item.prefecture)).length;
+  const schoolPrefectures = stats.filter((item) => item.school > 0 && japanPrefectures.includes(item.prefecture)).length;
+
+  setText(
+    elements.importChecklistSummary,
+    `${registeredPrefectures}/${totalPrefectures}都道府県 登録あり / 施設 ${facilityPrefectures} / 学校 ${schoolPrefectures}`
+  );
+
+  elements.importChecklistBody.innerHTML = stats
+    .map(
+      (item) => `
+        <tr class="${item.total ? "" : "is-empty"}">
+          <th scope="row">${escapeHtml(item.prefecture)}</th>
+          <td>${importChecklistCell(item.facility, "施設")}</td>
+          <td>${importChecklistCell(item.school, "学校")}</td>
+          <td>${item.total ? `${item.total}件` : "-"}</td>
+        </tr>
+      `
+    )
+    .join("");
+}
+
+function getImportChecklistStats() {
+  const stats = new Map(japanPrefectures.map((prefecture) => [prefecture, { prefecture, facility: 0, school: 0, total: 0 }]));
+  const extraStats = new Map();
+
+  venues.forEach((venue) => {
+    const prefecture = getVenuePrefecture(venue) || "都道府県未設定";
+    const target = stats.get(prefecture) || extraStats.get(prefecture) || { prefecture, facility: 0, school: 0, total: 0 };
+    if (!stats.has(prefecture)) extraStats.set(prefecture, target);
+    const recordType = getVenueRecordType(venue);
+    if (recordType === "school") {
+      target.school += 1;
+    } else {
+      target.facility += 1;
+    }
+    target.total += 1;
+  });
+
+  return [...japanPrefectures.map((prefecture) => stats.get(prefecture)), ...extraStats.values()];
+}
+
+function importChecklistCell(count, label) {
+  const checked = count > 0;
+  return `
+    <span class="import-check ${checked ? "is-checked" : ""}" aria-label="${escapeAttribute(`${label}${checked ? "あり" : "なし"}`)}">
+      ${checked ? "✓" : ""}
+    </span>
+    <span class="import-check-count">${checked ? `${count}件` : "-"}</span>
+  `;
 }
 
 function getFilteredVenues() {
