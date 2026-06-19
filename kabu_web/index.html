@@ -494,6 +494,11 @@
   <div class="row" style="justify-content:space-between;">
     <h2 id="screenerTitle">⛏️ 銘柄発掘スクリーナー（米国主要50銘柄）</h2>
     <div class="screener-tools">
+      <select id="scanUniverseScope" onchange="rerenderScreener()">
+        <option value="featured">対象: 主要候補</option>
+        <option value="master">対象: 銘柄マスター</option>
+      </select>
+      <input id="scanQuery" placeholder="コード/会社名で検索" oninput="rerenderScreener()">
       <select id="scanSector" onchange="rerenderScreener()"><option value="">全セクター</option></select>
       <select id="scanSort" onchange="rerenderScreener()">
         <option value="score">総合スコア順</option>
@@ -513,11 +518,16 @@
         <option value="10">10年以内</option>
         <option value="older10">10年以上</option>
       </select>
+      <select id="scanLimit" onchange="rerenderScreener()">
+        <option value="40">最大40件</option>
+        <option value="80" selected>最大80件</option>
+        <option value="120">最大120件</option>
+      </select>
       <button class="primary" onclick="runScreener()">スキャン実行</button>
       <span id="scanStatus" style="font-size:12px; color:var(--muted);"></span>
     </div>
   </div>
-  <p class="sub" style="margin-top:6px;">通常は主要50銘柄を一括取得し、上場時期フィルタ選択時は近年上場候補も含めてランキングします（約20〜60秒）。気になる銘柄はそのままウォッチリストに追加できます。</p>
+  <p class="sub" id="screenScopeNote" style="margin-top:6px;">通常は主要候補を一括取得します。対象を「銘柄マスター」にすると全銘柄マスターから検索・抽出してスキャンできます。大量取得を避けるため、検索結果は最大件数までに制限します。</p>
   <div class="preset-row">
     <span class="source-note">条件プリセット</span>
     <button onclick="applyScreenerPreset('growth')">成長候補</button>
@@ -645,6 +655,11 @@
         <button class="primary" onclick="runTradeScreener()">スキャン</button>
       </div>
       <div class="trade-mini-tools">
+        <select id="ptScanUniverseScope" onchange="rerenderTradeScreener()">
+          <option value="featured">主要候補</option>
+          <option value="master">銘柄マスター</option>
+        </select>
+        <input id="ptScanQuery" placeholder="コード/会社名" oninput="rerenderTradeScreener()" style="width:132px;">
         <select id="ptScanSector" onchange="rerenderTradeScreener()"><option value="">全セクター</option></select>
         <select id="ptScanSort" onchange="rerenderTradeScreener()">
           <option value="score">総合スコア順</option>
@@ -663,6 +678,11 @@
           <option value="5">5年以内</option>
           <option value="10">10年以内</option>
           <option value="older10">10年以上</option>
+        </select>
+        <select id="ptScanLimit" onchange="rerenderTradeScreener()" style="width:96px;">
+          <option value="40">最大40件</option>
+          <option value="80" selected>最大80件</option>
+          <option value="120">最大120件</option>
         </select>
         <span id="ptScanStatus" style="font-size:12px; color:var(--muted);"></span>
       </div>
@@ -1396,6 +1416,18 @@ function searchSymbolMaster(query='', opts={}){
 function symbolMasterLookup(sym, market=currentMarket){
   const normalized = normalizeSymbol(sym);
   return marketSymbolMaster(market).find(u=>u.sym===normalized) || universeLookup(normalized) || null;
+}
+function stockName(s){
+  const ref = symbolMasterLookup(s?.sym || '') || {};
+  return s?.name || ref.name || '';
+}
+function stockNameLine(s){
+  const name = stockName(s);
+  if(!name) return '';
+  const ref = symbolMasterLookup(s?.sym || '') || {};
+  const en = (s?.nameEn || ref.nameEn || '');
+  const enText = en && en !== name ? ` / ${en}` : '';
+  return `<span class="sector-tag">${escapeHtml(name + enText)}</span><br>`;
 }
 function symbolOptionLabel(item){
   const name = item.name || '';
@@ -2505,6 +2537,7 @@ async function loadSymbolMaster(){
   }catch(e){
     symbolMaster = {...symbolMaster, loaded:false, error:e.message || String(e)};
   }
+  updateMarketUI();
   renderSymbolMasterSearch();
   updateSymbolSuggestions();
 }
@@ -2955,8 +2988,9 @@ function renderTable(){
   tbody.innerHTML = stocks.map(s=>{
     const m = rowMetrics(s);
     const news = newsLinks(s.sym);
+    const nameLine = stockNameLine(s);
     if(!m){
-      return `<tr><td><span class="sym">${displaySymbol(s.sym)}</span><br><span class="sector-tag">${s.sector}</span></td>
+      return `<tr><td><span class="sym">${displaySymbol(s.sym)}</span><br>${nameLine}<span class="sector-tag">${s.sector}</span></td>
         <td colspan="9" style="color:var(--muted); text-align:center;">データ未取得（「データ更新」を押してください）</td>
         <td>${news}</td><td><button class="danger" onclick="removeStock('${s.sym}')">削除</button></td></tr>`;
     }
@@ -2993,7 +3027,7 @@ function renderTable(){
       </td>
     </tr>` : '';
     return `<tr>
-      <td><span class="sym">${displaySymbol(s.sym)}</span><br><span class="sector-tag">${s.sector}${s.shares?` / ${s.shares}株`:''}</span>${beginnerMode?'<span class="beginner-hint">まずは前日比、1ヶ月、3ヶ月の向きを見ます。</span>':''}</td>
+      <td><span class="sym">${displaySymbol(s.sym)}</span><br>${nameLine}<span class="sector-tag">${s.sector}${s.shares?` / ${s.shares}株`:''}</span>${beginnerMode?'<span class="beginner-hint">まずは前日比、1ヶ月、3ヶ月の向きを見ます。</span>':''}</td>
       <td>${fmtMoney(m.price)}</td>
       <td>${fmtPct(m.d1)}</td><td>${fmtPct(m.w1)}</td><td>${fmtPct(m.m1)}</td><td>${fmtPct(m.m3)}</td>
       <td>${fmtPct(m.vsSpx)}</td>
@@ -3578,7 +3612,9 @@ function renderTradeResearch(){
   updateTradeTrendOptions();
 }
 function copyTradeScanControlsToMain(){
-  const pairs = [['ptScanSector','scanSector'], ['ptScanSort','scanSort'], ['ptScanMinScore','scanMinScore'], ['ptScanListedWithin','scanListedWithin']];
+  const pairs = [['ptScanUniverseScope','scanUniverseScope'], ['ptScanQuery','scanQuery'],
+    ['ptScanSector','scanSector'], ['ptScanSort','scanSort'], ['ptScanMinScore','scanMinScore'],
+    ['ptScanListedWithin','scanListedWithin'], ['ptScanLimit','scanLimit']];
   pairs.forEach(([from,to])=>{
     const a=document.getElementById(from), b=document.getElementById(to);
     if(a && b) b.value = a.value;
@@ -3587,7 +3623,9 @@ function copyTradeScanControlsToMain(){
   if(a && b) b.checked = a.checked;
 }
 function copyMainScanControlsToTrade(){
-  const pairs = [['scanSector','ptScanSector'], ['scanSort','ptScanSort'], ['scanMinScore','ptScanMinScore'], ['scanListedWithin','ptScanListedWithin']];
+  const pairs = [['scanUniverseScope','ptScanUniverseScope'], ['scanQuery','ptScanQuery'],
+    ['scanSector','ptScanSector'], ['scanSort','ptScanSort'], ['scanMinScore','ptScanMinScore'],
+    ['scanListedWithin','ptScanListedWithin'], ['scanLimit','ptScanLimit']];
   pairs.forEach(([from,to])=>{
     const a=document.getElementById(from), b=document.getElementById(to);
     if(a && b) b.value = a.value;
@@ -3601,6 +3639,12 @@ async function runTradeScreener(){
   lastScreenerTargets = targets;
   const st = document.getElementById('scanStatus');
   const ptSt = document.getElementById('ptScanStatus');
+  if(!targets.length){
+    if(st) st.textContent = '条件に合う銘柄がありません';
+    if(ptSt) ptSt.textContent = '条件に合う銘柄がありません';
+    renderScreener(targets);
+    return;
+  }
   const targetsToFetch = targets.filter(u=>!dataFreshEnough(screenData[u.sym])).map(u=>u.sym);
   await fetchChartsBatch(targetsToFetch, {
     useCache:true,
@@ -5605,10 +5649,10 @@ let screenData = {}; // sym -> chart data (キャッシュ)
 let lastScreenerTargets = [];
 let selectedScreenerSym = null;
 const SCREENER_PRESETS = {
-  growth:{sector:'', sort:'score', minScore:'4', positiveOnly:true, listedWithin:''},
-  pullback:{sector:'', sort:'rsiLow', minScore:'0', positiveOnly:false, listedWithin:''},
-  lowRsi:{sector:'', sort:'rsiLow', minScore:'', positiveOnly:false, listedWithin:''},
-  reset:{sector:'', sort:'score', minScore:'', positiveOnly:false, listedWithin:''},
+  growth:{scope:'featured', query:'', sector:'', sort:'score', minScore:'4', positiveOnly:true, listedWithin:'', limit:'80'},
+  pullback:{scope:'featured', query:'', sector:'', sort:'rsiLow', minScore:'0', positiveOnly:false, listedWithin:'', limit:'80'},
+  lowRsi:{scope:'featured', query:'', sector:'', sort:'rsiLow', minScore:'', positiveOnly:false, listedWithin:'', limit:'80'},
+  reset:{scope:'featured', query:'', sector:'', sort:'score', minScore:'', positiveOnly:false, listedWithin:'', limit:'80'},
 };
 
 function activeUniverse(){ return currentMarket==='jp'? JP_UNIVERSE : UNIVERSE; }
@@ -5676,14 +5720,60 @@ function screenerUniverse(filter=parseListingFilter()){
 function universeLookup(sym){
   return mergedUniverse(activeUniverse(), recentUniverse()).find(u=>u.sym===sym) || null;
 }
+function screenerLimit(){
+  const v = parseInt(document.getElementById('scanLimit')?.value || '80', 10);
+  return Math.max(10, Math.min(160, Number.isFinite(v) ? v : 80));
+}
+function screenerQuery(){
+  return (document.getElementById('scanQuery')?.value || '').trim();
+}
+function screenerScope(){
+  return document.getElementById('scanUniverseScope')?.value || 'featured';
+}
+function enrichScreenerTarget(item){
+  const ref = universeLookup(item.sym) || {};
+  const detail = [item.exchange, item.typeLabel || item.type, item.source].filter(Boolean).join(' / ');
+  return {
+    ...item,
+    name:item.name || ref.name || displaySymbol(item.sym),
+    nameEn:item.nameEn || ref.nameEn || '',
+    sector:item.sector || ref.sector || 'その他',
+    desc:item.desc || ref.desc || detail,
+    listedAt:item.listedAt || ref.listedAt || null,
+  };
+}
+function updateScreenerScopeNote(targets=[]){
+  const el = document.getElementById('screenScopeNote');
+  if(!el) return;
+  const query = screenerQuery();
+  const scope = screenerScope();
+  const source = (scope==='master' || query) ? '銘柄マスター' : '主要候補';
+  const total = targets.length ? `${targets.length}件` : '候補なし';
+  const queryText = query ? ` / 検索: ${query}` : '';
+  el.textContent = `${source}から${total}をスキャン対象にしています${queryText}。大量取得を避けるため、銘柄マスター利用時は最大件数までに制限します。`;
+}
 function screenTargetsFromControls(){
   const filter = parseListingFilter();
   const secFilter = document.getElementById('scanSector')?.value || '';
-  return screenerUniverse(filter).filter(u=>(!secFilter || u.sector===secFilter) && isListedByFilter(u, filter));
+  const query = screenerQuery();
+  const useMaster = screenerScope()==='master' || !!query;
+  let targets;
+  if(useMaster){
+    const limit = screenerLimit();
+    targets = searchSymbolMaster(query, {type:'stock', limit:limit * 3}).rows
+      .map(enrichScreenerTarget);
+  } else {
+    targets = screenerUniverse(filter).map(enrichScreenerTarget);
+  }
+  targets = targets.filter(u=>(!secFilter || u.sector===secFilter) && isListedByFilter(u, filter));
+  if(useMaster) targets = targets.slice(0, screenerLimit());
+  updateScreenerScopeNote(targets);
+  return targets;
 }
 function screenerScopeSuffix(meta=lastScreenerMeta){
   if(!meta) return '';
-  return [meta.sector, meta.listedLabel].filter(Boolean).map(x=>` / ${x}`).join('');
+  return [meta.scope, meta.query ? `検索:${meta.query}` : '', meta.sector, meta.listedLabel]
+    .filter(Boolean).map(x=>` / ${x}`).join('');
 }
 function fillSelectOptions(sel, values, includeAll=false){
   if(!sel) return;
@@ -5732,7 +5822,10 @@ function updateMarketUI(){
   const longHelp = document.getElementById('longHelp');
   if(longHelp) longHelp.textContent = `登録銘柄＋${cfg.benchmarkName}の全履歴（取得できる限り、最大数十年分）をブラウザ内に保存します。一度取得すれば次回以降も保持され、再実行で最新分まで更新されます。`;
   fillSelectOptions(document.getElementById('inSector'), cfg.sectors, false);
-  const screenSectors = [...new Set(mergedUniverse(activeUniverse(), recentUniverse()).map(u=>u.sector))];
+  const screenSectors = [...new Set([
+    ...mergedUniverse(activeUniverse(), recentUniverse()),
+    ...marketSymbolMaster(),
+  ].map(u=>u.sector).filter(Boolean))];
   fillSelectOptions(document.getElementById('scanSector'), screenSectors, true);
   fillSelectOptions(document.getElementById('ptScanSector'), screenSectors, true);
   updateQtyInputRule();
@@ -5743,35 +5836,50 @@ function updateMarketUI(){
 function setScreenerControls(prefix, preset){
   const p = SCREENER_PRESETS[preset] || SCREENER_PRESETS.reset;
   const ids = {
+    scope:prefix + 'ScanUniverseScope',
+    query:prefix + 'ScanQuery',
     sector:prefix + 'ScanSector',
     sort:prefix + 'ScanSort',
     min:prefix + 'ScanMinScore',
     positive:prefix + 'ScanPositiveOnly',
     listed:prefix + 'ScanListedWithin',
+    limit:prefix + 'ScanLimit',
   };
+  const scope = document.getElementById(ids.scope);
+  const query = document.getElementById(ids.query);
   const sec = document.getElementById(ids.sector);
   const sort = document.getElementById(ids.sort);
   const min = document.getElementById(ids.min);
   const pos = document.getElementById(ids.positive);
   const listed = document.getElementById(ids.listed);
+  const limit = document.getElementById(ids.limit);
+  if(scope) scope.value = p.scope;
+  if(query) query.value = p.query;
   if(sec) sec.value = p.sector;
   if(sort) sort.value = p.sort;
   if(min) min.value = p.minScore;
   if(pos) pos.checked = p.positiveOnly;
   if(listed) listed.value = p.listedWithin;
+  if(limit) limit.value = p.limit;
 }
 function applyScreenerPreset(preset){
   const p = SCREENER_PRESETS[preset] || SCREENER_PRESETS.reset;
+  const scope = document.getElementById('scanUniverseScope');
+  const query = document.getElementById('scanQuery');
   const sec = document.getElementById('scanSector');
   const sort = document.getElementById('scanSort');
   const min = document.getElementById('scanMinScore');
   const pos = document.getElementById('scanPositiveOnly');
   const listed = document.getElementById('scanListedWithin');
+  const limit = document.getElementById('scanLimit');
+  if(scope) scope.value = p.scope;
+  if(query) query.value = p.query;
   if(sec) sec.value = p.sector;
   if(sort) sort.value = p.sort;
   if(min) min.value = p.minScore;
   if(pos) pos.checked = p.positiveOnly;
   if(listed) listed.value = p.listedWithin;
+  if(limit) limit.value = p.limit;
   copyMainScanControlsToTrade();
   rerenderScreener();
 }
@@ -5785,6 +5893,11 @@ async function runScreener(){
   const targets = screenTargetsFromControls();
   lastScreenerTargets = targets;
   const st = document.getElementById('scanStatus');
+  if(!targets.length){
+    if(st) st.textContent = '条件に合う銘柄がありません';
+    renderScreener(targets);
+    return;
+  }
   const targetsToFetch = targets.filter(u=>!dataFreshEnough(screenData[u.sym])).map(u=>u.sym);
   await fetchChartsBatch(targetsToFetch, {
     useCache:true,
@@ -5794,7 +5907,7 @@ async function runScreener(){
       if(st) st.textContent = total ? `取得中 ${done}/${total} (${displaySymbol(sym)})${cacheHits?` / キャッシュ${cacheHits}件`:''}` : 'キャッシュから表示中';
     },
   });
-  st.textContent = '';
+  if(st) st.textContent = '';
   updateSourceBadge();
   renderScreener(targets);
   renderTradeResearch();
@@ -5898,6 +6011,7 @@ function hideScreenerDetail(){
 }
 
 function renderScreener(targets){
+  updateScreenerScopeNote(targets);
   const rows=[];
   targets.forEach(u=>{
     const d = screenData[u.sym];
@@ -5927,11 +6041,16 @@ function renderScreener(targets){
     return (b.score??-999)-(a.score??-999);
   });
   lastScreenerRows = filtered;
+  const query = screenerQuery();
+  const useMaster = screenerScope()==='master' || !!query;
   lastScreenerMeta = {
     market: currentMarket,
+    scope: useMaster ? '銘柄マスター' : '主要候補',
+    query,
     sector: document.getElementById('scanSector')?.value || '',
     listedLabel: parseListingFilter().label,
     listedMode: parseListingFilter().mode,
+    targetCount: targets.length,
     count: filtered.length,
   };
   const tbl = document.getElementById('screenTable');
@@ -5939,10 +6058,11 @@ function renderScreener(targets){
   tbl.style.display = filtered.length? 'table':'none';
   tb.innerHTML = filtered.map((r,i)=>{
     const inList = stocks.some(s=>s.sym===r.sym);
+    const name = r.nameEn && r.nameEn !== r.name ? `${r.name} / ${r.nameEn}` : r.name;
     return `<tr>
       <td>${i+1}</td>
-      <td><span class="sym">${displaySymbol(r.sym)}</span><br><span class="sector-tag">${r.name} / ${r.sector}</span></td>
-      <td style="text-align:left; white-space:normal; max-width:320px; font-size:12px; color:var(--muted);">${r.desc}</td>
+      <td><span class="sym">${displaySymbol(r.sym)}</span><br><span class="sector-tag">${escapeHtml(name || '')} / ${escapeHtml(r.sector || '')}</span></td>
+      <td style="text-align:left; white-space:normal; max-width:320px; font-size:12px; color:var(--muted);">${escapeHtml(r.desc || '')}</td>
       <td>${fmtMoney(r.price)}</td><td>${fmtPct(r.m1)}</td><td>${fmtPct(r.m3)}</td>
       <td>${fmtPct(r.vsSpx)}</td><td>${fmtPct(r.exp30)}</td>
       <td>${r.rsi!=null? r.rsi.toFixed(0):'—'}</td>
@@ -5967,7 +6087,20 @@ function renderScreener(targets){
 function addFromScreener(sym, sector){
   if(stocks.some(s=>s.sym===sym)) return;
   const ref = lastScreenerRows.find(r=>r.sym===sym) || universeLookup(sym) || {};
-  stocks.push({sym, sector:sector || ref.sector, name:ref.name || '', desc:ref.desc || '', listedAt:ref.listedAt || null, shares:null, cost:null});
+  stocks.push({
+    sym,
+    sector:sector || ref.sector,
+    name:ref.name || '',
+    nameEn:ref.nameEn || '',
+    desc:ref.desc || '',
+    exchange:ref.exchange || '',
+    type:ref.type || 'stock',
+    typeLabel:ref.typeLabel || '',
+    source:ref.source || '',
+    listedAt:ref.listedAt || null,
+    shares:null,
+    cost:null,
+  });
   if(screenData[sym]) marketData[sym] = screenData[sym];
   if(!selectedTradeTrendSym){
     selectedTradeTrendSym = sym;
