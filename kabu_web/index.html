@@ -1585,12 +1585,30 @@ function setMarketMode(next, opts={}){
     updateModeControls();
     return;
   }
+  const prevMarket = currentMarket;
+  const prevPaper = paper ? normalizePaper({...paper}) : null;
+  const targetHasPaper = hasSavedPaper(next);
+  const targetPaper = targetHasPaper ? loadPaper(next) : null;
+  const targetSetup = tradeSetupState(next);
+  const shouldInheritPaper = !targetHasPaper || shouldInheritPaperSettings(targetPaper, prevPaper, targetSetup);
   saveStocks();
   savePaper();
   currentMarket = next;
   try{ localStorage.setItem(MARKET_KEY, currentMarket); }catch(e){}
   stocks = loadStocks();
-  paper = loadPaper();
+  paper = shouldInheritPaper ? inheritPaperSettingsForMarket(prevPaper, currentMarket) : (targetPaper || loadPaper());
+  if(shouldInheritPaper){
+    savePaper();
+    if((!targetSetup?.completedAt || targetSetup.skipped || targetSetup.inheritedFrom) && tradeSetupDone(prevMarket)){
+      saveTradeSetupState({
+        inheritedFrom:prevMarket,
+        market:currentMarket,
+        experience:paper.mode==='pro' ? 'pro' : 'normal',
+        tradeSizeMode:paper.tradeSizeMode,
+        orderLevel:paper.orderLevel,
+      }, currentMarket);
+    }
+  }
   marketData = {};
   screenData = {};
   spxData = null;
@@ -3940,6 +3958,9 @@ function updateQtyInputRule(){
 }
 function defaultPaperCash(){ return currentMarket==='jp'? 1000000 : 10000; }
 function paperKey(market=currentMarket){ return market==='us'? PT_KEY : `${PT_KEY}_${market}`; }
+function hasSavedPaper(market=currentMarket){
+  try{ return localStorage.getItem(paperKey(market)) != null; }catch(e){ return false; }
+}
 function loadPaper(market=currentMarket){
   try{ const r = localStorage.getItem(paperKey(market)); if(r) return normalizePaper(JSON.parse(r)); }catch(e){}
   const cash = market==='jp'? 1000000 : 10000;
@@ -3947,9 +3968,42 @@ function loadPaper(market=currentMarket){
 }
 let paper = loadPaper();
 function savePaper(){ try{ localStorage.setItem(paperKey(), JSON.stringify(paper)); }catch(e){} }
+function inheritPaperSettingsForMarket(source, market=currentMarket){
+  const src = normalizePaper(source || {});
+  const preset = src.mode === 'pro' ? 'pro' : 'standard';
+  const cash = setupCashDefault(market, preset);
+  return normalizePaper({
+    cash,
+    initial:cash,
+    mode:src.mode,
+    feeRate:src.feeRate,
+    slippageRate:src.slippageRate,
+    rules:{...src.rules},
+    leverage:src.leverage,
+    allowShort:src.mode==='pro' && src.allowShort,
+    sessionDays:src.sessionDays,
+    orderLevel:src.orderLevel,
+    tradeSizeMode:src.tradeSizeMode,
+    preflightMode:src.preflightMode,
+    journalAssist:src.journalAssist,
+    sessionStarted:Date.now(),
+  });
+}
+function shouldInheritPaperSettings(target, source, targetSetup){
+  const src = normalizePaper(source || {});
+  if(src.mode !== 'pro') return false;
+  const tgt = normalizePaper(target || {});
+  if(tgt.mode === src.mode) return false;
+  if(paperHasActivity(tgt)) return false;
+  if(targetSetup?.completedAt && !targetSetup.skipped && !targetSetup.inheritedFrom) return false;
+  return true;
+}
 function tradeSetupKey(market=currentMarket){ return market==='us'? TRADE_SETUP_KEY : `${TRADE_SETUP_KEY}_${market}`; }
+function tradeSetupState(market=currentMarket){
+  try{ return JSON.parse(localStorage.getItem(tradeSetupKey(market)) || 'null') || null; }catch(e){ return null; }
+}
 function tradeSetupDone(market=currentMarket){
-  try{ return !!JSON.parse(localStorage.getItem(tradeSetupKey(market)) || 'null')?.completedAt; }catch(e){ return false; }
+  return !!tradeSetupState(market)?.completedAt;
 }
 function saveTradeSetupState(data, market=currentMarket){
   try{ localStorage.setItem(tradeSetupKey(market), JSON.stringify(Object.assign({completedAt:Date.now()}, data || {}))); }catch(e){}
