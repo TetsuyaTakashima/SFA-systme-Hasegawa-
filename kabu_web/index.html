@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>米国株ダッシュボード</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="data/symbol-master.js"></script>
 <style>
   :root{
     --bg:#0f1419; --card:#1a2129; --card2:#212a35; --border:#2c3a47;
@@ -1373,7 +1374,7 @@ function normalizeSymbol(raw){
   let sym = toHalfWidth(raw).trim().toUpperCase().replace(/\s+/g,'');
   if(currentMarket==='jp'){
     sym = sym.replace(/\.JP$/,'').replace(/\.T$/,'');
-    if(/^\d{4}$/.test(sym)) return sym + '.T';
+    if(/^(?=.*\d)[0-9A-Z]{4}$/.test(sym)) return sym + '.T';
   }
   return sym;
 }
@@ -2539,21 +2540,29 @@ function renderSymbolMasterSearch(){
     </div>`;
   }).join('');
 }
+function applySymbolMasterData(data, fallbackNote=''){
+  symbolMaster = {
+    meta:data?.meta || null,
+    us:Array.isArray(data?.us) ? data.us : [],
+    jp:Array.isArray(data?.jp) ? data.jp : [],
+    loaded:true,
+    error:fallbackNote || null,
+  };
+}
 async function loadSymbolMaster(){
   renderSymbolMasterSearch();
+  const embedded = window.KABU_SYMBOL_MASTER_DATA || null;
   try{
-    const res = await fetch(SYMBOL_MASTER_URL, {cache:'no-store'});
-    if(!res.ok) throw new Error('HTTP '+res.status);
-    const data = await res.json();
-    symbolMaster = {
-      meta:data.meta || null,
-      us:Array.isArray(data.us) ? data.us : [],
-      jp:Array.isArray(data.jp) ? data.jp : [],
-      loaded:true,
-      error:null,
-    };
+    if(location.protocol === 'file:' && embedded){
+      applySymbolMasterData(embedded);
+    } else {
+      const res = await fetch(SYMBOL_MASTER_URL, {cache:'no-store'});
+      if(!res.ok) throw new Error('HTTP '+res.status);
+      applySymbolMasterData(await res.json());
+    }
   }catch(e){
-    symbolMaster = {...symbolMaster, loaded:false, error:e.message || String(e)};
+    if(embedded) applySymbolMasterData(embedded, `JSON読込失敗のため同梱データを使用: ${e.message || String(e)}`);
+    else symbolMaster = {...symbolMaster, loaded:false, error:e.message || String(e)};
   }
   updateMarketUI();
   renderSymbolMasterSearch();
