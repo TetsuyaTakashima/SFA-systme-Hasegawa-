@@ -519,15 +519,23 @@
         <option value="older10">10年以上</option>
       </select>
       <select id="scanLimit" onchange="rerenderScreener()">
-        <option value="40">最大40件</option>
-        <option value="80" selected>最大80件</option>
-        <option value="120">最大120件</option>
+        <option value="120" selected>取得: 高速120件</option>
+        <option value="500">取得: 多め500件</option>
+        <option value="all">取得: 全件</option>
+      </select>
+      <span class="source-note">表示順位</span>
+      <input id="scanRankStart" type="number" min="1" value="1" placeholder="開始順位" aria-label="ランキング表示開始順位" title="ランキングの何位から表示するか" onchange="rerenderScreener()" style="width:92px;">
+      <select id="scanRankCount" onchange="rerenderScreener()">
+        <option value="50">表示50件</option>
+        <option value="100" selected>表示100件</option>
+        <option value="200">表示200件</option>
+        <option value="all">全件表示</option>
       </select>
       <button class="primary" onclick="runScreener()">スキャン実行</button>
       <span id="scanStatus" style="font-size:12px; color:var(--muted);"></span>
     </div>
   </div>
-  <p class="sub" id="screenScopeNote" style="margin-top:6px;">通常は主要候補を一括取得します。対象を「銘柄マスター」にすると全銘柄マスターから検索・抽出してスキャンできます。大量取得を避けるため、検索結果は最大件数までに制限します。</p>
+  <p class="sub" id="screenScopeNote" style="margin-top:6px;">通常は主要候補を一括取得します。対象を「銘柄マスター」にすると全銘柄マスターから検索・抽出できます。取得範囲を全件にすると、全候補をランキング対象にして表示開始順位から確認できます。</p>
   <div class="preset-row">
     <span class="source-note">条件プリセット</span>
     <button onclick="applyScreenerPreset('growth')">成長候補</button>
@@ -679,10 +687,18 @@
           <option value="10">10年以内</option>
           <option value="older10">10年以上</option>
         </select>
-        <select id="ptScanLimit" onchange="rerenderTradeScreener()" style="width:96px;">
-          <option value="40">最大40件</option>
-          <option value="80" selected>最大80件</option>
-          <option value="120">最大120件</option>
+        <select id="ptScanLimit" onchange="rerenderTradeScreener()" style="width:120px;">
+          <option value="120" selected>取得120件</option>
+          <option value="500">取得500件</option>
+          <option value="all">全件取得</option>
+        </select>
+        <span class="source-note">表示順位</span>
+        <input id="ptScanRankStart" type="number" min="1" value="1" placeholder="開始順位" aria-label="ランキング表示開始順位" title="ランキングの何位から表示するか" onchange="rerenderTradeScreener()" style="width:82px;">
+        <select id="ptScanRankCount" onchange="rerenderTradeScreener()" style="width:92px;">
+          <option value="50">表示50</option>
+          <option value="100" selected>表示100</option>
+          <option value="200">表示200</option>
+          <option value="all">全表示</option>
         </select>
         <span id="ptScanStatus" style="font-size:12px; color:var(--muted);"></span>
       </div>
@@ -1592,6 +1608,7 @@ function setMarketMode(next, opts={}){
   if(longChart){ longChart.destroy(); longChart=null; }
   if(eqChart){ eqChart.destroy(); eqChart=null; }
   lastScreenerRows = [];
+  lastScreenerVisibleRows = [];
   lastScreenerTargets = [];
   lastScreenerMeta = null;
   selectedScreenerSym = null;
@@ -2100,6 +2117,7 @@ function setDataSource(){
   currentDataSource = DATA_SOURCES[sel?.value] ? sel.value : 'auto';
   try{ localStorage.setItem(DATA_SOURCE_KEY, currentDataSource); }catch(e){}
   lastScreenerRows = [];
+  lastScreenerVisibleRows = [];
   lastScreenerMeta = null;
   updateDataSourceUI();
   renderAll();
@@ -2843,7 +2861,7 @@ function tradeTrendCandidates(){
   if(typed) add({sym:typed, sector:'発注パネル'}, '入力中');
   Object.keys(paper?.pos || {}).forEach(sym=>add({sym, sector:'建玉'}, '建玉'));
   stocks.forEach(s=>add(s, s.shares && s.cost ? '保有/ウォッチ' : 'ウォッチ'));
-  (lastScreenerRows || []).slice(0,12).forEach(r=>add(r, 'スクリーナー'));
+  activeScreenerRowsForDisplay().slice(0,12).forEach(r=>add(r, 'スクリーナー'));
   return Array.from(map.values());
 }
 function updateTradeTrendOptions(){
@@ -3148,9 +3166,13 @@ function renderPerfChart(){
 // ===== 注目ピック =====
 let pickChart = null;
 let lastScreenerRows = [];
+let lastScreenerVisibleRows = [];
 let lastScreenerMeta = null;
 let selectedTradeScreenerSym = null;
 let selectedTradeWatchForecastSym = null;
+function activeScreenerRowsForDisplay(){
+  return lastScreenerMeta ? lastScreenerVisibleRows : [];
+}
 function renderPicks(){
   const ctx = document.getElementById('pickChart');
   const ul = document.getElementById('pickList');
@@ -3167,7 +3189,7 @@ function renderPicks(){
   });
   const usingScreener = !!lastScreenerMeta;
   const rows = usingScreener
-    ? lastScreenerRows.map(r=>Object.assign({}, r, {
+    ? activeScreenerRowsForDisplay().map(r=>Object.assign({}, r, {
         source:'screen',
         held:stocks.some(s=>s.sym===r.sym && s.shares && s.cost),
         inList:stocks.some(s=>s.sym===r.sym),
@@ -3256,9 +3278,9 @@ function tradeWatchRows(){
   });
 }
 function tradePickRows(){
-  const usingScreener = !!lastScreenerMeta && lastScreenerRows.length;
+  const usingScreener = !!lastScreenerMeta;
   const rows = usingScreener
-    ? lastScreenerRows.map(r=>Object.assign({}, r, {
+    ? activeScreenerRowsForDisplay().map(r=>Object.assign({}, r, {
         source:'screen',
         inList:stocks.some(s=>s.sym===r.sym),
         held:stocks.some(s=>s.sym===r.sym && s.shares && s.cost),
@@ -3604,7 +3626,7 @@ function renderTradeResearch(){
       : '<p class="table-empty">データ更新、またはスクリーナー実行後に注目ピックが表示されます。</p>';
   }
   if(screenEl){
-    const rows = lastScreenerRows || [];
+    const rows = activeScreenerRowsForDisplay();
     screenEl.innerHTML = rows.length
       ? rows.slice(0,6).map(r=>tradeCandidateCard(r, {detail:true, allowAdd:true})).join('')
       : '<p class="table-empty">「スキャン」を押すと、発掘候補からそのままデモ注文の練習に進めます。</p>';
@@ -3614,7 +3636,8 @@ function renderTradeResearch(){
 function copyTradeScanControlsToMain(){
   const pairs = [['ptScanUniverseScope','scanUniverseScope'], ['ptScanQuery','scanQuery'],
     ['ptScanSector','scanSector'], ['ptScanSort','scanSort'], ['ptScanMinScore','scanMinScore'],
-    ['ptScanListedWithin','scanListedWithin'], ['ptScanLimit','scanLimit']];
+    ['ptScanListedWithin','scanListedWithin'], ['ptScanLimit','scanLimit'],
+    ['ptScanRankStart','scanRankStart'], ['ptScanRankCount','scanRankCount']];
   pairs.forEach(([from,to])=>{
     const a=document.getElementById(from), b=document.getElementById(to);
     if(a && b) b.value = a.value;
@@ -3625,7 +3648,8 @@ function copyTradeScanControlsToMain(){
 function copyMainScanControlsToTrade(){
   const pairs = [['scanUniverseScope','ptScanUniverseScope'], ['scanQuery','ptScanQuery'],
     ['scanSector','ptScanSector'], ['scanSort','ptScanSort'], ['scanMinScore','ptScanMinScore'],
-    ['scanListedWithin','ptScanListedWithin'], ['scanLimit','ptScanLimit']];
+    ['scanListedWithin','ptScanListedWithin'], ['scanLimit','ptScanLimit'],
+    ['scanRankStart','ptScanRankStart'], ['scanRankCount','ptScanRankCount']];
   pairs.forEach(([from,to])=>{
     const a=document.getElementById(from), b=document.getElementById(to);
     if(a && b) b.value = a.value;
@@ -3645,6 +3669,8 @@ async function runTradeScreener(){
     renderScreener(targets);
     return;
   }
+  if(st && targets.length > 500) st.textContent = `全件寄りの取得を開始します（${targets.length.toLocaleString('ja-JP')}件）。時間がかかる場合があります`;
+  if(ptSt && targets.length > 500) ptSt.textContent = `全件寄りの取得中（${targets.length.toLocaleString('ja-JP')}件）`;
   const targetsToFetch = targets.filter(u=>!dataFreshEnough(screenData[u.sym])).map(u=>u.sym);
   await fetchChartsBatch(targetsToFetch, {
     useCache:true,
@@ -5649,10 +5675,10 @@ let screenData = {}; // sym -> chart data (キャッシュ)
 let lastScreenerTargets = [];
 let selectedScreenerSym = null;
 const SCREENER_PRESETS = {
-  growth:{scope:'featured', query:'', sector:'', sort:'score', minScore:'4', positiveOnly:true, listedWithin:'', limit:'80'},
-  pullback:{scope:'featured', query:'', sector:'', sort:'rsiLow', minScore:'0', positiveOnly:false, listedWithin:'', limit:'80'},
-  lowRsi:{scope:'featured', query:'', sector:'', sort:'rsiLow', minScore:'', positiveOnly:false, listedWithin:'', limit:'80'},
-  reset:{scope:'featured', query:'', sector:'', sort:'score', minScore:'', positiveOnly:false, listedWithin:'', limit:'80'},
+  growth:{scope:'featured', query:'', sector:'', sort:'score', minScore:'4', positiveOnly:true, listedWithin:'', limit:'120', rankStart:'1', rankCount:'100'},
+  pullback:{scope:'featured', query:'', sector:'', sort:'rsiLow', minScore:'0', positiveOnly:false, listedWithin:'', limit:'120', rankStart:'1', rankCount:'100'},
+  lowRsi:{scope:'featured', query:'', sector:'', sort:'rsiLow', minScore:'', positiveOnly:false, listedWithin:'', limit:'120', rankStart:'1', rankCount:'100'},
+  reset:{scope:'featured', query:'', sector:'', sort:'score', minScore:'', positiveOnly:false, listedWithin:'', limit:'120', rankStart:'1', rankCount:'100'},
 };
 
 function activeUniverse(){ return currentMarket==='jp'? JP_UNIVERSE : UNIVERSE; }
@@ -5721,8 +5747,34 @@ function universeLookup(sym){
   return mergedUniverse(activeUniverse(), recentUniverse()).find(u=>u.sym===sym) || null;
 }
 function screenerLimit(){
-  const v = parseInt(document.getElementById('scanLimit')?.value || '80', 10);
-  return Math.max(10, Math.min(160, Number.isFinite(v) ? v : 80));
+  const raw = document.getElementById('scanLimit')?.value || '120';
+  if(raw === 'all') return null;
+  const v = parseInt(raw, 10);
+  return Math.max(20, Math.min(5000, Number.isFinite(v) ? v : 120));
+}
+function screenerFetchLabel(limit=screenerLimit()){
+  return limit == null ? '全件取得' : `最大${limit.toLocaleString('ja-JP')}件取得`;
+}
+function screenerRankStart(){
+  const v = parseInt(document.getElementById('scanRankStart')?.value || '1', 10);
+  return Math.max(1, Number.isFinite(v) ? v : 1);
+}
+function screenerRankCount(){
+  const raw = document.getElementById('scanRankCount')?.value || '100';
+  if(raw === 'all') return null;
+  const v = parseInt(raw, 10);
+  return Math.max(1, Math.min(1000, Number.isFinite(v) ? v : 100));
+}
+function screenerRankWindowLabel(start=screenerRankStart(), count=screenerRankCount()){
+  if(count == null) return `${start.toLocaleString('ja-JP')}位から最後まで`;
+  const end = start + count - 1;
+  return `${start.toLocaleString('ja-JP')}〜${end.toLocaleString('ja-JP')}位`;
+}
+function screenerVisibleRows(rows){
+  const start = screenerRankStart();
+  const count = screenerRankCount();
+  const from = Math.max(0, start - 1);
+  return count == null ? rows.slice(from) : rows.slice(from, from + count);
 }
 function screenerQuery(){
   return (document.getElementById('scanQuery')?.value || '').trim();
@@ -5747,32 +5799,42 @@ function updateScreenerScopeNote(targets=[]){
   if(!el) return;
   const query = screenerQuery();
   const scope = screenerScope();
-  const source = (scope==='master' || query) ? '銘柄マスター' : '主要候補';
+  const useMaster = scope==='master' || !!query;
+  const source = useMaster ? '銘柄マスター' : '主要候補';
   const total = targets.length ? `${targets.length}件` : '候補なし';
   const queryText = query ? ` / 検索: ${query}` : '';
-  el.textContent = `${source}から${total}をスキャン対象にしています${queryText}。大量取得を避けるため、銘柄マスター利用時は最大件数までに制限します。`;
+  const fetchText = useMaster ? screenerFetchLabel() : '主要候補を取得';
+  const rangeText = screenerRankWindowLabel();
+  const caution = useMaster
+    ? (screenerLimit() == null
+      ? '全件取得は時間がかかり、取得元の制限で一部銘柄が失敗する場合があります。'
+      : '全件を検索対象にしたい場合は取得範囲を「全件」にしてください。')
+    : '銘柄マスター全体から探す場合は対象を「銘柄マスター」にしてください。';
+  el.textContent = `${source}から${total}をスキャン対象にしています${queryText}。取得範囲: ${fetchText}。表示範囲: ランキング${rangeText}。${caution}`;
 }
 function screenTargetsFromControls(){
   const filter = parseListingFilter();
   const secFilter = document.getElementById('scanSector')?.value || '';
   const query = screenerQuery();
   const useMaster = screenerScope()==='master' || !!query;
+  const fetchLimit = screenerLimit();
   let targets;
   if(useMaster){
-    const limit = screenerLimit();
-    targets = searchSymbolMaster(query, {type:'stock', limit:limit * 3}).rows
+    const masterRows = marketSymbolMaster();
+    const searchLimit = Math.max(masterRows.length, 20000);
+    targets = searchSymbolMaster(query, {type:'stock', limit:searchLimit}).rows
       .map(enrichScreenerTarget);
   } else {
     targets = screenerUniverse(filter).map(enrichScreenerTarget);
   }
   targets = targets.filter(u=>(!secFilter || u.sector===secFilter) && isListedByFilter(u, filter));
-  if(useMaster) targets = targets.slice(0, screenerLimit());
+  if(useMaster && fetchLimit != null) targets = targets.slice(0, fetchLimit);
   updateScreenerScopeNote(targets);
   return targets;
 }
 function screenerScopeSuffix(meta=lastScreenerMeta){
   if(!meta) return '';
-  return [meta.scope, meta.query ? `検索:${meta.query}` : '', meta.sector, meta.listedLabel]
+  return [meta.scope, meta.query ? `検索:${meta.query}` : '', meta.sector, meta.listedLabel, meta.rankLabel ? `表示:${meta.rankLabel}` : '']
     .filter(Boolean).map(x=>` / ${x}`).join('');
 }
 function fillSelectOptions(sel, values, includeAll=false){
@@ -5844,6 +5906,8 @@ function setScreenerControls(prefix, preset){
     positive:prefix + 'ScanPositiveOnly',
     listed:prefix + 'ScanListedWithin',
     limit:prefix + 'ScanLimit',
+    rankStart:prefix + 'ScanRankStart',
+    rankCount:prefix + 'ScanRankCount',
   };
   const scope = document.getElementById(ids.scope);
   const query = document.getElementById(ids.query);
@@ -5853,6 +5917,8 @@ function setScreenerControls(prefix, preset){
   const pos = document.getElementById(ids.positive);
   const listed = document.getElementById(ids.listed);
   const limit = document.getElementById(ids.limit);
+  const rankStart = document.getElementById(ids.rankStart);
+  const rankCount = document.getElementById(ids.rankCount);
   if(scope) scope.value = p.scope;
   if(query) query.value = p.query;
   if(sec) sec.value = p.sector;
@@ -5861,6 +5927,8 @@ function setScreenerControls(prefix, preset){
   if(pos) pos.checked = p.positiveOnly;
   if(listed) listed.value = p.listedWithin;
   if(limit) limit.value = p.limit;
+  if(rankStart) rankStart.value = p.rankStart;
+  if(rankCount) rankCount.value = p.rankCount;
 }
 function applyScreenerPreset(preset){
   const p = SCREENER_PRESETS[preset] || SCREENER_PRESETS.reset;
@@ -5872,6 +5940,8 @@ function applyScreenerPreset(preset){
   const pos = document.getElementById('scanPositiveOnly');
   const listed = document.getElementById('scanListedWithin');
   const limit = document.getElementById('scanLimit');
+  const rankStart = document.getElementById('scanRankStart');
+  const rankCount = document.getElementById('scanRankCount');
   if(scope) scope.value = p.scope;
   if(query) query.value = p.query;
   if(sec) sec.value = p.sector;
@@ -5880,6 +5950,8 @@ function applyScreenerPreset(preset){
   if(pos) pos.checked = p.positiveOnly;
   if(listed) listed.value = p.listedWithin;
   if(limit) limit.value = p.limit;
+  if(rankStart) rankStart.value = p.rankStart;
+  if(rankCount) rankCount.value = p.rankCount;
   copyMainScanControlsToTrade();
   rerenderScreener();
 }
@@ -5898,6 +5970,7 @@ async function runScreener(){
     renderScreener(targets);
     return;
   }
+  if(st && targets.length > 500) st.textContent = `全件寄りの取得を開始します（${targets.length.toLocaleString('ja-JP')}件）。時間がかかる場合があります`;
   const targetsToFetch = targets.filter(u=>!dataFreshEnough(screenData[u.sym])).map(u=>u.sym);
   await fetchChartsBatch(targetsToFetch, {
     useCache:true,
@@ -6040,9 +6113,14 @@ function renderScreener(targets){
     if(sort==='rsiLow') return (a.rsi??999)-(b.rsi??999);
     return (b.score??-999)-(a.score??-999);
   });
-  lastScreenerRows = filtered;
+  const rankedRows = filtered.map((r,i)=>Object.assign({}, r, {rank:i+1}));
+  const visibleRows = screenerVisibleRows(rankedRows);
+  lastScreenerRows = rankedRows;
+  lastScreenerVisibleRows = visibleRows;
   const query = screenerQuery();
   const useMaster = screenerScope()==='master' || !!query;
+  const rankStart = screenerRankStart();
+  const rankCount = screenerRankCount();
   lastScreenerMeta = {
     market: currentMarket,
     scope: useMaster ? '銘柄マスター' : '主要候補',
@@ -6050,17 +6128,22 @@ function renderScreener(targets){
     sector: document.getElementById('scanSector')?.value || '',
     listedLabel: parseListingFilter().label,
     listedMode: parseListingFilter().mode,
+    fetchLabel: useMaster ? screenerFetchLabel() : '主要候補',
     targetCount: targets.length,
-    count: filtered.length,
+    count: rankedRows.length,
+    visibleCount: visibleRows.length,
+    rankStart,
+    rankCount,
+    rankLabel: screenerRankWindowLabel(rankStart, rankCount),
   };
   const tbl = document.getElementById('screenTable');
   const tb = document.getElementById('screenBody');
-  tbl.style.display = filtered.length? 'table':'none';
-  tb.innerHTML = filtered.map((r,i)=>{
+  tbl.style.display = visibleRows.length? 'table':'none';
+  tb.innerHTML = visibleRows.map((r)=>{
     const inList = stocks.some(s=>s.sym===r.sym);
     const name = r.nameEn && r.nameEn !== r.name ? `${r.name} / ${r.nameEn}` : r.name;
     return `<tr>
-      <td>${i+1}</td>
+      <td>${r.rank}</td>
       <td><span class="sym">${displaySymbol(r.sym)}</span><br><span class="sector-tag">${escapeHtml(name || '')} / ${escapeHtml(r.sector || '')}</span></td>
       <td style="text-align:left; white-space:normal; max-width:320px; font-size:12px; color:var(--muted);">${escapeHtml(r.desc || '')}</td>
       <td>${fmtMoney(r.price)}</td><td>${fmtPct(r.m1)}</td><td>${fmtPct(r.m3)}</td>
@@ -6075,9 +6158,9 @@ function renderScreener(targets){
       </div></td>
     </tr>`;
   }).join('');
-  if(selectedScreenerSym && filtered.some(r=>r.sym===selectedScreenerSym)) showScreenerDetail(selectedScreenerSym);
+  if(selectedScreenerSym && rankedRows.some(r=>r.sym===selectedScreenerSym)) showScreenerDetail(selectedScreenerSym);
   else if(selectedScreenerSym) hideScreenerDetail();
-  if(selectedTradeScreenerSym && filtered.some(r=>r.sym===selectedTradeScreenerSym)) showTradeScreenerDetail(selectedTradeScreenerSym);
+  if(selectedTradeScreenerSym && rankedRows.some(r=>r.sym===selectedTradeScreenerSym)) showTradeScreenerDetail(selectedTradeScreenerSym);
   else if(selectedTradeScreenerSym) hideTradeScreenerDetail();
   renderPicks();
   copyMainScanControlsToTrade();
