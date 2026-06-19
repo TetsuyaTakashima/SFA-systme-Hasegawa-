@@ -2345,12 +2345,6 @@ function compareVenues(a, b, sortMode) {
     return (a.facilityName || "").localeCompare(b.facilityName || "", "ja");
   }
 
-  if (sortMode === "recordType") {
-    const recordTypeCompare = recordTypeSortScore(a) - recordTypeSortScore(b);
-    if (recordTypeCompare !== 0) return recordTypeCompare;
-    return (a.facilityName || "").localeCompare(b.facilityName || "", "ja");
-  }
-
   if (sortMode === "name") {
     return (a.facilityName || "").localeCompare(b.facilityName || "", "ja");
   }
@@ -2358,10 +2352,6 @@ function compareVenues(a, b, sortMode) {
   const dateCompare = (a.nextActionDate || "9999-12-31").localeCompare(b.nextActionDate || "9999-12-31");
   if (dateCompare !== 0) return dateCompare;
   return (a.facilityName || "").localeCompare(b.facilityName || "", "ja");
-}
-
-function recordTypeSortScore(venue) {
-  return getVenueRecordType(venue) === "school" ? 1 : 0;
 }
 
 function getCurrentColumnOrder() {
