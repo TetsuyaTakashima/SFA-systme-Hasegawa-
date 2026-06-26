@@ -1,64 +1,82 @@
-# kabu_system Web化ガイド（Vercel + Supabase）
+# kabu_web デプロイ準備ガイド（Vercel + Supabase + GitHub）
 
-## このフォルダの構成
+## 現在の構成
 
 ```
 kabu_web/
-├── index.html          # ダッシュボード本体（Web対応済み）
-├── api/
-│   └── proxy.js        # Yahoo Finance APIプロキシ（Vercel Function）
-├── supabase/
-│   └── schema.sql      # Supabaseのテーブル定義（RLS設定済み）
-└── DEPLOY.md           # このファイル
+├── index.html
+├── vercel.json
+├── api/proxy.js
+├── data/symbol-master.json
+├── data/symbol-master.js
+├── scripts/check-static.mjs
+├── supabase/schema.sql
+└── .env.example
 ```
 
-## Web化で何が良くなるか（正直な整理）
+## 1. GitHub
 
-**良くなること**
-- ✅ CORSプロキシ不要になり株価取得が安定・高速化（`/api/proxy` が60秒CDNキャッシュ付きで応答）
-- ✅ スマホ含むどの端末からも同じURLでアクセス可能
-- ✅ Supabase導入後はデータがクラウド保存され、端末をまたいで同期（ブラウザのデータ削除でも消えない）
-- ✅ 将来的にSupabase Edge Functions + cron で「画面を開いていなくても」価格記録やアラートが可能
+このリポジトリには `kabu_web` 専用のGitHub Actionsを追加しています。
 
-**変わらないこと（注意）**
-- ⚠ 株価データの鮮度はデータソース次第。Yahoo非公式APIは取引時間中ほぼリアルタイム〜数分遅延。
-  ティックレベルの本物のリアルタイムが必要なら有料API（Polygon.io等）への切替が必要
-- ⚠ Yahoo非公式APIは仕様変更リスクあり（その場合proxy.jsの修正で対応）
+- 対象: `kabu_web/**` と `.github/workflows/kabu-web-check.yml`
+- 検査: `index.html` のインラインJS構文、銘柄マスターJSON、Vercel設定、Supabase RLS、APIプロキシの最低限チェック
+- ローカル確認:
 
-## デプロイ手順
+```bash
+node kabu_web/scripts/check-static.mjs
+```
 
-### Step 1: Vercel（まずこれだけで動きます）
+## 2. Vercel
 
-1. このkabu_webフォルダの中身をGitHubの `kabu_system` リポジトリに入れる
-   （index.html と api/ がリポジトリ直下に来るように）
-2. https://vercel.com → "Add New Project" → GitHubの `kabu_system` をImport
-3. Framework Preset: **Other**、設定はデフォルトのまま Deploy
-4. 発行されたURL（例: `https://kabu-system.vercel.app`）を開く
+Vercelでは、このリポジトリ全体ではなく `kabu_web` をデプロイ対象にします。
 
-→ この時点で「株価取得がプロキシ経由で安定する」「どこからでも見られる」が実現します。
-データ保存はまだ各ブラウザ内（localStorage）です。
+1. VercelでGitHubリポジトリをImport
+2. Project Settings > Build & Development Settings
+3. Root Directory: `kabu_web`
+4. Framework Preset: `Other`
+5. Build Command / Output Directory: 空のまま
+6. Deploy
 
-### Step 2: Supabase（クラウド保存・同期）
+`kabu_web/vercel.json` で以下を設定済みです。
 
-1. https://supabase.com → New Project（リージョンは Tokyo 推奨）
-2. SQL Editor に `supabase/schema.sql` の中身を貼り付けて Run
-3. Authentication → Providers → Email を有効化（Magic Link推奨）
-4. Project Settings → API から以下2つを控える:
-   - Project URL（例: `https://xxxx.supabase.co`）
-   - anon public key
-5. index.html へのSupabase組み込み（次の実装フェーズ）:
-   - `<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>` を読み込み
-   - ログインUI（メールアドレス入力 → Magic Link）
-   - localStorage読み書き箇所（saveStocks/savePaper等）をSupabase upsertに置換
-   - 起動時にSupabaseから読み込み、未ログイン時はlocalStorageにフォールバック
+- `/api/proxy` をVercel Functionとして利用
+- 東京リージョン（`hnd1`）を優先
+- `index.html` は `no-store`
+- `data/` はCDNキャッシュ
+- CSP、HSTS、X-Frame-Options、Referrer-Policy、Permissions-Policyなどの基本セキュリティヘッダ
 
-※ Step 2の組み込みコードは量があるため、Supabaseプロジェクト作成後に
-   URL とanon keyが決まった段階で依頼してもらえれば実装します。
-   （anon keyは公開前提のキーなのでチャットで共有しても問題ありません。
-    service_role keyは絶対に共有・コミットしないでください）
+## 3. Supabase
 
-## セキュリティメモ
+現時点では、アプリ本体は未ログインでも localStorage 保存で動きます。
+Supabaseは「クラウド保存・ログイン同期」へ進めるためのスキーマと環境変数枠を準備済みです。
 
-- `api/proxy.js` はYahoo Financeのホストのみ許可（SSRF対策済み）
-- 全テーブルにRLS設定済み: ログインユーザーは自分の行しか読み書きできません
-- リポジトリが公開の場合も、anon keyはRLS前提で公開可能な設計です
+1. SupabaseでNew Projectを作成（リージョンはTokyo推奨）
+2. SQL Editorで `kabu_web/supabase/schema.sql` を実行
+3. Authentication > ProvidersでEmailを有効化
+4. Vercel Project Settings > Environment Variables に `.env.example` の値を登録
+
+重要:
+
+- `SUPABASE_ANON_KEY` はRLS前提でブラウザ利用できる公開キーです。
+- `SUPABASE_SERVICE_ROLE_KEY` はサーバー専用です。Git、ブラウザ、チャットに出さないでください。
+- `schema.sql` は `drop policy if exists` を含め、再実行してもポリシー重複で止まりにくい形にしています。
+
+## 4. 株価取得の注意
+
+`api/proxy.js` はYahoo Financeの `query1.finance.yahoo.com` / `query2.finance.yahoo.com` だけを許可します。
+HTTPS、GET、リダイレクト拒否、URL長制限を入れており、任意URLプロキシとして使われないようにしています。
+また、デフォルトでは `Access-Control-Allow-Origin: *` を返しません。
+別ドメインから `/api/proxy` を読む必要がある場合だけ、Vercel環境変数 `ALLOWED_ORIGIN` に許可するオリジンを1つ設定してください。
+
+Yahoo Financeは非公式利用のため、仕様変更や利用制限のリスクがあります。
+本番で長期運用する場合は、Polygon.io、Finnhub、Alpha Vantage、IEX Cloudなどの正式APIへの切替を検討してください。
+
+## 5. 次の実装候補
+
+優先度が高い順です。
+
+1. Supabase AuthのログインUIを追加
+2. watchlist / paper account / positions / history をlocalStorageからSupabaseへ同期
+3. 長期株価キャッシュをSupabase Edge FunctionsまたはVercel Cronで定期更新
+4. Chart.js CDNを自己ホストまたはSRI付き読み込みへ変更し、CSPから `unsafe-inline` を減らす
+5. Yahoo非公式APIから正式マーケットデータAPIへ切替

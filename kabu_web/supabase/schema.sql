@@ -93,17 +93,32 @@ alter table paper_history enable row level security;
 alter table equity_history enable row level security;
 alter table long_data enable row level security;
 
+drop policy if exists "own watchlist" on watchlist;
+drop policy if exists "own account" on paper_accounts;
+drop policy if exists "own positions" on paper_positions;
+drop policy if exists "own orders" on paper_orders;
+drop policy if exists "own history" on paper_history;
+drop policy if exists "own equity" on equity_history;
+drop policy if exists "read shared long_data" on long_data;
+
 create policy "own watchlist" on watchlist for all
+  to authenticated
   using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "own account" on paper_accounts for all
+  to authenticated
   using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "own positions" on paper_positions for all
+  to authenticated
   using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "own orders" on paper_orders for all
+  to authenticated
   using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "own history" on paper_history for all
+  to authenticated
   using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "own equity" on equity_history for all
+  to authenticated
   using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "read shared long_data" on long_data for select
+  to authenticated
   using (true);  -- 読み取りは全認証ユーザー可、書き込みはservice roleのみ（ポリシー無し）

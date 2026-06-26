@@ -1389,8 +1389,8 @@ function newsLinks(sym){
   const yahoo = currentMarket==='jp'
     ? `https://finance.yahoo.co.jp/quote/${encodeURIComponent(sym)}`
     : `https://finance.yahoo.com/quote/${encodeURIComponent(sym)}/news`;
-  return `<span class="news-links"><a href="${yahoo}" target="_blank">Yahoo</a>
-    <a href="https://news.google.com/search?q=${q}&hl=ja" target="_blank">News</a></span>`;
+  return `<span class="news-links"><a href="${yahoo}" target="_blank" rel="noopener noreferrer">Yahoo</a>
+    <a href="https://news.google.com/search?q=${q}&hl=ja" target="_blank" rel="noopener noreferrer">News</a></span>`;
 }
 function normalizeSearchText(v){
   return toHalfWidth(v).toLowerCase().replace(/[._\-]/g,'').trim();
@@ -2455,7 +2455,7 @@ function escapeHtml(v){
   })[ch]);
 }
 function jsString(v){
-  return String(v ?? '').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\r?\n/g,' ');
+  return escapeHtml(String(v ?? '').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\r?\n/g,' '));
 }
 function ensureSectorOption(value){
   const sector = value || 'その他';
@@ -2571,10 +2571,10 @@ async function loadSymbolMaster(){
   renderSymbolMasterSearch();
   const embedded = window.KABU_SYMBOL_MASTER_DATA || null;
   try{
-    if(location.protocol === 'file:' && embedded){
+    if(embedded){
       applySymbolMasterData(embedded);
     } else {
-      const res = await fetch(SYMBOL_MASTER_URL, {cache:'no-store'});
+      const res = await fetch(SYMBOL_MASTER_URL);
       if(!res.ok) throw new Error('HTTP '+res.status);
       applySymbolMasterData(await res.json());
     }
@@ -2828,7 +2828,7 @@ function updateForecastSymbolOptions(){
   if(!selectedForecastSym && stocks.length) selectedForecastSym = stocks[0].sym;
   sel.innerHTML = '<option value="">銘柄を選択</option>' + stocks.map(s=>{
     const selected = s.sym===selectedForecastSym ? 'selected' : '';
-    return `<option value="${s.sym}" ${selected}>${displaySymbol(s.sym)}${s.sector?` / ${s.sector}`:''}</option>`;
+    return `<option value="${escapeHtml(s.sym)}" ${selected}>${escapeHtml(displaySymbol(s.sym))}${s.sector?` / ${escapeHtml(s.sector)}`:''}</option>`;
   }).join('');
   const per = document.getElementById('forecastPeriod');
   if(per) per.value = String(watchForecastPeriod);
@@ -3034,10 +3034,12 @@ function renderTable(){
     const m = rowMetrics(s);
     const news = newsLinks(s.sym);
     const nameLine = stockNameLine(s);
+    const safeSym = jsString(s.sym);
+    const safeSector = escapeHtml(s.sector || '');
     if(!m){
-      return `<tr><td><span class="sym">${displaySymbol(s.sym)}</span><br>${nameLine}<span class="sector-tag">${s.sector}</span></td>
+      return `<tr><td><span class="sym">${escapeHtml(displaySymbol(s.sym))}</span><br>${nameLine}<span class="sector-tag">${safeSector}</span></td>
         <td colspan="9" style="color:var(--muted); text-align:center;">データ未取得（「データ更新」を押してください）</td>
-        <td>${news}</td><td><button class="danger" onclick="removeStock('${s.sym}')">削除</button></td></tr>`;
+        <td>${news}</td><td><button class="danger" onclick="removeStock('${safeSym}')">削除</button></td></tr>`;
     }
     let smaCell='—';
     if(m.sma50!=null){
@@ -3060,11 +3062,11 @@ function renderTable(){
     const detail = isOpen ? `<tr class="forecast-detail-row">
       <td colspan="12" class="forecast-detail-cell">
         <div class="forecast-detail-head">
-          <div><b>${displaySymbol(s.sym)} 過去推移・30営業日予想</b><br><span class="sector-tag">${forecastPeriodLabel()} / 予想は過去60営業日のトレンド延長</span></div>
+          <div><b>${escapeHtml(displaySymbol(s.sym))} 過去推移・30営業日予想</b><br><span class="sector-tag">${forecastPeriodLabel()} / 予想は過去60営業日のトレンド延長</span></div>
           <div class="forecast-tools">
             <select class="forecastPeriodMirror" onchange="setForecastPeriod(this.value)">${forecastPeriodOptionsHtml()}</select>
-            <button onclick="setForecastSymbol('${s.sym}')">専用パネルで見る</button>
-            <button onclick="toggleWatchForecast('${s.sym}')">閉じる</button>
+            <button onclick="setForecastSymbol('${safeSym}')">専用パネルで見る</button>
+            <button onclick="toggleWatchForecast('${safeSym}')">閉じる</button>
           </div>
         </div>
         <div class="forecast-mini-chart"><canvas id="watchForecastCanvas_${symbolDomId(s.sym)}"></canvas></div>
@@ -3072,15 +3074,15 @@ function renderTable(){
       </td>
     </tr>` : '';
     return `<tr>
-      <td><span class="sym">${displaySymbol(s.sym)}</span><br>${nameLine}<span class="sector-tag">${s.sector}${s.shares?` / ${s.shares}株`:''}</span>${beginnerMode?'<span class="beginner-hint">まずは前日比、1ヶ月、3ヶ月の向きを見ます。</span>':''}</td>
+      <td><span class="sym">${escapeHtml(displaySymbol(s.sym))}</span><br>${nameLine}<span class="sector-tag">${safeSector}${s.shares?` / ${s.shares}株`:''}</span>${beginnerMode?'<span class="beginner-hint">まずは前日比、1ヶ月、3ヶ月の向きを見ます。</span>':''}</td>
       <td>${fmtMoney(m.price)}</td>
       <td>${fmtPct(m.d1)}</td><td>${fmtPct(m.w1)}</td><td>${fmtPct(m.m1)}</td><td>${fmtPct(m.m3)}</td>
       <td>${fmtPct(m.vsSpx)}</td>
       <td>${smaCell}${beginnerSma}</td><td>${rsiCell}${beginnerRsi}</td><td>${plCell}</td>
       <td>${news}</td>
       <td><div class="row" style="justify-content:flex-end; gap:4px;">
-        <button onclick="toggleWatchForecast('${s.sym}')">${isOpen?'閉じる':'グラフ'}</button>
-        <button class="danger" onclick="removeStock('${s.sym}')">削除</button>
+        <button onclick="toggleWatchForecast('${safeSym}')">${isOpen?'閉じる':'グラフ'}</button>
+        <button class="danger" onclick="removeStock('${safeSym}')">削除</button>
       </div></td>
     </tr>${detail}`;
   }).join('');
@@ -3266,10 +3268,13 @@ function renderPicks(){
     const top = rows.slice(0,3);
     if(top.length){
       const hasStrong = top.some(r=>(r.score??0)>0);
-      items.push({cls:hasStrong?'good':'caution', text:`スクリーナー結果と連動中です。上位${top.length}件は ${top.map(r=>displaySymbol(r.sym)).join(' / ')}。気になる銘柄は「＋追加」でウォッチリストへ入れると、パフォーマンス比較にも反映されます。${hasStrong?'':'今回はスコアが弱めなので、候補の比較・監視用として見てください。'}`});
+      items.push({cls:hasStrong?'good':'caution', text:`スクリーナー結果と連動中です。上位${top.length}件は ${top.map(r=>escapeHtml(displaySymbol(r.sym))).join(' / ')}。気になる銘柄は「＋追加」でウォッチリストへ入れると、パフォーマンス比較にも反映されます。${hasStrong?'':'今回はスコアが弱めなので、候補の比較・監視用として見てください。'}`});
       top.forEach(r=>{
-        const add = r.inList ? '<span class="sector-tag" style="margin-left:8px;">登録済</span>' : `<button onclick="addFromScreener('${r.sym}','${r.sector}')" style="margin-left:8px;">＋追加</button>`;
-        items.push({cls:'', text:`${displaySymbol(r.sym)}: スコア ${r.score!=null?r.score.toFixed(1):'—'} / 予想30日 ${r.exp30!=null?(r.exp30>=0?'+':'')+r.exp30.toFixed(1)+'%':'—'}。${r.name?` ${r.name} / ${r.sector}`:''}${add}`});
+        const safeSym = jsString(r.sym);
+        const safeSector = jsString(r.sector || 'その他');
+        const add = r.inList ? '<span class="sector-tag" style="margin-left:8px;">登録済</span>' : `<button onclick="addFromScreener('${safeSym}','${safeSector}')" style="margin-left:8px;">＋追加</button>`;
+        const company = r.name ? ` ${escapeHtml(r.name)} / ${escapeHtml(r.sector || '')}` : '';
+        items.push({cls:'', text:`${escapeHtml(displaySymbol(r.sym))}: スコア ${r.score!=null?r.score.toFixed(1):'—'} / 予想30日 ${r.exp30!=null?(r.exp30>=0?'+':'')+r.exp30.toFixed(1)+'%':'—'}。${company}${add}`});
       });
     } else {
       items.push({cls:'caution', text:'今回のスクリーナー結果では表示できる候補が見つかりませんでした。'});
@@ -3277,15 +3282,15 @@ function renderPicks(){
   } else {
     const topHeld = rows.filter(r=>r.held && (r.exp30??0)>0 && (r.score??0)>0)[0];
     const topWatch = rows.filter(r=>!r.held && (r.exp30??0)>0 && (r.score??0)>0)[0];
-    if(topHeld) items.push({cls:'good', text:`【保有中で勢いが強い】${displaySymbol(topHeld.sym)}: トレンド延長で予想30日 +${topHeld.exp30.toFixed(1)}%（±1σレンジ ${topHeld.lo30.toFixed(1)}%〜+${topHeld.hi30.toFixed(1)}%）。モメンタムスコア ${topHeld.score.toFixed(1)}。`});
+    if(topHeld) items.push({cls:'good', text:`【保有中で勢いが強い】${escapeHtml(displaySymbol(topHeld.sym))}: トレンド延長で予想30日 +${topHeld.exp30.toFixed(1)}%（±1σレンジ ${topHeld.lo30.toFixed(1)}%〜+${topHeld.hi30.toFixed(1)}%）。モメンタムスコア ${topHeld.score.toFixed(1)}。`});
     const heldExists = rows.some(r=>r.held);
     if(heldExists && !topHeld) items.push({cls:'caution', text:'保有銘柄に上昇モメンタムの強いものは現在ありません。'});
-    if(topWatch) items.push({cls:'good', text:`【未保有で注目】${displaySymbol(topWatch.sym)}: 予想30日 +${topWatch.exp30.toFixed(1)}%（レンジ ${topWatch.lo30.toFixed(1)}%〜+${topWatch.hi30.toFixed(1)}%）。新規エントリー候補として値動き・ニュースの確認を。`});
+    if(topWatch) items.push({cls:'good', text:`【未保有で注目】${escapeHtml(displaySymbol(topWatch.sym))}: 予想30日 +${topWatch.exp30.toFixed(1)}%（レンジ ${topWatch.lo30.toFixed(1)}%〜+${topWatch.hi30.toFixed(1)}%）。新規エントリー候補として値動き・ニュースの確認を。`});
   }
   const worst = rows[rows.length-1];
-  if(worst && (worst.exp30??0)<-3) items.push({cls:'bad', text:`【勢いが弱い】${displaySymbol(worst.sym)}: 下落トレンドの延長で予想30日 ${worst.exp30.toFixed(1)}%。${worst.held?'保有理由の再確認を。':'エントリーは慎重に。'}`});
+  if(worst && (worst.exp30??0)<-3) items.push({cls:'bad', text:`【勢いが弱い】${escapeHtml(displaySymbol(worst.sym))}: 下落トレンドの延長で予想30日 ${worst.exp30.toFixed(1)}%。${worst.held?'保有理由の再確認を。':'エントリーは慎重に。'}`});
   if(!items.length) items.push({cls:'', text:'明確な上昇候補は現在ありません。横ばい圏が中心です。'});
-  ul.innerHTML = items.map(i=>`<li class="${i.cls}">${i.text}</li>`).join('');
+  ul.innerHTML = items.map(i=>`<li class="${escapeHtml(i.cls)}">${i.text}</li>`).join('');
 }
 
 function tradeWatchRows(){
@@ -3349,11 +3354,14 @@ function tradeWatchForecastCard(r){
   const active = selectedTradeWatchForecastSym === r.sym;
   const hasData = !!r.payload;
   const patternCls = (r.patternAdjusted??r.exp30??0) >= 0 ? 'up' : 'down';
+  const safeSym = jsString(r.sym);
+  const safeNote = jsString(`ウォッチリスト予想: ${pctTextPlain(r.exp30)}`);
+  const meta = [r.name, r.sector].filter(Boolean).map(escapeHtml).join(' / ') || 'ウォッチリスト';
   return `<div class="trade-forecast-card ${active?'active':''}">
     <div class="trade-forecast-head">
       <div>
-        <div class="trade-forecast-title">${displaySymbol(r.sym)} ${r.held?'<span class="badge buy">保有中</span>':''}</div>
-        <div class="trade-forecast-meta">${[r.name, r.sector].filter(Boolean).join(' / ') || 'ウォッチリスト'}</div>
+        <div class="trade-forecast-title">${escapeHtml(displaySymbol(r.sym))} ${r.held?'<span class="badge buy">保有中</span>':''}</div>
+        <div class="trade-forecast-meta">${meta}</div>
       </div>
       <div>${fmtMoney(r.price)}</div>
     </div>
@@ -3364,10 +3372,10 @@ function tradeWatchForecastCard(r){
     </div>
     <div class="trade-forecast-meta" style="margin-top:7px;">予想レンジ ${watchForecastRangeText(r)} / 一致パターン ${hasData?`${r.patternCount}件`:'データ待ち'}</div>
     <div class="trade-actions">
-      <button class="primary" onclick="showTradeWatchForecastDetail('${r.sym}')">${active?'詳細を表示中':'詳細'}</button>
-      <button onclick="selectTradeSymbol('${r.sym}','buy','ウォッチリスト予想: ${pctTextPlain(r.exp30)}')">買い練習</button>
-      <button onclick="selectTradeSymbol('${r.sym}','sell','ウォッチリスト予想: ${pctTextPlain(r.exp30)}')">売り練習</button>
-      ${hasData ? '' : `<button onclick="refreshTradeWatchForecastSymbol('${r.sym}')">データ取得</button>`}
+      <button class="primary" onclick="showTradeWatchForecastDetail('${safeSym}')">${active?'詳細を表示中':'詳細'}</button>
+      <button onclick="selectTradeSymbol('${safeSym}','buy','${safeNote}')">買い練習</button>
+      <button onclick="selectTradeSymbol('${safeSym}','sell','${safeNote}')">売り練習</button>
+      ${hasData ? '' : `<button onclick="refreshTradeWatchForecastSymbol('${safeSym}')">データ取得</button>`}
     </div>
   </div>`;
 }
@@ -3420,13 +3428,15 @@ function renderTradeWatchForecastDetail(sym, row){
     return;
   }
   const payload = row.payload;
+  const safeSym = jsString(sym);
+  const safeNote = jsString(`ウォッチリスト詳細: 30日予想 ${pctTextPlain(row.exp30)}`);
   box.style.display = 'block';
   if(!payload){
     box.innerHTML = `
       <div class="forecast-detail-head">
-        <div><b>${displaySymbol(sym)} 詳細</b><br><span class="sector-tag">価格データ未取得</span></div>
+        <div><b>${escapeHtml(displaySymbol(sym))} 詳細</b><br><span class="sector-tag">価格データ未取得</span></div>
         <div class="forecast-tools">
-          <button onclick="refreshTradeWatchForecastSymbol('${sym}')">データ取得</button>
+          <button onclick="refreshTradeWatchForecastSymbol('${safeSym}')">データ取得</button>
           <button onclick="closeTradeWatchForecastDetail()">閉じる</button>
         </div>
       </div>
@@ -3435,12 +3445,12 @@ function renderTradeWatchForecastDetail(sym, row){
   }
   box.innerHTML = `
     <div class="forecast-detail-head">
-      <div><b>${displaySymbol(sym)} 過去推移・30営業日予想</b><br>
+      <div><b>${escapeHtml(displaySymbol(sym))} 過去推移・30営業日予想</b><br>
         <span class="sector-tag">${forecastPeriodLabel()} / 予想は過去60営業日のトレンド延長 + パターン補正</span></div>
       <div class="forecast-tools">
         <select class="forecastPeriodMirror" onchange="setForecastPeriod(this.value)">${forecastPeriodOptionsHtml()}</select>
-        <button onclick="selectTradeSymbol('${sym}','buy','ウォッチリスト詳細: 30日予想 ${pctTextPlain(row.exp30)}')">買い練習へ</button>
-        <button onclick="selectTradeSymbol('${sym}','sell','ウォッチリスト詳細: 30日予想 ${pctTextPlain(row.exp30)}')">売り練習へ</button>
+        <button onclick="selectTradeSymbol('${safeSym}','buy','${safeNote}')">買い練習へ</button>
+        <button onclick="selectTradeSymbol('${safeSym}','sell','${safeNote}')">売り練習へ</button>
         <button onclick="closeTradeWatchForecastDetail()">閉じる</button>
       </div>
     </div>
@@ -3536,8 +3546,11 @@ function renderTradeFocusBand(){
   const urgent = sellSignals.find(x=>x.sig.cls==='bad') || sellSignals.find(x=>x.sig.cls==='caution');
   if(urgent){
     const cls = urgent.sig.cls === 'bad' ? 'bad' : 'caution';
+    const safeUrgentSym = jsString(urgent.sym);
+    const safeUrgentSide = paper.pos[urgent.sym]?.qty>0?'sell':'buy';
+    const safeUrgentNote = jsString(`今日見ること: ${urgent.sig.verdict}`);
     items.push(tradeFocusItem(cls, '売り時チェック', `${displaySymbol(urgent.sym)} は「${urgent.sig.verdict}」。${urgent.sig.notes[0] || '出口ルールを確認します。'}`,
-      `<button onclick="selectTradeSymbol('${urgent.sym}','${paper.pos[urgent.sym]?.qty>0?'sell':'buy'}','今日見ること: ${urgent.sig.verdict}')">決済練習へ</button>`));
+      `<button onclick="selectTradeSymbol('${safeUrgentSym}','${safeUrgentSide}','${safeUrgentNote}')">決済練習へ</button>`));
   } else if(posEntries.length){
     items.push(tradeFocusItem('good', '保有中の確認', `${posEntries.length}銘柄を保有中です。強い売りシグナルは今のところありません。`,
       '<button onclick="setTradeWidgetVisible(\'sellCheck\', true); tradeWidgetEl(\'sellCheck\')?.scrollIntoView({behavior:\'smooth\', block:\'start\'});">売り時を見る</button>'));
@@ -3550,8 +3563,9 @@ function renderTradeFocusBand(){
   const top = forecastRows[0];
   if(top){
     const cls = (top.patternAdjusted ?? top.exp30 ?? 0) >= 0 ? 'good' : 'caution';
+    const safeTopSym = jsString(top.sym);
     items.push(tradeFocusItem(cls, 'ウォッチ予想', `${displaySymbol(top.sym)} が一覧上位です。30日予想 ${pctTextPlain(top.exp30)}、補正後 ${pctTextPlain(top.patternAdjusted)}。`,
-      `<button onclick="showTradeWatchForecastDetail('${top.sym}')">根拠を見る</button>`));
+      `<button onclick="showTradeWatchForecastDetail('${safeTopSym}')">根拠を見る</button>`));
   }
 
   const pending = (paper.orders || []).length + (paper.alerts || []).filter(a=>!a.fired).length;
@@ -3597,26 +3611,30 @@ function selectTradeSymbol(sym, side='buy', note=''){
 function tradeCandidateCard(r, opts={}){
   const inList = stocks.some(s=>s.sym===r.sym);
   const held = r.held || stocks.some(s=>s.sym===r.sym && s.shares && s.cost);
-  const addBtn = inList ? '<span class="sector-tag">登録済</span>' : `<button onclick="addFromScreener('${r.sym}','${r.sector||'その他'}')">＋ウォッチ</button>`;
+  const safeSym = jsString(r.sym);
+  const safeSector = jsString(r.sector || 'その他');
+  const addBtn = inList ? '<span class="sector-tag">登録済</span>' : `<button onclick="addFromScreener('${safeSym}','${safeSector}')">＋ウォッチ</button>`;
   const detailBtn = opts.detailAction
     ? `<button onclick="${opts.detailAction}">${opts.detailLabel || '詳細'}</button>`
-    : (opts.detail ? `<button onclick="showTradeScreenerDetail('${r.sym}')">詳細</button>` : '');
+    : (opts.detail ? `<button onclick="showTradeScreenerDetail('${safeSym}')">詳細</button>` : '');
   const sourceNote = opts.note || tradeCandidateReason(r);
+  const safeNote = jsString(sourceNote);
   const reasonLabel = opts.reasonLabel || ((r.source === 'screen' || opts.detail) ? 'スクリーニング根拠' : '注目理由');
   const reasons = opts.reasons === false ? [] : screenerRationales(r).slice(0,2);
   const reasonHtml = reasons.length
-    ? `<ul class="rationale-list">${reasons.map(i=>`<li class="${i.cls}">${i.text}</li>`).join('')}</ul>`
+    ? `<ul class="rationale-list">${reasons.map(i=>`<li class="${escapeHtml(i.cls)}">${escapeHtml(i.text)}</li>`).join('')}</ul>`
     : '';
   const listed = listingText(r);
+  const meta = [r.name, r.sector, listed].filter(Boolean).map(escapeHtml).join(' / ') || 'ウォッチリスト';
   return `<div class="trade-candidate">
     <div class="trade-candidate-head">
       <div>
-        <div class="trade-candidate-title">${displaySymbol(r.sym)} ${held?'<span class="badge buy">保有中</span>':''}</div>
-        <div class="trade-candidate-meta">${[r.name, r.sector, listed].filter(Boolean).join(' / ') || 'ウォッチリスト'}</div>
+        <div class="trade-candidate-title">${escapeHtml(displaySymbol(r.sym))} ${held?'<span class="badge buy">保有中</span>':''}</div>
+        <div class="trade-candidate-meta">${meta}</div>
       </div>
       <div>${fmtMoney(r.price)}</div>
     </div>
-    <div class="trade-candidate-meta"><b>${reasonLabel}:</b> ${sourceNote}</div>
+    <div class="trade-candidate-meta"><b>${escapeHtml(reasonLabel)}:</b> ${escapeHtml(sourceNote)}</div>
     ${reasonHtml}
     <div class="trade-candidate-metrics">
       <div class="trade-metric"><div class="label">1ヶ月</div><div class="value">${fmtPct(r.m1)}</div></div>
@@ -3624,8 +3642,8 @@ function tradeCandidateCard(r, opts={}){
       <div class="trade-metric"><div class="label">予想30日</div><div class="value">${fmtPct(r.exp30)}</div></div>
     </div>
     <div class="trade-actions">
-      <button class="primary" onclick="selectTradeSymbol('${r.sym}','buy','${sourceNote}')">買い練習</button>
-      <button onclick="selectTradeSymbol('${r.sym}','sell','${sourceNote}')">売り練習</button>
+      <button class="primary" onclick="selectTradeSymbol('${safeSym}','buy','${safeNote}')">買い練習</button>
+      <button onclick="selectTradeSymbol('${safeSym}','sell','${safeNote}')">売り練習</button>
       ${detailBtn}
       ${opts.allowAdd ? addBtn : ''}
     </div>
@@ -3641,7 +3659,7 @@ function renderTradeResearch(){
     watchEl.innerHTML = watchRows.length
       ? watchRows.slice(0,6).map(r=>tradeCandidateCard(r, {
           note:r.held?'保有中の銘柄です。売り練習では利確・損切りの判断を確認します。':'分析画面のウォッチリスト銘柄です。',
-          detailAction:`showTradeWatchForecastDetail('${r.sym}')`,
+          detailAction:`showTradeWatchForecastDetail('${jsString(r.sym)}')`,
           detailLabel:'詳細',
         })).join('')
       : '<p class="table-empty">分析画面でウォッチリストに銘柄を追加すると、ここから発注練習へ送れます。</p>';
@@ -3730,17 +3748,20 @@ function showTradeScreenerDetail(sym){
   }
   const j = screenerJudgement(r);
   const inList = stocks.some(s=>s.sym===r.sym);
-  const addBtn = inList ? '<span class="sector-tag">ウォッチリスト登録済</span>' : `<button onclick="addFromScreener('${r.sym}','${r.sector}')">＋ウォッチリストに追加</button>`;
+  const safeSym = jsString(r.sym);
+  const safeSector = jsString(r.sector || 'その他');
+  const addBtn = inList ? '<span class="sector-tag">ウォッチリスト登録済</span>' : `<button onclick="addFromScreener('${safeSym}','${safeSector}')">＋ウォッチリストに追加</button>`;
   const note = tradeCandidateReason(r);
+  const safeNote = jsString(note);
   el.innerHTML = `
     <div class="row" style="justify-content:space-between; align-items:flex-start;">
       <div>
-        <h3>${displaySymbol(r.sym)} ${r.name || ''} <span class="badge ${j.cls==='good'?'buy':(j.cls==='bad'?'sell':'neutral')}">${j.text}</span></h3>
-        <p class="sub" style="margin:0;">${r.sector || 'その他'} / ${r.desc || ''}</p>
+        <h3>${escapeHtml(displaySymbol(r.sym))} ${escapeHtml(r.name || '')} <span class="badge ${j.cls==='good'?'buy':(j.cls==='bad'?'sell':'neutral')}">${escapeHtml(j.text)}</span></h3>
+        <p class="sub" style="margin:0;">${escapeHtml(r.sector || 'その他')} / ${escapeHtml(r.desc || '')}</p>
       </div>
       <div class="row">
-        <button class="primary" onclick="selectTradeSymbol('${r.sym}','buy','${note}')">買い練習へ</button>
-        <button onclick="selectTradeSymbol('${r.sym}','sell','${note}')">売り練習へ</button>
+        <button class="primary" onclick="selectTradeSymbol('${safeSym}','buy','${safeNote}')">買い練習へ</button>
+        <button onclick="selectTradeSymbol('${safeSym}','sell','${safeNote}')">売り練習へ</button>
         ${addBtn}
         <button onclick="hideTradeScreenerDetail()">閉じる</button>
       </div>
@@ -3756,7 +3777,7 @@ function showTradeScreenerDetail(sym){
     </div>
     <h3 style="margin-top:10px;">根拠</h3>
     <ul class="rationale-list">
-      ${screenerRationales(r).map(i=>`<li class="${i.cls}">${i.text}</li>`).join('')}
+      ${screenerRationales(r).map(i=>`<li class="${escapeHtml(i.cls)}">${escapeHtml(i.text)}</li>`).join('')}
     </ul>`;
   el.style.display = 'block';
   el.scrollIntoView({behavior:'smooth', block:'nearest'});
@@ -5357,18 +5378,20 @@ function renderTradeSellCheck(){
     const sig = tradeSellSignal(sym, pos);
     const closeSide = pos.qty > 0 ? 'sell' : 'buy';
     const closeLabel = pos.qty > 0 ? '売り決済' : '買い戻し';
+    const safeSym = jsString(sym);
+    const safeNote = jsString(`売り時チェック: ${sig.verdict}`);
     return `<div class="sell-check-item">
       <div class="head">
-        <div><b>${displaySymbol(sym)}</b> <span class="badge ${pos.qty>0?'buy':'sell'}">${pos.qty>0?'ロング':'ショート'}</span><br>
+        <div><b>${escapeHtml(displaySymbol(sym))}</b> <span class="badge ${pos.qty>0?'buy':'sell'}">${pos.qty>0?'ロング':'ショート'}</span><br>
           <span class="signals">現在値 ${fmtMoney(sig.price)} / 損益 ${fmtPct(sig.plPct)} / 高値比 ${fmtPct(sig.fromPeak)} / RSI ${sig.rsiVal!=null?sig.rsiVal.toFixed(0):'—'}</span>
         </div>
         <span class="badge ${sig.cls==='bad'?'sell':(sig.cls==='good'?'buy':'neutral')}">${sig.verdict}</span>
       </div>
-      <div class="signals">${sig.notes.join(' ')}</div>
+      <div class="signals">${sig.notes.map(escapeHtml).join(' ')}</div>
       <div class="trade-actions">
-        <button onclick="selectTradeSymbol('${sym}','${closeSide}','売り時チェック: ${sig.verdict}')">${closeLabel}練習へ</button>
-        <button class="danger" onclick="closePosition('${sym}')">デモ成行決済</button>
-        ${sig.price==null?`<button onclick="refreshOne('${sym}')">データ更新</button>`:''}
+        <button onclick="selectTradeSymbol('${safeSym}','${closeSide}','${safeNote}')">${closeLabel}練習へ</button>
+        <button class="danger" onclick="closePosition('${safeSym}')">デモ成行決済</button>
+        ${sig.price==null?`<button onclick="refreshOne('${safeSym}')">データ更新</button>`:''}
       </div>
     </div>`;
   }).join('');
@@ -5467,13 +5490,14 @@ function renderPaper(){
     const plPct2 = p!=null? (p/pos.avg-1)*100*Math.sign(pos.qty) : null;
     const weight = p!=null && snap.total>0? Math.abs(p*pos.qty)/snap.total*100 : null;
     const riskCls = plPct2!=null && plPct2<=-paper.rules.stopLossPct ? 'down' : (weight!=null && weight>paper.rules.maxPosPct ? 'warn':'');
+    const safeSym = jsString(sym);
     return `<tr>
-      <td><span class="sym">${displaySymbol(sym)}</span></td>
+      <td><span class="sym">${escapeHtml(displaySymbol(sym))}</span></td>
       <td><span class="badge ${isLong?'buy':'sell'}">${isLong?'ロング':'ショート'}</span></td>
       <td>${Math.abs(pos.qty)}</td><td>${fmtMoney(pos.avg)}</td><td>${fmtMoney(p)}</td><td>${fmtMoney(val)}</td>
       <td>${pl2!=null? `<span class="${pl2>=0?'up':'down'}">${fmtSignedMoney(pl2)}</span> (${fmtPct(plPct2)})` : '—'}</td>
       <td class="${riskCls}">${weight!=null? weight.toFixed(1)+'%':'—'}</td>
-      <td><button class="danger" onclick="closePosition('${sym}')">決済</button></td>
+      <td><button class="danger" onclick="closePosition('${safeSym}')">決済</button></td>
     </tr>`;
   }).join('');
 
@@ -5539,10 +5563,10 @@ function renderPaper(){
   const histEl = document.getElementById('ptHist');
   if(histEl) histEl.innerHTML =
     paper.hist.slice(0,20).map(h=>`<tr>
-      <td style="text-align:left;">${h.d}</td>
+      <td style="text-align:left;">${escapeHtml(h.d)}</td>
       <td class="${h.side==='買'?'up':(h.side==='売'?'down':'warn')}">${h.side}</td>
-      <td>${displaySymbol(h.sym)}</td><td>${h.qty}株</td><td>${fmtMoney(h.price)}</td>
-      <td style="font-size:11px; color:var(--muted); text-align:left;">${h.note||''}${h.fee? ' / 手数料 '+fmtMoney(h.fee):''}${h.realized!=null? ` / 損益 <span class="${h.realized>=0?'up':'down'}">${fmtSignedMoney(h.realized)}</span>`:''}</td>
+      <td>${escapeHtml(displaySymbol(h.sym))}</td><td>${h.qty}株</td><td>${fmtMoney(h.price)}</td>
+      <td style="font-size:11px; color:var(--muted); text-align:left;">${escapeHtml(h.note||'')}${h.fee? ' / 手数料 '+fmtMoney(h.fee):''}${h.realized!=null? ` / 損益 <span class="${h.realized>=0?'up':'down'}">${fmtSignedMoney(h.realized)}</span>`:''}</td>
     </tr>`).join('') || '<tr><td style="color:var(--muted); text-align:left;">まだ取引がありません</td></tr>';
   renderTradeFocusBand();
 }
@@ -6110,12 +6134,14 @@ function showScreenerDetail(sym){
   }
   const j = screenerJudgement(r);
   const inList = stocks.some(s=>s.sym===r.sym);
-  const addBtn = inList ? '<span class="sector-tag">ウォッチリスト登録済</span>' : `<button onclick="addFromScreener('${r.sym}','${r.sector}')">＋ウォッチリストに追加</button>`;
+  const safeSym = jsString(r.sym);
+  const safeSector = jsString(r.sector || 'その他');
+  const addBtn = inList ? '<span class="sector-tag">ウォッチリスト登録済</span>' : `<button onclick="addFromScreener('${safeSym}','${safeSector}')">＋ウォッチリストに追加</button>`;
   el.innerHTML = `
     <div class="row" style="justify-content:space-between; align-items:flex-start;">
       <div>
-        <h3>${displaySymbol(r.sym)} ${r.name || ''} <span class="badge ${j.cls==='good'?'buy':(j.cls==='bad'?'sell':'neutral')}">${j.text}</span></h3>
-        <p class="sub" style="margin:0;">${r.sector || 'その他'} / ${r.desc || ''}</p>
+        <h3>${escapeHtml(displaySymbol(r.sym))} ${escapeHtml(r.name || '')} <span class="badge ${j.cls==='good'?'buy':(j.cls==='bad'?'sell':'neutral')}">${escapeHtml(j.text)}</span></h3>
+        <p class="sub" style="margin:0;">${escapeHtml(r.sector || 'その他')} / ${escapeHtml(r.desc || '')}</p>
       </div>
       <div class="row">
         ${addBtn}
@@ -6135,7 +6161,7 @@ function showScreenerDetail(sym){
     </div>
     <h3 style="margin-top:10px;">根拠</h3>
     <ul class="rationale-list">
-      ${screenerRationales(r).map(i=>`<li class="${i.cls}">${i.text}</li>`).join('')}
+      ${screenerRationales(r).map(i=>`<li class="${escapeHtml(i.cls)}">${escapeHtml(i.text)}</li>`).join('')}
     </ul>`;
   el.style.display = 'block';
   el.scrollIntoView({behavior:'smooth', block:'nearest'});
@@ -6205,6 +6231,8 @@ function renderScreener(targets){
   tb.innerHTML = visibleRows.map((r)=>{
     const inList = stocks.some(s=>s.sym===r.sym);
     const name = r.nameEn && r.nameEn !== r.name ? `${r.name} / ${r.nameEn}` : r.name;
+    const safeSym = jsString(r.sym);
+    const safeSector = jsString(r.sector || 'その他');
     return `<tr>
       <td>${r.rank}</td>
       <td><span class="sym">${displaySymbol(r.sym)}</span><br><span class="sector-tag">${escapeHtml(name || '')} / ${escapeHtml(r.sector || '')}</span></td>
@@ -6215,9 +6243,9 @@ function renderScreener(targets){
       <td>${listingLabel(r)}</td>
       <td><b>${r.score!=null? r.score.toFixed(1):'—'}</b></td>
       <td><div class="row" style="justify-content:flex-end;">
-        <button onclick="showScreenerDetail('${r.sym}')">詳細</button>
+        <button onclick="showScreenerDetail('${safeSym}')">詳細</button>
         ${inList? '<span class="sector-tag">登録済</span>'
-          : `<button onclick="addFromScreener('${r.sym}','${r.sector}')">＋追加</button>`}
+          : `<button onclick="addFromScreener('${safeSym}','${safeSector}')">＋追加</button>`}
       </div></td>
     </tr>`;
   }).join('');
