@@ -52,6 +52,29 @@
   #status.busy,#tradeStatus.busy{color:var(--accent); font-weight:bold;}
   .data-refresh-btn.refreshing{opacity:.78; cursor:progress;}
   .data-refresh-btn:disabled{filter:saturate(.8);}
+  .cloud-panel{display:grid; grid-template-columns:minmax(0,1.1fr) minmax(260px,.9fr); gap:12px; align-items:start; margin-bottom:16px;}
+  .cloud-card{background:var(--card); border:1px solid var(--border); border-radius:8px; padding:12px;}
+  .cloud-card h2{margin-bottom:6px;}
+  .cloud-status-row{display:flex; gap:8px; flex-wrap:wrap; align-items:center;}
+  .cloud-badge{display:inline-flex; align-items:center; gap:5px; border:1px solid var(--border); border-radius:999px; padding:5px 9px; font-size:12px; color:var(--muted);}
+  .cloud-badge.synced{border-color:rgba(46,204,113,.55); color:var(--up); background:rgba(46,204,113,.1);}
+  .cloud-badge.local{border-color:rgba(245,176,65,.55); color:var(--warn); background:rgba(245,176,65,.1);}
+  .cloud-badge.error{border-color:rgba(255,92,92,.55); color:var(--down); background:rgba(255,92,92,.1);}
+  .cloud-actions{display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;}
+  .cloud-actions input{min-width:210px; flex:1 1 240px;}
+  .cloud-settings{margin-top:8px; font-size:12px; color:var(--muted);}
+  .cloud-settings summary{cursor:pointer; color:var(--accent);}
+  .cloud-settings .row{margin-top:8px;}
+  .api-provider-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px; margin-top:8px;}
+  .api-provider-box{background:rgba(15,20,25,.45); border:1px solid var(--border); border-radius:8px; padding:9px; font-size:12px; line-height:1.5;}
+  .api-provider-box b{display:block; color:var(--text); margin-bottom:3px;}
+  .app-dialog-backdrop{position:fixed; inset:0; z-index:10000; display:grid; place-items:center; padding:18px; background:rgba(0,0,0,.58);}
+  .app-dialog-backdrop[hidden]{display:none;}
+  .app-dialog{width:min(460px,100%); background:var(--card); border:1px solid var(--border); border-radius:8px; padding:16px; box-shadow:0 20px 60px rgba(0,0,0,.45);}
+  .app-dialog h3{font-size:16px; margin-bottom:8px; color:var(--text);}
+  .app-dialog p{font-size:13px; line-height:1.7; color:var(--muted); white-space:pre-wrap;}
+  .app-dialog input{width:100%; margin-top:10px;}
+  .app-dialog-actions{display:flex; justify-content:flex-end; gap:8px; margin-top:14px;}
   .disclaimer{font-size:11px; color:var(--muted); margin-top:20px; line-height:1.6;}
   .chart-wrap{position:relative; height:340px;}
   .empty{color:var(--muted); font-size:13px; padding:12px 0;}
@@ -263,6 +286,7 @@
     .toolbar-card .sub{margin-bottom:0;}
   }
   @media(max-width:980px){.trade-shell,.trade-research-grid{grid-template-columns:1fr;}.trade-watch-panel{grid-column:auto;}}
+  @media(max-width:900px){.cloud-panel{grid-template-columns:1fr;}}
   @media(max-width:600px){
     body{padding:12px;}
     .card{padding:12px;}
@@ -288,15 +312,52 @@
 
 <div class="top-controls" aria-label="表示切替">
   <div class="mode-group" role="group" aria-label="市場">
-    <button id="marketUsBtn" class="mode-btn market-main" type="button" onclick="setMarketMode('us')" aria-pressed="true">米国株</button>
-    <button id="marketJpBtn" class="mode-btn market-sub" type="button" onclick="setMarketMode('jp')" aria-pressed="false">日本株</button>
+    <button id="marketUsBtn" class="mode-btn market-main" type="button" aria-pressed="true">米国株</button>
+    <button id="marketJpBtn" class="mode-btn market-sub" type="button" aria-pressed="false">日本株</button>
   </div>
   <div class="mode-group" role="group" aria-label="補助モード">
-    <button id="beginnerToggle" class="mode-btn helper" type="button" onclick="setBeginnerMode()" aria-pressed="false">初心者モード</button>
-    <button id="viewToggle" class="mode-btn trade-switch" type="button" onclick="toggleView()" aria-pressed="false">トレード画面へ</button>
+    <button id="beginnerToggle" class="mode-btn helper" type="button" aria-pressed="false">初心者モード</button>
+    <button id="viewToggle" class="mode-btn trade-switch" type="button" aria-pressed="false">トレード画面へ</button>
   </div>
 </div>
 <datalist id="symbolSuggestions"></datalist>
+
+<section class="cloud-panel" aria-label="保存とデータ接続">
+  <div class="cloud-card">
+    <div class="cloud-status-row" style="justify-content:space-between;">
+      <div>
+        <h2>保存・同期</h2>
+        <p class="sub" id="cloudStatusText" style="margin:0;">ローカル保存で動作中です。</p>
+      </div>
+      <span id="cloudStatusBadge" class="cloud-badge local">ローカル保存</span>
+    </div>
+    <div class="cloud-actions">
+      <input id="cloudEmail" type="email" placeholder="メールアドレスでログイン / Magic Link">
+      <button id="cloudLoginBtn" class="primary" type="button">ログインリンク送信</button>
+      <button id="cloudLogoutBtn" type="button" hidden>ログアウト</button>
+      <button id="cloudPushBtn" type="button" hidden>ローカルをクラウド保存</button>
+      <button id="cloudPullBtn" type="button" hidden>クラウドから読み込み</button>
+    </div>
+    <details class="cloud-settings">
+      <summary>Supabase接続設定</summary>
+      <div class="row">
+        <input id="cloudUrl" placeholder="SUPABASE_URL">
+        <input id="cloudAnonKey" placeholder="SUPABASE_ANON_KEY">
+        <button id="cloudConfigSaveBtn" type="button">接続情報を保存</button>
+        <button id="cloudConfigClearBtn" type="button">接続情報を削除</button>
+      </div>
+      <p class="sub" style="margin-top:8px;">Vercel環境変数またはこの画面でURL/anon keyを設定すると、ウォッチリストとデモ口座をクラウド同期できます。service_role keyは入力しません。</p>
+    </details>
+  </div>
+  <div class="cloud-card">
+    <h2>データAPI</h2>
+    <p class="sub" id="officialApiStatus" style="margin:0;">通常はYahoo/Stooqを使います。正式APIのキーをVercelに設定すると「正式API」を選べます。</p>
+    <div class="api-provider-grid">
+      <div class="api-provider-box"><b>Yahoo/Stooq</b>デモ向け。無料で使いやすい一方、仕様変更リスクがあります。</div>
+      <div class="api-provider-box"><b>正式API</b>Polygon等をサーバー側で利用。APIキーをブラウザに出しません。</div>
+    </div>
+  </div>
+</section>
 
 <div class="desktop-layout">
   <aside class="desktop-side">
@@ -321,19 +382,20 @@
     </select>
     <input id="inShares" type="number" placeholder="株数 (任意)" style="width:110px" min="0" step="any">
     <input id="inCost" type="number" placeholder="取得単価$ (任意)" style="width:130px" min="0" step="any">
-    <button class="primary" onclick="addStock()">追加</button>
-    <button class="data-refresh-btn" data-label="🔄 データ更新" onclick="refreshAll()">🔄 データ更新</button>
-    <select id="dataSource" onchange="setDataSource()">
+    <button id="addStockBtn" class="primary" type="button">追加</button>
+    <button id="mainRefreshBtn" class="data-refresh-btn" data-label="🔄 データ更新" type="button">🔄 データ更新</button>
+    <select id="dataSource">
       <option value="auto">株価ソース: 自動</option>
+      <option value="official">正式API（設定時）</option>
       <option value="yahoo">Yahoo Finance</option>
       <option value="stooq">Stooq（米国株）</option>
     </select>
-    <select class="refreshModeSelect" onchange="setRefreshMode(this.value)">
+    <select class="refreshModeSelect">
       <option value="quick">更新範囲: 高速</option>
       <option value="visible">更新範囲: 表示中だけ</option>
       <option value="full">更新範囲: 全件</option>
     </select>
-    <select id="autoRefresh" onchange="setAutoRefresh()">
+    <select id="autoRefresh">
       <option value="0">自動更新: オフ</option>
       <option value="60">自動更新: 1分ごと</option>
       <option value="300">自動更新: 5分ごと</option>
@@ -1022,6 +1084,7 @@
           <label class="setup-field">株価ソース
             <select id="setupDataSource">
               <option value="auto">自動</option>
+              <option value="official">正式API（設定時）</option>
               <option value="yahoo">Yahoo Finance</option>
               <option value="stooq">Stooq</option>
             </select>
@@ -1074,6 +1137,18 @@
 ⚠️ 免責事項: このダッシュボードは情報提供のみを目的としており、投資助言ではありません。表示されるレビュー・シグナル・予測は単純なテクニカル指標と過去トレンドの延長に基づく機械的なものであり、将来の値動きを予測・保証するものではありません。株価データは Yahoo Finance の非公式APIから取得しており、遅延や欠損が発生する場合があります。投資判断はご自身の責任で行ってください。
 </p>
 
+<div id="appDialogBackdrop" class="app-dialog-backdrop" hidden>
+  <div class="app-dialog" role="dialog" aria-modal="true" aria-labelledby="appDialogTitle">
+    <h3 id="appDialogTitle">確認</h3>
+    <p id="appDialogMessage"></p>
+    <input id="appDialogInput" hidden>
+    <div class="app-dialog-actions">
+      <button id="appDialogCancel" type="button">キャンセル</button>
+      <button id="appDialogOk" class="primary" type="button">OK</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ===== 状態管理 =====
 const LS_KEY = 'us_stock_dashboard_v1';
@@ -1091,11 +1166,13 @@ const WATCH_FORECAST_SYMBOL_KEY = 'stock_watch_forecast_symbol';
 const TRADE_TREND_PERIOD_KEY = 'stock_trade_trend_period';
 const TRADE_TREND_SYMBOL_KEY = 'stock_trade_trend_symbol';
 const REFRESH_MODE_KEY = 'stock_refresh_mode';
+const CLOUD_CONFIG_KEY = 'stock_cloud_config_v1';
 const SYMBOL_MASTER_URL = 'data/symbol-master.json';
 const REFRESH_CACHE_TTL_MS = 5 * 60 * 1000;
 const REFRESH_CONCURRENCY = 4;
 const DATA_SOURCES = {
   auto:'自動（Yahoo優先）',
+  official:'正式API（サーバー設定）',
   yahoo:'Yahoo Finance',
   stooq:'Stooq（米国株優先）',
 };
@@ -1194,6 +1271,21 @@ let currentDataSource = (function(){
   try{ return localStorage.getItem(DATA_SOURCE_KEY) || 'auto'; }catch(e){ return 'auto'; }
 })();
 if(!DATA_SOURCES[currentDataSource]) currentDataSource = 'auto';
+let runtimeConfig = window.KABU_RUNTIME_CONFIG || {};
+let cloudState = {
+  client:null,
+  authSubscription:null,
+  session:null,
+  user:null,
+  ready:false,
+  configured:false,
+  busy:false,
+  dirty:new Set(),
+  saveTimer:null,
+  lastSyncAt:null,
+  message:'ローカル保存で動作中です。',
+  level:'local',
+};
 let cacheFallbackEnabled = (function(){
   try{ return localStorage.getItem(CACHE_FALLBACK_KEY) !== '0'; }catch(e){ return true; }
 })();
@@ -1235,7 +1327,10 @@ function loadStocks(market=currentMarket){
   }catch(e){}
   return MARKET_CONFIGS[market].samples.map(s=>({...s}));
 }
-function saveStocks(){ try{ localStorage.setItem(stockListKey(), JSON.stringify(stocks)); }catch(e){} }
+function saveStocks(opts={}){
+  try{ localStorage.setItem(stockListKey(), JSON.stringify(stocks)); }catch(e){}
+  if(opts.cloud !== false) queueCloudSave('stocks');
+}
 function loadChartCache(){
   try{ return JSON.parse(localStorage.getItem(CHART_CACHE_KEY) || '{}') || {}; }catch(e){ return {}; }
 }
@@ -1514,8 +1609,8 @@ function selectQuickTradeSymbol(){
 
 function addStock(){
   const sym = normalizeSymbol(document.getElementById('inSym').value);
-  if(!sym){ alert('ティッカーを入力してください'); return; }
-  if(stocks.some(s=>s.sym===sym)){ alert(displaySymbol(sym)+' は既に登録済みです'); return; }
+  if(!sym){ appAlert('ティッカーを入力してください'); return; }
+  if(stocks.some(s=>s.sym===sym)){ appAlert(displaySymbol(sym)+' は既に登録済みです'); return; }
   const shares = parseFloat(document.getElementById('inShares').value) || null;
   const cost = parseFloat(document.getElementById('inCost').value) || null;
   const ref = symbolMasterLookup(sym) || {};
@@ -1546,8 +1641,8 @@ function addStock(){
   updateSymbolSuggestions();
   refreshOne(sym);
 }
-function removeStock(sym){
-  if(!confirm(displaySymbol(sym)+' を削除しますか？')) return;
+async function removeStock(sym){
+  if(!(await appConfirm(displaySymbol(sym)+' を削除しますか？'))) return;
   stocks = stocks.filter(s=>s.sym!==sym);
   delete marketData[sym];
   openWatchForecastSyms.delete(sym);
@@ -2211,13 +2306,32 @@ async function fetchChartStooq(sym){
   const url = `https://stooq.com/q/d/l/?s=${encodeURIComponent(stooqSym)}&i=d&d1=${ymd(start)}&d2=${ymd(end)}`;
   return parseStooqCsv(await fetchText(url), sym);
 }
+async function fetchChartOfficial(sym){
+  const res = await fetchWithTimeout(`/api/market-data?symbol=${encodeURIComponent(sym)}&market=${encodeURIComponent(currentMarket)}&range=2y`, {cache:'no-store'}, 12000);
+  if(!res.ok){
+    let msg = '正式API未取得';
+    try{ msg = (await res.json()).error || msg; }catch(e){}
+    throw new Error(msg);
+  }
+  const j = await res.json();
+  const dates = (j.dates || []).map(v=>new Date(v));
+  const closes = (j.closes || []).map(Number).filter(v=>Number.isFinite(v));
+  if(dates.length !== closes.length || closes.length < 10) throw new Error('正式APIデータ不足: '+sym);
+  return {dates, closes,
+    live:j.live ?? closes[closes.length-1],
+    liveTime:j.liveTime ? new Date(j.liveTime) : dates[dates.length-1],
+    marketState:j.marketState || null,
+    source:j.source || 'official'};
+}
 async function fetchChart(sym){
-  const order = currentDataSource==='stooq' ? ['stooq','yahoo'] :
-    currentDataSource==='yahoo' ? ['yahoo'] : ['yahoo','stooq'];
+  const officialReady = officialProviderSupportsMarket(cloudConfig()) || currentDataSource==='official';
+  const order = currentDataSource==='official' ? ['official','yahoo','stooq'] :
+    currentDataSource==='stooq' ? ['stooq','yahoo'] :
+    currentDataSource==='yahoo' ? ['yahoo'] : (officialReady ? ['official','yahoo','stooq'] : ['yahoo','stooq']);
   let lastErr;
   for(const src of order){
     try{
-      const data = src==='stooq' ? await fetchChartStooq(sym) : await fetchChartYahoo(sym);
+      const data = src==='official' ? await fetchChartOfficial(sym) : (src==='stooq' ? await fetchChartStooq(sym) : await fetchChartYahoo(sym));
       data.requestedSource = currentDataSource;
       data.cachedAt = Date.now();
       rememberChartCache(sym, data);
@@ -2456,6 +2570,306 @@ function escapeHtml(v){
 }
 function jsString(v){
   return escapeHtml(String(v ?? '').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\r?\n/g,' '));
+}
+function appDialog({title='確認', message='', okLabel='OK', cancelLabel='', input=false, inputValue='', inputType='text'}={}){
+  const backdrop = document.getElementById('appDialogBackdrop');
+  const titleEl = document.getElementById('appDialogTitle');
+  const msgEl = document.getElementById('appDialogMessage');
+  const inputEl = document.getElementById('appDialogInput');
+  const okBtn = document.getElementById('appDialogOk');
+  const cancelBtn = document.getElementById('appDialogCancel');
+  if(!backdrop || !titleEl || !msgEl || !inputEl || !okBtn || !cancelBtn){
+    return Promise.resolve(input ? null : !!okLabel);
+  }
+  titleEl.textContent = title;
+  msgEl.textContent = message;
+  okBtn.textContent = okLabel || 'OK';
+  cancelBtn.textContent = cancelLabel || 'キャンセル';
+  cancelBtn.hidden = !cancelLabel;
+  inputEl.hidden = !input;
+  inputEl.value = input ? String(inputValue ?? '') : '';
+  inputEl.type = inputType || 'text';
+  backdrop.hidden = false;
+  return new Promise(resolve=>{
+    const cleanup = (value)=>{
+      okBtn.removeEventListener('click', onOk);
+      cancelBtn.removeEventListener('click', onCancel);
+      backdrop.removeEventListener('click', onBackdrop);
+      document.removeEventListener('keydown', onKey);
+      backdrop.hidden = true;
+      resolve(value);
+    };
+    const onOk = ()=>cleanup(input ? inputEl.value : true);
+    const onCancel = ()=>cleanup(input ? null : false);
+    const onBackdrop = (e)=>{ if(e.target===backdrop && cancelLabel) onCancel(); };
+    const onKey = (e)=>{
+      if(e.key==='Escape' && cancelLabel){ e.preventDefault(); onCancel(); }
+      if(e.key==='Enter' && document.activeElement===inputEl){ e.preventDefault(); onOk(); }
+    };
+    okBtn.addEventListener('click', onOk);
+    cancelBtn.addEventListener('click', onCancel);
+    backdrop.addEventListener('click', onBackdrop);
+    document.addEventListener('keydown', onKey);
+    setTimeout(()=>{ (input ? inputEl : okBtn).focus(); }, 0);
+  });
+}
+function appAlert(message, title='確認'){
+  return appDialog({title, message:String(message || ''), okLabel:'OK'});
+}
+function appConfirm(message, title='確認'){
+  return appDialog({title, message:String(message || ''), okLabel:'続行', cancelLabel:'キャンセル'});
+}
+function appPrompt(message, defaultValue='', title='入力'){
+  return appDialog({title, message:String(message || ''), okLabel:'決定', cancelLabel:'キャンセル', input:true, inputValue:defaultValue, inputType:'number'});
+}
+function loadLocalCloudConfig(){
+  try{ return JSON.parse(localStorage.getItem(CLOUD_CONFIG_KEY) || 'null') || {}; }catch(e){ return {}; }
+}
+function cloudConfig(){
+  const local = loadLocalCloudConfig();
+  return {
+    supabaseUrl: runtimeConfig.supabaseUrl || local.supabaseUrl || '',
+    supabaseAnonKey: runtimeConfig.supabaseAnonKey || local.supabaseAnonKey || '',
+    officialProvider: runtimeConfig.officialProvider || '',
+    officialProviderReady: !!runtimeConfig.officialProviderReady,
+  };
+}
+function officialProviderSupportsMarket(cfg=cloudConfig(), market=currentMarket){
+  if(!cfg.officialProviderReady) return false;
+  if(cfg.officialProvider === 'polygon' && market === 'jp') return false;
+  return true;
+}
+function setCloudMessage(message, level='local'){
+  cloudState.message = message;
+  cloudState.level = level;
+  renderCloudPanel();
+}
+function renderCloudPanel(){
+  const cfg = cloudConfig();
+  const configured = !!(cfg.supabaseUrl && cfg.supabaseAnonKey);
+  const loggedIn = !!cloudState.user;
+  const badge = document.getElementById('cloudStatusBadge');
+  const text = document.getElementById('cloudStatusText');
+  const email = document.getElementById('cloudEmail');
+  const login = document.getElementById('cloudLoginBtn');
+  const logout = document.getElementById('cloudLogoutBtn');
+  const push = document.getElementById('cloudPushBtn');
+  const pull = document.getElementById('cloudPullBtn');
+  const url = document.getElementById('cloudUrl');
+  const key = document.getElementById('cloudAnonKey');
+  if(url && !url.value) url.value = cfg.supabaseUrl || '';
+  if(key && !key.value) key.value = cfg.supabaseAnonKey || '';
+  if(badge){
+    const level = cloudState.level || (loggedIn ? 'synced' : 'local');
+    badge.className = `cloud-badge ${level}`;
+    badge.textContent = cloudState.busy ? '同期中' : (loggedIn ? 'クラウド同期' : (configured ? '未ログイン' : 'ローカル保存'));
+  }
+  if(text){
+    const userText = loggedIn ? `ログイン中: ${cloudState.user.email || cloudState.user.id}` : '';
+    const last = cloudState.lastSyncAt ? ` / 最終同期 ${cloudState.lastSyncAt}` : '';
+    text.textContent = [cloudState.message, userText + last].filter(Boolean).join(' ');
+  }
+  if(email) email.hidden = loggedIn;
+  if(login) login.hidden = loggedIn;
+  if(logout) logout.hidden = !loggedIn;
+  if(push) push.hidden = !loggedIn;
+  if(pull) pull.hidden = !loggedIn;
+  const official = document.getElementById('officialApiStatus');
+  if(official){
+    official.textContent = cfg.officialProviderReady
+      ? `正式API: ${cfg.officialProvider} がVercel側で利用可能です。株価ソースから「正式API」を選べます。`
+      : '正式APIは未設定です。通常はYahoo/Stooqを使い、Vercel環境変数を設定すると正式APIに切替できます。';
+  }
+}
+async function loadRuntimeConfig(){
+  try{
+    const res = await fetch('/api/config', {cache:'no-store'});
+    if(res.ok) runtimeConfig = Object.assign({}, runtimeConfig, await res.json());
+  }catch(e){}
+}
+function loadScriptOnce(src){
+  if(document.querySelector(`script[data-dynamic-src="${src}"]`)) return Promise.resolve();
+  return new Promise((resolve,reject)=>{
+    const s = document.createElement('script');
+    s.src = src;
+    s.async = true;
+    s.dataset.dynamicSrc = src;
+    s.onload = resolve;
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+async function ensureSupabaseClient(){
+  const cfg = cloudConfig();
+  cloudState.configured = !!(cfg.supabaseUrl && cfg.supabaseAnonKey);
+  if(!cloudState.configured) return null;
+  if(!window.supabase?.createClient){
+    await loadScriptOnce('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2');
+  }
+  if(!cloudState.client){
+    cloudState.client = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
+  }
+  return cloudState.client;
+}
+function cloudRowsFor(keys){
+  const rows = [];
+  if(keys.includes('stocks')) rows.push({market:currentMarket, key:'stocks', data:stocks, updated_at:new Date().toISOString()});
+  if(keys.includes('paper')) rows.push({market:currentMarket, key:'paper', data:paper, updated_at:new Date().toISOString()});
+  return rows;
+}
+function queueCloudSave(key){
+  cloudState.dirty.add(key);
+  renderCloudPanel();
+  if(!cloudState.user || !cloudState.client) return;
+  if(cloudState.saveTimer) clearTimeout(cloudState.saveTimer);
+  cloudState.saveTimer = setTimeout(()=>cloudSaveDirty(), 700);
+}
+async function cloudSaveDirty(){
+  const keys = [...cloudState.dirty];
+  if(!keys.length) return;
+  cloudState.dirty.clear();
+  await cloudPush(keys);
+}
+async function cloudPush(keys=['stocks','paper']){
+  const client = await ensureSupabaseClient();
+  if(!client || !cloudState.user){
+    setCloudMessage('クラウド保存にはSupabase設定とログインが必要です。', 'local');
+    return false;
+  }
+  cloudState.busy = true;
+  renderCloudPanel();
+  try{
+    const rows = cloudRowsFor(keys).map(row=>Object.assign({user_id:cloudState.user.id}, row));
+    const { error } = await client.from('app_state').upsert(rows, {onConflict:'user_id,market,key'});
+    if(error) throw error;
+    cloudState.lastSyncAt = new Date().toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'});
+    setCloudMessage('クラウドへ保存しました。', 'synced');
+    return true;
+  }catch(e){
+    setCloudMessage(`クラウド保存に失敗: ${e.message || e}`, 'error');
+    return false;
+  }finally{
+    cloudState.busy = false;
+    renderCloudPanel();
+  }
+}
+async function cloudPull(){
+  const client = await ensureSupabaseClient();
+  if(!client || !cloudState.user){
+    setCloudMessage('クラウド読込にはSupabase設定とログインが必要です。', 'local');
+    return false;
+  }
+  cloudState.busy = true;
+  renderCloudPanel();
+  try{
+    const { data, error } = await client.from('app_state').select('key,data,updated_at').eq('market', currentMarket).in('key', ['stocks','paper']);
+    if(error) throw error;
+    const byKey = Object.fromEntries((data || []).map(row=>[row.key, row]));
+    if(byKey.stocks?.data){
+      stocks = Array.isArray(byKey.stocks.data) ? byKey.stocks.data : stocks;
+      saveStocks({cloud:false});
+    }
+    if(byKey.paper?.data){
+      paper = normalizePaper(byKey.paper.data);
+      savePaper({cloud:false});
+    }
+    cloudState.lastSyncAt = new Date().toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'});
+    setCloudMessage(data?.length ? 'クラウドから読み込みました。' : 'クラウドに保存データがありません。', data?.length ? 'synced' : 'local');
+    renderAll();
+    return true;
+  }catch(e){
+    setCloudMessage(`クラウド読込に失敗: ${e.message || e}`, 'error');
+    return false;
+  }finally{
+    cloudState.busy = false;
+    renderCloudPanel();
+  }
+}
+async function cloudLogin(){
+  const email = document.getElementById('cloudEmail')?.value?.trim();
+  const client = await ensureSupabaseClient();
+  if(!client){
+    await appAlert('Supabase URL と anon key を設定してください。');
+    return;
+  }
+  if(!email){
+    await appAlert('ログイン用のメールアドレスを入力してください。');
+    return;
+  }
+  const { error } = await client.auth.signInWithOtp({email, options:{emailRedirectTo:location.href.split('#')[0]}});
+  if(error){ setCloudMessage(`ログインリンク送信に失敗: ${error.message}`, 'error'); return; }
+  setCloudMessage('ログインリンクを送信しました。メールを確認してください。', 'local');
+}
+async function cloudLogout(){
+  if(cloudState.client) await cloudState.client.auth.signOut();
+  cloudState.session = null;
+  cloudState.user = null;
+  setCloudMessage('ログアウトしました。ローカル保存で継続します。', 'local');
+}
+function saveCloudConfigFromForm(){
+  const supabaseUrl = document.getElementById('cloudUrl')?.value?.trim() || '';
+  const supabaseAnonKey = document.getElementById('cloudAnonKey')?.value?.trim() || '';
+  try{ localStorage.setItem(CLOUD_CONFIG_KEY, JSON.stringify({supabaseUrl, supabaseAnonKey})); }catch(e){}
+  cloudState.client = null;
+  setCloudMessage('Supabase接続情報を保存しました。', supabaseUrl && supabaseAnonKey ? 'local' : 'error');
+  initCloud();
+}
+function clearCloudConfig(){
+  try{ localStorage.removeItem(CLOUD_CONFIG_KEY); }catch(e){}
+  if(cloudState.authSubscription){
+    try{ cloudState.authSubscription.unsubscribe(); }catch(e){}
+    cloudState.authSubscription = null;
+  }
+  cloudState.client = null;
+  cloudState.session = null;
+  cloudState.user = null;
+  setCloudMessage('Supabase接続情報を削除しました。', 'local');
+  initCloud();
+}
+function bindCloudControls(){
+  document.getElementById('cloudLoginBtn')?.addEventListener('click', cloudLogin);
+  document.getElementById('cloudLogoutBtn')?.addEventListener('click', cloudLogout);
+  document.getElementById('cloudPushBtn')?.addEventListener('click', ()=>cloudPush());
+  document.getElementById('cloudPullBtn')?.addEventListener('click', ()=>cloudPull());
+  document.getElementById('cloudConfigSaveBtn')?.addEventListener('click', saveCloudConfigFromForm);
+  document.getElementById('cloudConfigClearBtn')?.addEventListener('click', clearCloudConfig);
+}
+function bindStaticControls(){
+  document.getElementById('marketUsBtn')?.addEventListener('click', ()=>setMarketMode('us'));
+  document.getElementById('marketJpBtn')?.addEventListener('click', ()=>setMarketMode('jp'));
+  document.getElementById('beginnerToggle')?.addEventListener('click', ()=>setBeginnerMode());
+  document.getElementById('viewToggle')?.addEventListener('click', ()=>toggleView());
+  document.getElementById('addStockBtn')?.addEventListener('click', ()=>addStock());
+  document.getElementById('mainRefreshBtn')?.addEventListener('click', ()=>refreshAll());
+  document.getElementById('dataSource')?.addEventListener('change', ()=>setDataSource());
+  document.getElementById('autoRefresh')?.addEventListener('change', ()=>setAutoRefresh());
+  document.querySelectorAll('.refreshModeSelect').forEach(sel=>{
+    sel.addEventListener('change', ()=>setRefreshMode(sel.value));
+  });
+}
+async function initCloud(){
+  renderCloudPanel();
+  await loadRuntimeConfig();
+  const client = await ensureSupabaseClient().catch(()=>null);
+  if(!client){
+    setCloudMessage('ローカル保存で動作中です。Supabase設定後にクラウド同期できます。', 'local');
+    return;
+  }
+  const { data } = await client.auth.getSession();
+  cloudState.session = data?.session || null;
+  cloudState.user = cloudState.session?.user || null;
+  cloudState.ready = true;
+  if(cloudState.authSubscription){
+    try{ cloudState.authSubscription.unsubscribe(); }catch(e){}
+    cloudState.authSubscription = null;
+  }
+  const { data: authListener } = client.auth.onAuthStateChange((_event, session)=>{
+    cloudState.session = session;
+    cloudState.user = session?.user || null;
+    setCloudMessage(cloudState.user ? 'ログインしました。必要に応じてクラウド読込/保存を実行できます。' : 'ローカル保存で動作中です。', cloudState.user ? 'synced' : 'local');
+  });
+  cloudState.authSubscription = authListener?.subscription || null;
+  setCloudMessage(cloudState.user ? 'クラウド同期を利用できます。' : 'Supabase設定済みです。ログインするとクラウド同期できます。', cloudState.user ? 'synced' : 'local');
 }
 function ensureSectorOption(value){
   const sector = value || 'その他';
@@ -3005,7 +3419,7 @@ function renderTradeTrendChart(){
 }
 
 // ===== 描画 =====
-function renderAll(){ renderTable(); renderForecastPanel(); renderSummary(); renderBeginnerGuide(); renderPerfChart(); renderPicks(); renderTradeResearch(); renderTradeWatchForecastPanel(); renderTradeFocusBand(); renderSellCheck(); renderPaper(); renderTradeBeginnerCoach(); renderReview(); renderDiagnosis(); renderSourceHealth(); renderSymbolMasterSearch(); updateSymbolSuggestions(); decorateDashboardWidgets(); decorateTradeWidgets(); }
+function renderAll(){ renderTable(); renderForecastPanel(); renderSummary(); renderBeginnerGuide(); renderPerfChart(); renderPicks(); renderTradeResearch(); renderTradeWatchForecastPanel(); renderTradeFocusBand(); renderSellCheck(); renderPaper(); renderTradeBeginnerCoach(); renderReview(); renderDiagnosis(); renderSourceHealth(); renderSymbolMasterSearch(); updateSymbolSuggestions(); renderCloudPanel(); decorateDashboardWidgets(); decorateTradeWidgets(); }
 
 function rowMetrics(s){
   const d = marketData[s.sym];
@@ -3988,7 +4402,10 @@ function loadPaper(market=currentMarket){
   return normalizePaper({cash, initial:cash});
 }
 let paper = loadPaper();
-function savePaper(){ try{ localStorage.setItem(paperKey(), JSON.stringify(paper)); }catch(e){} }
+function savePaper(opts={}){
+  try{ localStorage.setItem(paperKey(), JSON.stringify(paper)); }catch(e){}
+  if(opts.cloud !== false) queueCloudSave('paper');
+}
 function inheritPaperSettingsForMarket(source, market=currentMarket){
   const src = normalizePaper(source || {});
   const preset = src.mode === 'pro' ? 'pro' : 'standard';
@@ -4245,7 +4662,7 @@ async function applyTradeSetup(){
   const cfg = collectTradeSetup();
   const targetPaper = cfg.market === currentMarket ? paper : loadPaper(cfg.market);
   const selectedWatchlist = (cfg.market === currentMarket ? stocks : loadStocks(cfg.market)).map(s=>({...s}));
-  if(paperHasActivity(targetPaper) && !confirm('現在のデモ口座を初期設定で作り直します。建玉・注文・履歴は上書きされます。続行しますか？')) return;
+  if(paperHasActivity(targetPaper) && !(await appConfirm('現在のデモ口座を初期設定で作り直します。建玉・注文・履歴は上書きされます。続行しますか？'))) return;
   if(cfg.market !== currentMarket) setMarketMode(cfg.market, {skipRefresh:true});
 
   beginnerMode = cfg.experience === 'beginner';
@@ -4540,39 +4957,39 @@ async function placeOrder(){
   const trailPct = parseFloat(document.getElementById('ptTrailPct').value);
   const tif = pro? document.getElementById('ptTif').value : 'gtc';
   const note = pro? document.getElementById('ptNote').value.trim() : '';
-  if(!sym || !qty || qty<=0){ alert('ティッカーと株数を入力してください'); return; }
+  if(!sym || !qty || qty<=0){ await appAlert('ティッカーと株数を入力してください'); return; }
   const qtyCheck = validateTradeQuantity(sym, qty, side);
-  if(!qtyCheck.ok){ alert(qtyCheck.message); return; }
-  if(pro && !allowedOrderTypes().includes(type)){ alert('初期設定で許可されていない注文種別です。初期設定から注文機能を変更してください'); return; }
-  if(['limit','stoplimit'].includes(type) && (!limit || limit<=0)){ alert('指値価格を入力してください'); return; }
-  if(['stop','stoplimit'].includes(type) && (!stop || stop<=0)){ alert('逆指値価格を入力してください'); return; }
-  if(['oco','ifdoco'].includes(type) && ((!limit || limit<=0) || (!stop || stop<=0))){ alert('OCO/IFD-OCOには利確用の指値と損切り用の逆指値を入力してください'); return; }
-  if(type==='ifd' && ((!limit || limit<=0) && (!stop || stop<=0))){ alert('IFDには決済予約の指値または逆指値を入力してください'); return; }
-  if(type==='trailing' && (!trailPct || trailPct<=0)){ alert('トレーリング幅(%)を入力してください'); return; }
-  if(!(await ptEnsure(sym))){ alert(sym+' の株価を取得できませんでした'); return; }
+  if(!qtyCheck.ok){ await appAlert(qtyCheck.message); return; }
+  if(pro && !allowedOrderTypes().includes(type)){ await appAlert('初期設定で許可されていない注文種別です。初期設定から注文機能を変更してください'); return; }
+  if(['limit','stoplimit'].includes(type) && (!limit || limit<=0)){ await appAlert('指値価格を入力してください'); return; }
+  if(['stop','stoplimit'].includes(type) && (!stop || stop<=0)){ await appAlert('逆指値価格を入力してください'); return; }
+  if(['oco','ifdoco'].includes(type) && ((!limit || limit<=0) || (!stop || stop<=0))){ await appAlert('OCO/IFD-OCOには利確用の指値と損切り用の逆指値を入力してください'); return; }
+  if(type==='ifd' && ((!limit || limit<=0) && (!stop || stop<=0))){ await appAlert('IFDには決済予約の指値または逆指値を入力してください'); return; }
+  if(type==='trailing' && (!trailPct || trailPct<=0)){ await appAlert('トレーリング幅(%)を入力してください'); return; }
+  if(!(await ptEnsure(sym))){ await appAlert(sym+' の株価を取得できませんでした'); return; }
   const p = ptPrice(sym);
   if(pro){
     const snap = portfolioSnapshot();
     const newExposure = (Math.abs(paper.pos[sym]?.qty||0)*p + p*qty) / Math.max(snap.total, 1) * 100;
-    if(paper.preflightMode==='block' && note.length<8){ alert('厳格チェック設定では、取引メモ・根拠を8文字以上入力してください'); return; }
-    if(paper.preflightMode==='block' && side==='buy' && newExposure > paper.rules.maxPosPct){ alert(`厳格チェック設定では、1銘柄上限 ${paper.rules.maxPosPct}% を超える買い注文は実行できません`); return; }
+    if(paper.preflightMode==='block' && note.length<8){ await appAlert('厳格チェック設定では、取引メモ・根拠を8文字以上入力してください'); return; }
+    if(paper.preflightMode==='block' && side==='buy' && newExposure > paper.rules.maxPosPct){ await appAlert(`厳格チェック設定では、1銘柄上限 ${paper.rules.maxPosPct}% を超える買い注文は実行できません`); return; }
     if(side==='buy' && newExposure > paper.rules.maxPosPct &&
-       !confirm(`ルール警告: この注文で ${sym} が資産の${newExposure.toFixed(0)}%になります（上限 ${paper.rules.maxPosPct}%）。続行しますか？`)) return;
+       !(await appConfirm(`ルール警告: この注文で ${sym} が資産の${newExposure.toFixed(0)}%になります（上限 ${paper.rules.maxPosPct}%）。続行しますか？`))) return;
   }
   if(type==='market'){
     const err = execTrade(sym, side, qty, p, '成行', note);
-    if(err){ alert(err); return; }
+    if(err){ await appAlert(err); return; }
   } else if(type==='ifd' || type==='ifdoco'){
     const err = execTrade(sym, side, qty, p, type==='ifd'?'IFD 新規成行':'IFD-OCO 新規成行', note);
-    if(err){ alert(err); return; }
+    if(err){ await appAlert(err); return; }
     createExitOrders(sym, side, qty, limit, stop, tif, note, type);
   } else if(type==='oco'){
     const closeErr = validateCloseCapacity(sym, side, qty);
-    if(closeErr){ alert(closeErr); return; }
+    if(closeErr){ await appAlert(closeErr); return; }
     createExitOrders(sym, side==='sell'?'buy':'sell', qty, limit, stop, tif, note, 'oco');
   } else {
     const closeErr = validateCloseCapacity(sym, side, qty);
-    if(closeErr){ alert(closeErr); return; }
+    if(closeErr){ await appAlert(closeErr); return; }
     createOrder({sym, side, type, qty,
       limit: (type==='limit'||type==='stoplimit')? limit : null,
       stop: (type==='stop'||type==='stoplimit')? stop : null,
@@ -4729,8 +5146,8 @@ function setSessionDays(){ paper.sessionDays = parseInt(document.getElementById(
 function adjustDemoCash(){
   const amount = parseFloat(document.getElementById('ptCashAdjust').value);
   const action = document.getElementById('ptCashAction').value;
-  if(!amount || amount<=0){ alert('入出金額を入力してください'); return; }
-  if(action==='withdraw' && amount>paper.cash){ alert('現金残高を超える出金はできません'); return; }
+  if(!amount || amount<=0){ appAlert('入出金額を入力してください'); return; }
+  if(action==='withdraw' && amount>paper.cash){ appAlert('現金残高を超える出金はできません'); return; }
   paper.cash += action==='deposit'? amount : -amount;
   if(action==='deposit') paper.initial += amount;
   paper.cash = round2(paper.cash); paper.initial = round2(paper.initial);
@@ -4742,7 +5159,7 @@ function addPriceAlert(){
   const sym = normalizeSymbol(document.getElementById('ptAlertSym').value);
   const cond = document.getElementById('ptAlertCond').value;
   const price = parseFloat(document.getElementById('ptAlertPrice').value);
-  if(!sym || !price || price<=0){ alert('ティッカーと価格を入力してください'); return; }
+  if(!sym || !price || price<=0){ appAlert('ティッカーと価格を入力してください'); return; }
   paper.alerts.unshift({id:Date.now(), sym, cond, price, created:nowStr(), fired:false});
   paper.alerts = paper.alerts.slice(0,20);
   document.getElementById('ptAlertSym').value='';
@@ -4756,10 +5173,10 @@ function cancelAlert(id){
 }
 function setQtyPreset(pct){
   const sym = normalizeSymbol(document.getElementById('ptSym').value) || stocks[0]?.sym || Object.keys(paper.pos)[0];
-  if(!sym){ alert('ティッカーを入力してください'); return; }
+  if(!sym){ appAlert('ティッカーを入力してください'); return; }
   document.getElementById('ptSym').value = displaySymbol(sym);
   const p = ptPrice(sym);
-  if(p==null){ alert('株価未取得です。データ更新後に使えます。'); return; }
+  if(p==null){ appAlert('株価未取得です。データ更新後に使えます。'); return; }
   const rawQty = (portfolioSnapshot().buyPower * pct/100) / p;
   const fitted = fitQtyToTradeRule(rawQty);
   document.getElementById('ptQty').value = fitted ? fmtQty(fitted) : '';
@@ -4769,20 +5186,20 @@ function copyTradeSymbol(){
   const sym = stocks[0]?.sym || Object.keys(paper.pos)[0] || '';
   if(sym){ document.getElementById('ptSym').value = displaySymbol(sym); renderOrderPreview(); }
 }
-function closePosition(sym){
+async function closePosition(sym){
   const pos = paper.pos[sym]; if(!pos) return;
   const p = ptPrice(sym);
-  if(p==null){ alert('株価未取得のため決済できません。「データ更新」を押してください'); return; }
+  if(p==null){ await appAlert('株価未取得のため決済できません。「データ更新」を押してください'); return; }
   const absQty = Math.abs(pos.qty);
   const dir = pos.qty>0? '売却':'買い戻し';
-  const q = parseFloat(prompt(`${displaySymbol(sym)} を何株${dir}しますか？（建玉 ${fmtQty(absQty)}株 / 現在値 ${fmtMoney(p)}）`, fmtQty(absQty)));
+  const q = parseFloat(await appPrompt(`${displaySymbol(sym)} を何株${dir}しますか？（建玉 ${fmtQty(absQty)}株 / 現在値 ${fmtMoney(p)}）`, fmtQty(absQty), '決済株数'));
   if(!q || q<=0) return;
   const closeSide = pos.qty>0?'sell':'buy';
   const closeQty = Math.min(q, absQty);
   const qtyCheck = validateTradeQuantity(sym, closeQty, closeSide);
-  if(!qtyCheck.ok){ alert(qtyCheck.message); return; }
+  if(!qtyCheck.ok){ await appAlert(qtyCheck.message); return; }
   const err = execTrade(sym, closeSide, closeQty, p, '決済');
-  if(err){ alert(err); return; }
+  if(err){ await appAlert(err); return; }
   recordEquity(); savePaper(); renderPaper();
 }
 function paperReset(){
@@ -4827,7 +5244,7 @@ function demoEquitySeries(targets, cash){
   });
 }
 async function seedDemoPaper(options={}){
-  if(!options.skipConfirm && !confirm('現在のデモ口座を、実在銘柄のサンプルデータで上書きしますか？')) return false;
+  if(!options.skipConfirm && !(await appConfirm('現在のデモ口座を、実在銘柄のサンプルデータで上書きしますか？'))) return false;
   const targets = demoPaperTargets();
   setStatus('デモ用の実データを取得中...');
   try{
@@ -4907,7 +5324,7 @@ async function seedDemoPaper(options={}){
     return true;
   }catch(e){
     setStatus('⚠ デモ用データの取得に失敗しました');
-    alert('実データサンプルの作成に失敗しました: ' + e.message);
+    await appAlert('実データサンプルの作成に失敗しました: ' + e.message);
     return false;
   }
 }
@@ -6472,6 +6889,8 @@ function renderLongStats(){
 
 // 初期表示
 updateMarketUI();
+bindCloudControls();
+bindStaticControls();
 initDashboardCustomization();
 initTradeCustomization();
 renderAll();
@@ -6488,6 +6907,7 @@ renderAll();
   maybeShowTradeSetup();
 })();
 window.addEventListener('load', ()=>{
+  initCloud();
   loadSymbolMaster();
   refreshAll();
   if(Object.keys(longData).length){ renderLongChart(); renderLongStats(); }

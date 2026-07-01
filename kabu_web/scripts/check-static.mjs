@@ -35,14 +35,23 @@ new vm.Script(
   proxySource.replace(/export\s+default\s+async\s+function\s+handler/, 'async function handler'),
   { filename: 'api/proxy.js' },
 );
+for (const apiFile of ['api/config.js', 'api/market-data.js']) {
+  new vm.Script(
+    read(apiFile).replace(/export\s+default\s+async\s+function\s+handler/, 'async function handler')
+      .replace(/export\s+default\s+function\s+handler/, 'function handler'),
+    { filename: apiFile },
+  );
+}
 
 const vercelConfig = JSON.parse(read('vercel.json'));
 assert(Array.isArray(vercelConfig.headers), 'vercel.json must define headers');
 assert(JSON.stringify(vercelConfig.headers).includes('Content-Security-Policy'), 'security headers missing CSP');
+assert(!/\b(alert|confirm|prompt)\s*\(/.test(html), 'native alert/confirm/prompt should use app dialog helpers');
 
 const schema = read('supabase/schema.sql').toLowerCase();
 assert(schema.includes('enable row level security'), 'Supabase schema must enable RLS');
 assert(schema.includes('to authenticated'), 'Supabase policies must be scoped to authenticated users');
 assert(schema.includes('drop policy if exists'), 'Supabase schema should be safe to re-run');
+assert(schema.includes('create table if not exists app_state'), 'Supabase schema must include app_state sync table');
 
 console.log(`kabu_web static checks passed (${symbolMaster.us.length} US / ${symbolMaster.jp.length} JP symbols).`);

@@ -84,6 +84,16 @@ create table if not exists long_data (
   updated_at timestamptz not null default now()
 );
 
+-- アプリ状態の同期（ウォッチリスト・デモ口座を市場別に丸ごと保存）
+create table if not exists app_state (
+  user_id uuid not null references auth.users(id) on delete cascade,
+  market text not null check (market in ('us','jp')),
+  key text not null check (key in ('stocks','paper','settings')),
+  data jsonb not null,
+  updated_at timestamptz not null default now(),
+  primary key (user_id, market, key)
+);
+
 -- ===== RLS =====
 alter table watchlist enable row level security;
 alter table paper_accounts enable row level security;
@@ -92,6 +102,7 @@ alter table paper_orders enable row level security;
 alter table paper_history enable row level security;
 alter table equity_history enable row level security;
 alter table long_data enable row level security;
+alter table app_state enable row level security;
 
 drop policy if exists "own watchlist" on watchlist;
 drop policy if exists "own account" on paper_accounts;
@@ -100,6 +111,7 @@ drop policy if exists "own orders" on paper_orders;
 drop policy if exists "own history" on paper_history;
 drop policy if exists "own equity" on equity_history;
 drop policy if exists "read shared long_data" on long_data;
+drop policy if exists "own app_state" on app_state;
 
 create policy "own watchlist" on watchlist for all
   to authenticated
@@ -122,3 +134,6 @@ create policy "own equity" on equity_history for all
 create policy "read shared long_data" on long_data for select
   to authenticated
   using (true);  -- 読み取りは全認証ユーザー可、書き込みはservice roleのみ（ポリシー無し）
+create policy "own app_state" on app_state for all
+  to authenticated
+  using (auth.uid() = user_id) with check (auth.uid() = user_id);
