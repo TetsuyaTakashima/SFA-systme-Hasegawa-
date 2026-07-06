@@ -1,11 +1,18 @@
 import type { DemoAccount, DemoOrder, DemoPosition, Market, Quote } from "@/types/market";
 
-export const DEFAULT_ACCOUNT: DemoAccount = {
-  cash: 1_000_000,
-  initialCash: 1_000_000,
-  positions: [],
-  orders: [],
-};
+export const DEFAULT_INITIAL_CASH = 1_000_000;
+
+export const DEFAULT_ACCOUNT: DemoAccount = createDemoAccount();
+
+export function createDemoAccount(initialCash = DEFAULT_INITIAL_CASH): DemoAccount {
+  const cash = Number.isFinite(initialCash) && initialCash > 0 ? roundCurrency(initialCash) : DEFAULT_INITIAL_CASH;
+  return {
+    cash,
+    initialCash: cash,
+    positions: [],
+    orders: [],
+  };
+}
 
 type PlaceOrderInput = {
   account: DemoAccount;

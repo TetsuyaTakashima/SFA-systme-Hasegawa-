@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_ACCOUNT, placeDemoOrder, validateQuantity } from "./demo-engine";
+import { createDemoAccount, DEFAULT_ACCOUNT, placeDemoOrder, validateQuantity } from "./demo-engine";
 import type { Quote } from "../types/market";
 
 const quote: Quote = {
@@ -14,6 +14,14 @@ const quote: Quote = {
 };
 
 describe("demo-engine", () => {
+  it("creates a demo account with a custom initial cash amount", () => {
+    const account = createDemoAccount(500_000);
+    expect(account.cash).toBe(500_000);
+    expect(account.initialCash).toBe(500_000);
+    expect(account.positions).toHaveLength(0);
+    expect(account.orders).toHaveLength(0);
+  });
+
   it("requires 100 shares for normal Japanese stock orders", () => {
     expect(validateQuantity("jp", 1, false)).toContain("100株単位");
     expect(validateQuantity("jp", 100, false)).toBe("");

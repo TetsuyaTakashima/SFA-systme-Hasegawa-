@@ -3,7 +3,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { DemoAccount, Market, WatchItem } from "@/types/market";
-import { DEFAULT_ACCOUNT } from "@/lib/demo-engine";
+import { createDemoAccount } from "@/lib/demo-engine";
 
 type AppStore = {
   market: Market;
@@ -20,7 +20,7 @@ type AppStore = {
   removeWatchItem: (symbol: string, market: Market) => void;
   replaceWatchlist: (items: WatchItem[]) => void;
   replaceDemoAccount: (account: DemoAccount) => void;
-  resetDemoAccount: () => void;
+  resetDemoAccount: (initialCash?: number) => void;
 };
 
 const initialWatchlist: WatchItem[] = [
@@ -37,7 +37,7 @@ export const useAppStore = create<AppStore>()(
       beginnerMode: false,
       smallAmountMode: false,
       watchlist: initialWatchlist,
-      demoAccount: DEFAULT_ACCOUNT,
+      demoAccount: createDemoAccount(),
       activeSymbol: "AAPL",
       setMarket: (market) => set((state) => ({
         market,
@@ -55,7 +55,9 @@ export const useAppStore = create<AppStore>()(
       })),
       replaceWatchlist: (items) => set({ watchlist: items }),
       replaceDemoAccount: (demoAccount) => set({ demoAccount }),
-      resetDemoAccount: () => set({ demoAccount: DEFAULT_ACCOUNT }),
+      resetDemoAccount: (initialCash) => set((state) => ({
+        demoAccount: createDemoAccount(initialCash ?? state.demoAccount.initialCash),
+      })),
     }),
     {
       name: "kabu-web-next-v1",

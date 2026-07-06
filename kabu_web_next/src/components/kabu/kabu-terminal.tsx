@@ -716,12 +716,40 @@ function TradeView({
   smallAmountMode: boolean;
   setSmallAmountMode: (value: boolean) => void;
   submitOrder: (side: "buy" | "sell") => void;
-  resetDemoAccount: () => void;
+  resetDemoAccount: (initialCash?: number) => void;
   pending: boolean;
   quotes: Quote[];
 }) {
+  const [initialCashDraft, setInitialCashDraft] = useState(() => ({
+    source: account.initialCash,
+    value: moneyInputValue(account.initialCash),
+  }));
+  const [initialCashMessage, setInitialCashMessage] = useState("");
+  const [initialCashTone, setInitialCashTone] = useState<"success" | "warning">("success");
   const estimatedAmount = activeQuote ? Number(quantity || 0) * activeQuote.price : 0;
   const afterCash = activeQuote ? account.cash - estimatedAmount : account.cash;
+  const displayCurrency = activeQuote?.currency || "USD";
+  const initialCashInput = initialCashDraft.source === account.initialCash ? initialCashDraft.value : moneyInputValue(account.initialCash);
+  const updateInitialCashInput = (value: string) => setInitialCashDraft({ source: account.initialCash, value });
+
+  const applyInitialCash = () => {
+    const amount = parsePositiveAmount(initialCashInput);
+    if (!amount) {
+      setInitialCashTone("warning");
+      setInitialCashMessage("初期金額は1以上の数字で入力してください。");
+      return;
+    }
+    resetDemoAccount(amount);
+    setInitialCashTone("success");
+    setInitialCashMessage(`${formatMoney(amount, displayCurrency)} の初期金額でデモ口座を作り直しました。`);
+  };
+
+  const resetWithCurrentInitialCash = () => {
+    resetDemoAccount();
+    setInitialCashTone("success");
+    setInitialCashMessage("現在の初期金額でデモ口座をリセットしました。");
+  };
+
   return (
     <div className="space-y-4">
       <div className="grid gap-4 md:grid-cols-4">
@@ -730,6 +758,44 @@ function TradeView({
         <MetricCard label="総資産" value={formatMoney(summary.total, activeQuote?.currency)} detail={<TrendValue value={summary.pnlPct} />} />
         <MetricCard label="注文後現金" value={formatMoney(afterCash, activeQuote?.currency)} detail="手数料除く概算" />
       </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>デモ初期設定</CardTitle>
+          <CardDescription>初期金額を変更すると、建玉と注文履歴をクリアして新しい練習口座を作ります。</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
+          <div className="grid gap-3 md:grid-cols-3">
+            <div className="space-y-2">
+              <Label htmlFor="demo-initial-cash">初期金額</Label>
+              <Input
+                id="demo-initial-cash"
+                type="number"
+                min="1"
+                step="10000"
+                value={initialCashInput}
+                onChange={(event) => updateInitialCashInput(event.target.value)}
+              />
+            </div>
+            <div className="rounded-md border border-border p-3 text-sm">
+              <div className="text-muted-foreground">現在の初期金額</div>
+              <div className="mt-1 font-mono text-lg font-semibold">{formatMoney(account.initialCash, displayCurrency)}</div>
+            </div>
+            <div className="rounded-md border border-border p-3 text-sm">
+              <div className="text-muted-foreground">現在の現金</div>
+              <div className="mt-1 font-mono text-lg font-semibold">{formatMoney(account.cash, displayCurrency)}</div>
+            </div>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row xl:flex-col">
+            <Button onClick={applyInitialCash}><WalletCards className="mr-2 h-4 w-4" />初期金額を反映</Button>
+            <Button variant="outline" onClick={resetWithCurrentInitialCash}><RefreshCcw className="mr-2 h-4 w-4" />現在の初期金額でリセット</Button>
+          </div>
+          {initialCashMessage ? (
+            <div className={`xl:col-span-2 ${initialCashTone === "warning" ? "text-sm text-amber-300" : "text-sm text-muted-foreground"}`}>
+              {initialCashMessage}
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
       <div className="grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
         <Card>
           <CardHeader>
@@ -772,7 +838,7 @@ function TradeView({
             <div className="grid gap-2 md:grid-cols-3">
               <Button onClick={() => submitOrder("buy")} disabled={pending}>買い練習</Button>
               <Button variant="secondary" onClick={() => submitOrder("sell")} disabled={pending}>売り練習</Button>
-              <Button variant="outline" onClick={resetDemoAccount}>リセット</Button>
+              <Button variant="outline" onClick={resetWithCurrentInitialCash}>口座リセット</Button>
             </div>
           </CardContent>
         </Card>
@@ -972,6 +1038,15 @@ function TrendValue({ value, className = "" }: { value?: number | null; classNam
   if (value == null || !Number.isFinite(value)) return <span className={className}>--</span>;
   const colorClass = value > 0.05 ? "text-emerald-400" : value < -0.05 ? "text-red-400" : "text-muted-foreground";
   return <span className={`${colorClass} ${className}`.trim()}>{formatPct(value)}</span>;
+}
+
+function parsePositiveAmount(value: string) {
+  const amount = Number(value.replace(/,/g, "").trim());
+  return Number.isFinite(amount) && amount > 0 ? amount : null;
+}
+
+function moneyInputValue(value: number) {
+  return Number.isFinite(value) ? String(value) : "";
 }
 
 function BeginnerHint({ text }: { text: string }) {
