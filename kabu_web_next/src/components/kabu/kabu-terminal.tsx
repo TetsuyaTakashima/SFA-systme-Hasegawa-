@@ -18,7 +18,7 @@ import {
   Sparkles,
   WalletCards,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { PriceChart } from "@/components/charts/price-chart";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -299,6 +299,11 @@ export function KabuTerminal() {
               <Badge variant={configQuery.data?.supabaseReady ? "default" : "outline"}>
                 {cloudUser ? "クラウド同期中" : configQuery.data?.supabaseReady ? "ログイン可" : "ローカル保存"}
               </Badge>
+              <Badge variant="outline" className="gap-1">
+                <span className="text-emerald-400">上昇</span>
+                <span>/</span>
+                <span className="text-red-400">下落</span>
+              </Badge>
             </div>
           </div>
         </div>
@@ -538,7 +543,7 @@ function OverviewView({
       <div className="grid gap-4 md:grid-cols-3">
         <MetricCard label="登録銘柄" value={`${quotes.length}件`} detail={market === "jp" ? "日本株モード" : "米国株モード"} />
         <MetricCard label="選択銘柄" value={activeSymbol} detail={quotes.find((quote) => quote.symbol === activeSymbol)?.name || "価格取得待ち"} />
-        <MetricCard label="30日予想" value={forecast ? formatPct(forecast.expectedPct) : "--"} detail={forecast ? `信頼度 ${forecast.confidence}` : "データ取得後に表示"} />
+        <MetricCard label="30日予想" value={forecast ? <TrendValue value={forecast.expectedPct} /> : "--"} detail={forecast ? `信頼度 ${forecast.confidence}` : "データ取得後に表示"} />
       </div>
       <Card>
         <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -585,7 +590,7 @@ function OverviewView({
                   <TableCell className="font-mono">{quote.symbol}</TableCell>
                   <TableCell>{quote.name}</TableCell>
                   <TableCell className="text-right">{formatMoney(quote.price, quote.currency)}</TableCell>
-                  <TableCell className={`text-right ${quote.changePct >= 0 ? "text-emerald-400" : "text-red-400"}`}>{formatPct(quote.changePct)}</TableCell>
+                  <TableCell className="text-right"><TrendValue value={quote.changePct} /></TableCell>
                   <TableCell><Badge variant="outline">{quote.source}</Badge></TableCell>
                 </TableRow>
               ))}
@@ -666,8 +671,8 @@ function DiscoverView(props: {
                         <span className="text-sm text-muted-foreground">{candidate.name}</span>
                       </div>
                       <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
-                        <MetricInline label="予想" value={formatPct(candidate.forecastPct)} />
-                        <MetricInline label="3ヶ月" value={formatPct(candidate.momentumPct)} />
+                        <MetricInline label="予想" value={<TrendValue value={candidate.forecastPct} />} />
+                        <MetricInline label="3ヶ月" value={<TrendValue value={candidate.momentumPct} />} />
                         <MetricInline label="荒さ" value={`${candidate.volatilityPct.toFixed(1)}%`} />
                       </div>
                     </div>
@@ -722,7 +727,7 @@ function TradeView({
       <div className="grid gap-4 md:grid-cols-4">
         <MetricCard label="現金" value={formatMoney(summary.cash, activeQuote?.currency)} detail="発注可能な残高" />
         <MetricCard label="評価額" value={formatMoney(summary.marketValue, activeQuote?.currency)} detail="建玉の概算" />
-        <MetricCard label="総資産" value={formatMoney(summary.total, activeQuote?.currency)} detail={formatPct(summary.pnlPct)} />
+        <MetricCard label="総資産" value={formatMoney(summary.total, activeQuote?.currency)} detail={<TrendValue value={summary.pnlPct} />} />
         <MetricCard label="注文後現金" value={formatMoney(afterCash, activeQuote?.currency)} detail="手数料除く概算" />
       </div>
       <div className="grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
@@ -741,7 +746,7 @@ function TradeView({
                 </div>
                 <div className="text-right">
                   <div className="text-lg font-semibold">{activeQuote ? formatMoney(activeQuote.price, activeQuote.currency) : "--"}</div>
-                  <div className={activeQuote && activeQuote.changePct >= 0 ? "text-emerald-400" : "text-red-400"}>{activeQuote ? formatPct(activeQuote.changePct) : "--"}</div>
+                  <div>{activeQuote ? <TrendValue value={activeQuote.changePct} /> : "--"}</div>
                 </div>
               </div>
             </div>
@@ -811,7 +816,7 @@ function TradeView({
             <div key={quote.symbol} className="rounded-md border border-border p-3">
               <div className="font-mono font-semibold">{quote.symbol}</div>
               <div className="text-sm text-muted-foreground">{quote.name}</div>
-              <div className="mt-2 flex justify-between text-sm"><span>{formatMoney(quote.price, quote.currency)}</span><span>{formatPct(quote.changePct)}</span></div>
+              <div className="mt-2 flex justify-between text-sm"><span>{formatMoney(quote.price, quote.currency)}</span><TrendValue value={quote.changePct} /></div>
             </div>
           ))}
         </CardContent>
@@ -932,7 +937,11 @@ function AssistantPanel({ beginnerMode, forecast, quote, cloudMessage }: {
         <div className="rounded-md border border-border p-3">
           <div className="text-sm font-semibold">{quote ? `${quote.symbol} の見方` : "銘柄未選択"}</div>
           <p className="mt-1 text-sm text-muted-foreground">
-            {forecast ? `30日予想は ${formatPct(forecast.expectedPct)}。信頼度は ${forecast.confidence} です。` : "ウォッチリストから銘柄を選ぶと、予想と根拠が表示されます。"}
+            {forecast ? (
+              <>
+                30日予想は <TrendValue value={forecast.expectedPct} />。信頼度は {forecast.confidence} です。
+              </>
+            ) : "ウォッチリストから銘柄を選ぶと、予想と根拠が表示されます。"}
           </p>
           <Progress value={forecast ? Math.min(100, Math.abs(forecast.expectedPct) * 4) : 0} className="mt-3" />
         </div>
@@ -943,7 +952,7 @@ function AssistantPanel({ beginnerMode, forecast, quote, cloudMessage }: {
   );
 }
 
-function MetricCard({ label, value, detail }: { label: string; value: string; detail: string }) {
+function MetricCard({ label, value, detail }: { label: string; value: ReactNode; detail: ReactNode }) {
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -955,8 +964,14 @@ function MetricCard({ label, value, detail }: { label: string; value: string; de
   );
 }
 
-function MetricInline({ label, value }: { label: string; value: string }) {
+function MetricInline({ label, value }: { label: string; value: ReactNode }) {
   return <div className="rounded-md bg-secondary p-2"><div className="text-muted-foreground">{label}</div><div className="font-mono">{value}</div></div>;
+}
+
+function TrendValue({ value, className = "" }: { value?: number | null; className?: string }) {
+  if (value == null || !Number.isFinite(value)) return <span className={className}>--</span>;
+  const colorClass = value > 0.05 ? "text-emerald-400" : value < -0.05 ? "text-red-400" : "text-muted-foreground";
+  return <span className={`${colorClass} ${className}`.trim()}>{formatPct(value)}</span>;
 }
 
 function BeginnerHint({ text }: { text: string }) {

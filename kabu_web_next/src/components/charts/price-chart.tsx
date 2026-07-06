@@ -1,6 +1,6 @@
 "use client";
 
-import { createChart, ColorType, LineSeries, type IChartApi, type ISeriesApi, type LineData, type Time } from "lightweight-charts";
+import { createChart, ColorType, LineSeries, LineStyle, type IChartApi, type ISeriesApi, type LineData, type Time } from "lightweight-charts";
 import { useEffect, useRef } from "react";
 import type { PriceBar } from "@/types/market";
 
@@ -32,7 +32,7 @@ export function PriceChart({ bars, forecastPct = 0 }: PriceChartProps) {
       crosshair: { mode: 1 },
     });
     const line = chart.addSeries(LineSeries, { color: "#38bdf8", lineWidth: 2 });
-    const forecastLine = chart.addSeries(LineSeries, { color: "#22c55e", lineWidth: 2, lineStyle: 2 });
+    const forecastLine = chart.addSeries(LineSeries, { color: trendColor(0), lineWidth: 2, lineStyle: LineStyle.Dashed });
     chartRef.current = chart;
     seriesRef.current = line;
     forecastRef.current = forecastLine;
@@ -52,6 +52,7 @@ export function PriceChart({ bars, forecastPct = 0 }: PriceChartProps) {
     if (!seriesRef.current || !forecastRef.current || !chartRef.current) return;
     const data: LineData[] = bars.map((bar) => ({ time: bar.time as Time, value: bar.close }));
     seriesRef.current.setData(data);
+    forecastRef.current.applyOptions({ color: trendColor(forecastPct) });
     forecastRef.current.setData(buildForecastLine(data, forecastPct));
     chartRef.current.timeScale().fitContent();
   }, [bars, forecastPct]);
@@ -74,4 +75,10 @@ function buildForecastLine(data: LineData[], forecastPct: number): LineData[] {
     });
   }
   return future;
+}
+
+function trendColor(value: number) {
+  if (value > 0.05) return "#22c55e";
+  if (value < -0.05) return "#f87171";
+  return "#a1a1aa";
 }
