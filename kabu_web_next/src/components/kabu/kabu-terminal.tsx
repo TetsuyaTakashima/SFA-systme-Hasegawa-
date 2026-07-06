@@ -42,6 +42,7 @@ import type {
   DemoAccount,
   HistoryResponse,
   Market,
+  MarketSource,
   Quote,
   ScreenerCandidate,
   SymbolMasterItem,
@@ -52,6 +53,8 @@ type ConfigResponse = {
   supabaseReady: boolean;
   officialProvider: string;
   officialProviderReady: boolean;
+  fallbackProvider: string;
+  fallbackProviderReady: boolean;
 };
 
 type SymbolMasterResponse = {
@@ -294,7 +297,11 @@ export function KabuTerminal() {
             </Tabs>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Badge variant={configQuery.data?.officialProviderReady ? "default" : "secondary"}>
-                {configQuery.data?.officialProviderReady ? `正式API: ${configQuery.data.officialProvider}` : "デモデータ / fallback"}
+                {configQuery.data?.officialProviderReady
+                  ? `正式API: ${configQuery.data.officialProvider}`
+                  : configQuery.data?.fallbackProviderReady
+                    ? "Yahoo実データ / fallback"
+                    : "デモデータ / fallback"}
               </Badge>
               <Badge variant={configQuery.data?.supabaseReady ? "default" : "outline"}>
                 {cloudUser ? "クラウド同期中" : configQuery.data?.supabaseReady ? "ログイン可" : "ローカル保存"}
@@ -560,7 +567,14 @@ function OverviewView({
         </CardHeader>
         <CardContent>
           {history?.bars?.length ? (
-            <PriceChart bars={history.bars} forecastPct={forecast?.expectedPct} />
+            <>
+              <PriceChart bars={history.bars} forecastPct={forecast?.expectedPct} />
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <Badge variant="outline">履歴: {sourceLabel(history.source)}</Badge>
+                <span>{history.bars.length}営業日</span>
+                <span>更新 {formatDateTime(history.updatedAt)}</span>
+              </div>
+            </>
           ) : (
             <div className="flex h-[310px] items-center justify-center rounded-md border border-dashed text-muted-foreground">
               {quoteLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : "データ取得中です"}
@@ -591,7 +605,7 @@ function OverviewView({
                   <TableCell>{quote.name}</TableCell>
                   <TableCell className="text-right">{formatMoney(quote.price, quote.currency)}</TableCell>
                   <TableCell className="text-right"><TrendValue value={quote.changePct} /></TableCell>
-                  <TableCell><Badge variant="outline">{quote.source}</Badge></TableCell>
+                  <TableCell><Badge variant="outline">{sourceLabel(quote.source)}</Badge></TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -978,7 +992,8 @@ function SettingsView({
         <CardContent className="space-y-3 text-sm">
           <StatusLine ok={Boolean(config?.supabaseReady)} label="Supabase設定" />
           <StatusLine ok={Boolean(config?.officialProviderReady)} label={`正式API ${config?.officialProvider || ""}`} />
-          <StatusLine ok label="ローカルfallback" />
+          <StatusLine ok={Boolean(config?.fallbackProviderReady)} label={`実データfallback ${config?.fallbackProvider || ""}`} />
+          <StatusLine ok label="モックfallback" />
           <Separator />
           <p className="text-muted-foreground">VercelではRoot Directoryを `kabu_web_next` に切り替えるとv2を配信できます。旧版は `kabu_web` に残してあります。</p>
         </CardContent>
@@ -1047,6 +1062,29 @@ function parsePositiveAmount(value: string) {
 
 function moneyInputValue(value: number) {
   return Number.isFinite(value) ? String(value) : "";
+}
+
+function sourceLabel(source: MarketSource) {
+  const labels: Record<MarketSource, string> = {
+    "official:polygon": "Polygon",
+    "official:alpha_vantage": "Alpha Vantage",
+    yahoo: "Yahoo Finance",
+    mock: "モック",
+    cache: "キャッシュ",
+    fallback: "fallback",
+  };
+  return labels[source] || source;
+}
+
+function formatDateTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "--";
+  return new Intl.DateTimeFormat("ja-JP", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
 }
 
 function BeginnerHint({ text }: { text: string }) {

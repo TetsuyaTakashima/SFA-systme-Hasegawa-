@@ -12,6 +12,8 @@ export function GET() {
       (provider === "polygon" && process.env.POLYGON_API_KEY) ||
       (provider === "alpha_vantage" && process.env.ALPHA_VANTAGE_API_KEY),
     ),
+    fallbackProvider: "yahoo",
+    fallbackProviderReady: true,
   }, {
     headers: { "Cache-Control": "no-store" },
   });

@@ -3,6 +3,7 @@ export type Market = "us" | "jp";
 export type MarketSource =
   | "official:polygon"
   | "official:alpha_vantage"
+  | "yahoo"
   | "mock"
   | "cache"
   | "fallback";

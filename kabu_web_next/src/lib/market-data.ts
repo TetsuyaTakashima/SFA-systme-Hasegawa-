@@ -1,7 +1,10 @@
 import type { HistoryResponse, Market, PriceBar, Quote, SymbolMasterItem } from "@/types/market";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const REAL_HISTORY_CACHE_MS = 5 * 60 * 1000;
+const MOCK_HISTORY_CACHE_MS = 30 * 1000;
 const SYMBOL_RE = /^[A-Z0-9][A-Z0-9.\-]{0,15}$/;
+const historyCache = new Map<string, { expiresAt: number; data: HistoryResponse }>();
 
 export function normalizeSymbol(symbol: string, market: Market) {
   const upper = symbol.trim().toUpperCase().replace(/\s+/g, "");
@@ -17,13 +20,16 @@ export async function getHistory(symbol: string, market: Market, range = "1y"): 
   const normalized = normalizeSymbol(symbol, market);
   if (!validateSymbol(normalized)) throw new Error("symbol format is not supported");
   const provider = process.env.MARKET_DATA_PROVIDER || "";
-  if (provider === "polygon" && market === "us" && process.env.POLYGON_API_KEY) {
-    return fetchPolygonHistory(normalized, market, range).catch(() => mockHistory(normalized, market, range));
-  }
-  if (provider === "alpha_vantage" && process.env.ALPHA_VANTAGE_API_KEY) {
-    return fetchAlphaVantageHistory(normalized, market, range).catch(() => mockHistory(normalized, market, range));
-  }
-  return mockHistory(normalized, market, range);
+  const cacheKey = `${provider || "yahoo"}:${market}:${normalized}:${range}`;
+  return cachedHistory(cacheKey, async () => {
+    if (provider === "polygon" && market === "us" && process.env.POLYGON_API_KEY) {
+      return fetchPolygonHistory(normalized, market, range).catch(() => fetchYahooHistory(normalized, market, range).catch(() => mockHistory(normalized, market, range)));
+    }
+    if (provider === "alpha_vantage" && process.env.ALPHA_VANTAGE_API_KEY) {
+      return fetchAlphaVantageHistory(normalized, market, range).catch(() => fetchYahooHistory(normalized, market, range).catch(() => mockHistory(normalized, market, range)));
+    }
+    return fetchYahooHistory(normalized, market, range).catch(() => mockHistory(normalized, market, range));
+  });
 }
 
 export async function getQuotes(symbols: string[], market: Market, master: SymbolMasterItem[] = []): Promise<Quote[]> {
@@ -155,6 +161,61 @@ async function fetchAlphaVantageHistory(symbol: string, market: Market, range: s
   };
 }
 
+async function fetchYahooHistory(symbol: string, market: Market, range: string): Promise<HistoryResponse> {
+  const url = new URL(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}`);
+  url.searchParams.set("range", rangeToYahooRange(range));
+  url.searchParams.set("interval", "1d");
+  url.searchParams.set("events", "history");
+  url.searchParams.set("includeAdjustedClose", "true");
+  const response = await fetch(url, { headers: { "User-Agent": "kabu-web-next/2.0" }, next: { revalidate: 300 } });
+  if (!response.ok) throw new Error(`Yahoo Finance upstream ${response.status}`);
+  const data = await response.json();
+  const result = data?.chart?.result?.[0];
+  const error = data?.chart?.error;
+  if (!result || error) throw new Error(error?.description || "Yahoo Finance returned no chart data");
+  const timestamps: number[] = Array.isArray(result.timestamp) ? result.timestamp : [];
+  const quote = result.indicators?.quote?.[0] || {};
+  const adjusted: Array<number | null> = result.indicators?.adjclose?.[0]?.adjclose || [];
+  const bars = timestamps
+    .map((timestamp, index) => {
+      const close = Number(adjusted[index] ?? quote.close?.[index]);
+      const open = Number(quote.open?.[index] ?? close);
+      const high = Number(quote.high?.[index] ?? close);
+      const low = Number(quote.low?.[index] ?? close);
+      const volume = Number(quote.volume?.[index] ?? 0);
+      return {
+        time: new Date(timestamp * 1000).toISOString().slice(0, 10),
+        open,
+        high,
+        low,
+        close,
+        volume: Number.isFinite(volume) ? volume : 0,
+      };
+    })
+    .filter((bar) => Number.isFinite(bar.close) && Number.isFinite(bar.open) && Number.isFinite(bar.high) && Number.isFinite(bar.low))
+    .sort((a, b) => a.time.localeCompare(b.time));
+  if (bars.length < 10) throw new Error("Yahoo Finance returned insufficient data");
+  return {
+    symbol,
+    market,
+    currency: result.meta?.currency === "JPY" ? "JPY" : market === "jp" ? "JPY" : "USD",
+    source: "yahoo",
+    updatedAt: new Date().toISOString(),
+    bars,
+  };
+}
+
+async function cachedHistory(key: string, load: () => Promise<HistoryResponse>) {
+  const cached = historyCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) return cached.data;
+  const data = await load();
+  historyCache.set(key, {
+    data,
+    expiresAt: Date.now() + (data.source === "mock" ? MOCK_HISTORY_CACHE_MS : REAL_HISTORY_CACHE_MS),
+  });
+  return data;
+}
+
 function rangeToDays(range: string) {
   const map: Record<string, number> = {
     "1m": 45,
@@ -165,6 +226,20 @@ function rangeToDays(range: string) {
     "5y": 365 * 5,
     "10y": 365 * 10,
     max: 365 * 12,
+  };
+  return map[range] || map["1y"];
+}
+
+function rangeToYahooRange(range: string) {
+  const map: Record<string, string> = {
+    "1m": "1mo",
+    "3m": "3mo",
+    "6m": "6mo",
+    "1y": "1y",
+    "3y": "3y",
+    "5y": "5y",
+    "10y": "10y",
+    max: "max",
   };
   return map[range] || map["1y"];
 }
