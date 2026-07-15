@@ -33,7 +33,7 @@
         <section class="toolbar" aria-label="施設検索と絞り込み">
           <div class="searchbox">
             <label for="searchInput">検索</label>
-            <input id="searchInput" type="search" placeholder="施設名、都道府県、管理運営機関、電話番号、アドレス、担当者、状態" />
+            <input id="searchInput" type="search" placeholder="施設名、都道府県、管理運営機関、電話番号、先方担当者、営業担当、状態" />
           </div>
           <div class="filters">
             <label>
@@ -49,8 +49,14 @@
               </select>
             </label>
             <label>
-              担当
+              営業担当
               <select id="assigneeFilter">
+                <option value="">すべて</option>
+              </select>
+            </label>
+            <label>
+              最終架電入力者
+              <select id="lastCallerFilter">
                 <option value="">すべて</option>
               </select>
             </label>
@@ -80,7 +86,6 @@
               並び替え
               <select id="sortSelect">
                 <option value="nextActionDate">次回架電が近い順</option>
-                <option value="notification">通知順</option>
                 <option value="temperature">温度感が高い順</option>
                 <option value="hidden">非表示順</option>
                 <option value="updated">最終更新が新しい順</option>
@@ -123,9 +128,9 @@
                   <th>電話</th>
                   <th>アドレス</th>
                   <th>状態</th>
-                  <th>担当者</th>
+                  <th>先方担当者</th>
                   <th>架電状況</th>
-                  <th>架電者</th>
+                  <th>最終架電入力者</th>
                   <th>検討時期</th>
                   <th>次回架電</th>
                   <th>次回アクション</th>
@@ -203,7 +208,7 @@
             <label>アドレス<input name="email" inputmode="email" /></label>
             <label>Webサイト<input name="website" inputmode="url" /></label>
             <label>担当部署<input name="department" /></label>
-            <label>担当者<input name="contactName" /></label>
+            <label>先方担当者<input name="contactName" /></label>
           </fieldset>
 
           <fieldset>
@@ -258,7 +263,7 @@
               </select>
             </label>
             <label>
-              担当スタッフ
+              営業担当
               <select name="assignedUserId"></select>
             </label>
             <label>最終接触日<input name="lastContactDate" type="date" /></label>
@@ -306,7 +311,7 @@
     </dialog>
 
     <script src="./cloud-config.js?v=20260521"></script>
-    <script src="./cloud-client.js?v=20260715-performance"></script>
-    <script src="./app.js?v=20260715-performance"></script>
+    <script src="./cloud-client.js?v=20260715-assignee-labels"></script>
+    <script src="./app.js?v=20260715-assignee-labels"></script>
   </body>
 </html>

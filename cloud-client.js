@@ -143,6 +143,9 @@
     if (filters.assignee === "__current" && filters.currentUserId) query = query.eq("assigned_user_id", filters.currentUserId);
     if (filters.assignee === "__unassigned") query = query.is("assigned_user_id", null);
     if (filters.assignee && !filters.assignee.startsWith("__")) query = query.eq("assigned_user_id", filters.assignee);
+    if (filters.lastCaller === "__current" && filters.currentUserId) query = query.eq("call_updated_by_user_id", filters.currentUserId);
+    if (filters.lastCaller === "__unassigned") query = query.is("call_updated_by_user_id", null);
+    if (filters.lastCaller && !filters.lastCaller.startsWith("__")) query = query.eq("call_updated_by_user_id", filters.lastCaller);
     if (filters.priority) query = query.eq("temperature", filters.priority);
     if (filters.recordType) query = query.eq("record_type", filters.recordType);
     if (filters.visibility === "hidden") query = query.eq("is_hidden", true);

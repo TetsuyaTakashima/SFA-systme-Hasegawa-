@@ -133,7 +133,7 @@
                     <label>
                       通知対象
                       <select id="notificationScope">
-                        <option value="assigned">自分の担当のみ</option>
+                        <option value="assigned">自分の営業担当のみ</option>
                         <option value="all">全施設</option>
                       </select>
                     </label>
@@ -220,7 +220,7 @@
                 <a class="secondary-link" href="./sample-facilities.csv" download>サンプルCSV</a>
               </div>
               <p class="import-note">
-                CSVの列名はサンプルCSVを参考にしてください。施設名、電話番号、住所、担当者などの列を自動判定して取り込みます。
+                CSVの列名はサンプルCSVを参考にしてください。施設名、電話番号、住所、先方担当者などの列を自動判定して取り込みます。
               </p>
               <section class="import-checklist" aria-labelledby="importChecklistTitle">
                 <div class="import-checklist-head">
@@ -299,7 +299,7 @@
             <label>アドレス<input name="email" inputmode="email" /></label>
             <label>Webサイト<input name="website" inputmode="url" /></label>
             <label>担当部署<input name="department" /></label>
-            <label>担当者<input name="contactName" /></label>
+            <label>先方担当者<input name="contactName" /></label>
           </fieldset>
 
           <fieldset>
@@ -354,7 +354,7 @@
               </select>
             </label>
             <label>
-              担当スタッフ
+              営業担当
               <select name="assignedUserId"></select>
             </label>
             <label>最終接触日<input name="lastContactDate" type="date" /></label>
@@ -402,7 +402,7 @@
     </dialog>
 
     <script src="./cloud-config.js?v=20260521"></script>
-    <script src="./cloud-client.js?v=20260715-performance"></script>
-    <script src="./app.js?v=20260715-performance"></script>
+    <script src="./cloud-client.js?v=20260715-assignee-labels"></script>
+    <script src="./app.js?v=20260715-assignee-labels"></script>
   </body>
 </html>

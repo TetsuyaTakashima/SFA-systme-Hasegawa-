@@ -261,7 +261,7 @@ const fieldLabels = {
   email: "アドレス",
   website: "Webサイト",
   department: "担当部署",
-  contactName: "担当者",
+  contactName: "先方担当者",
   mainHallName: "主ホール名",
   seatCount: "客席数",
   largeHallSeats: "大ホール席数",
@@ -273,10 +273,10 @@ const fieldLabels = {
   priority: "温度感",
   rating: "温度感",
   isHidden: "非表示",
-  assignedUserId: "担当スタッフ",
+  assignedUserId: "営業担当",
   lastContactDate: "最終接触日",
-  callUpdatedAt: "架電更新日",
-  callUpdatedByUserId: "架電者",
+  callUpdatedAt: "最終架電入力日時",
+  callUpdatedByUserId: "最終架電入力者",
   considerationDate: "検討時期",
   nextActionDate: "次回架電日",
   notificationLeadDays: "通知日数",
@@ -298,7 +298,7 @@ const csvAliases = {
   email: ["アドレス", "メール", "メールアドレス", "email", "mail"],
   website: ["web", "website", "url", "サイト", "ホームページ"],
   department: ["担当部署", "部署", "department"],
-  contactName: ["担当者", "担当者名", "contact", "person"],
+  contactName: ["先方担当者", "担当者", "担当者名", "contact", "person"],
   mainHallName: ["主ホール", "主ホール名", "ホール名", "main hall", "hall name"],
   seatCount: ["客席数", "座席数", "席数", "capacity", "seats"],
   largeHallSeats: ["大ホール席数", "大席数", "大ホール規模", "large hall seats", "large seats"],
@@ -310,10 +310,10 @@ const csvAliases = {
   priority: ["温度感", "優先度", "評価", "ランク", "priority", "rank", "rating", "score"],
   rating: ["旧評価", "評点"],
   isHidden: ["非表示", "表示状態", "hidden", "hide"],
-  assignedUserId: ["担当スタッフ", "担当営業", "担当者id", "assignee", "owner"],
+  assignedUserId: ["営業担当", "担当スタッフ", "担当営業", "担当者id", "assignee", "owner"],
   lastContactDate: ["最終接触日", "最終連絡日", "last contact"],
   callUpdatedAt: ["架電更新日", "最終更新日", "架電最終更新日", "call updated", "call updated at"],
-  callUpdatedByUserId: ["架電者", "最終更新者", "更新者", "caller", "call user"],
+  callUpdatedByUserId: ["最終架電入力者", "架電者", "最終更新者", "更新者", "caller", "call user"],
   considerationDate: ["検討時期", "検討日", "検討予定", "consideration date", "review date"],
   nextActionDate: ["次回対応日", "次回連絡日", "次回架電日", "架電日", "next date", "follow up"],
   notificationLeadDays: ["通知日数", "通知日前", "何日前通知", "notification days", "lead days"],
@@ -457,7 +457,7 @@ const notificationDisplayModes = {
 };
 
 const notificationScopes = {
-  assigned: "自分の担当のみ",
+  assigned: "自分の営業担当のみ",
   all: "全施設",
 };
 
@@ -524,8 +524,8 @@ const tableColumns = [
   },
   {
     id: "contactName",
-    label: "担当者",
-    cell: (venue) => inlineInput(venue, "contactName", "text", "担当者"),
+    label: "先方担当者",
+    cell: (venue) => inlineInput(venue, "contactName", "text", "先方担当者"),
   },
   {
     id: "callStatus",
@@ -534,7 +534,7 @@ const tableColumns = [
   },
   {
     id: "callUpdatedByUserId",
-    label: "架電者",
+    label: "最終架電入力者",
     cell: (venue) => escapeHtml(getUserName(venue.callUpdatedByUserId) || "-"),
   },
   {
@@ -711,6 +711,7 @@ const elements = {
   statusFilter: document.querySelector("#statusFilter"),
   prefectureFilter: document.querySelector("#prefectureFilter"),
   assigneeFilter: document.querySelector("#assigneeFilter"),
+  lastCallerFilter: document.querySelector("#lastCallerFilter"),
   priorityFilter: document.querySelector("#priorityFilter"),
   recordTypeFilter: document.querySelector("#recordTypeFilter"),
   visibilityFilter: document.querySelector("#visibilityFilter"),
@@ -814,6 +815,7 @@ function bindEvents() {
   on(elements.statusFilter, "change", () => requestVenueListRefresh(true));
   on(elements.prefectureFilter, "change", () => requestVenueListRefresh(true));
   on(elements.assigneeFilter, "change", () => requestVenueListRefresh(true));
+  on(elements.lastCallerFilter, "change", () => requestVenueListRefresh(true));
   on(elements.priorityFilter, "change", () => requestVenueListRefresh(true));
   on(elements.recordTypeFilter, "change", () => requestVenueListRefresh(true));
   on(elements.visibilityFilter, "change", () => requestVenueListRefresh(true));
@@ -1055,6 +1057,7 @@ function getVenueListFilters() {
     status: elements.statusFilter?.value ?? "",
     prefecture: elements.prefectureFilter?.value ?? "",
     assignee: elements.assigneeFilter?.value ?? "",
+    lastCaller: elements.lastCallerFilter?.value ?? "",
     priority: elements.priorityFilter?.value ?? "",
     recordType: elements.recordTypeFilter?.value ?? "",
     visibility: elements.visibilityFilter?.value ?? "visible",
@@ -1177,23 +1180,24 @@ function populateStaticFilters() {
     elements.priorityFilter.value = priorities.includes(current) ? current : "";
   }
 
-  if (elements.assigneeFilter) {
-    const current = elements.assigneeFilter.value;
-    elements.assigneeFilter.replaceChildren(new Option("すべて", ""));
-    elements.assigneeFilter.append(new Option("自分の担当のみ", "__current"));
-    elements.assigneeFilter.append(new Option("未割当", "__unassigned"));
-    users
-      .filter((user) => user.active !== false || venues.some((venue) => venue.assignedUserId === user.id))
-      .forEach((user) => {
-        elements.assigneeFilter.append(new Option(user.name, user.id));
-      });
-    const validValues = ["", "__current", "__unassigned", ...users.map((user) => user.id)];
-    elements.assigneeFilter.value = validValues.includes(current) ? current : "";
-  }
+  populateUserFilter(elements.assigneeFilter, "自分の営業担当のみ", "未割当", "assignedUserId");
+  populateUserFilter(elements.lastCallerFilter, "自分が最終入力", "未入力", "callUpdatedByUserId");
 
   populateImportPrefectureOptions();
   refreshStatusFormOptions();
   refreshTemperatureFormOptions();
+}
+
+function populateUserFilter(select, currentUserLabel, emptyLabel, relatedField) {
+  if (!select) return;
+  const current = select.value;
+  const filterableUsers = users.filter((user) => user.active !== false || venues.some((venue) => venue[relatedField] === user.id));
+  select.replaceChildren(new Option("すべて", ""));
+  select.append(new Option(currentUserLabel, "__current"));
+  select.append(new Option(emptyLabel, "__unassigned"));
+  filterableUsers.forEach((user) => select.append(new Option(user.name, user.id)));
+  const validValues = ["", "__current", "__unassigned", ...filterableUsers.map((user) => user.id)];
+  select.value = validValues.includes(current) ? current : "";
 }
 
 function populateImportPrefectureOptions() {
@@ -2520,6 +2524,7 @@ function getFilteredVenues() {
   const status = elements.statusFilter?.value ?? "";
   const prefecture = elements.prefectureFilter?.value ?? "";
   const assignee = elements.assigneeFilter?.value ?? "";
+  const lastCaller = elements.lastCallerFilter?.value ?? "";
   const priority = elements.priorityFilter?.value ?? "";
   const recordType = elements.recordTypeFilter?.value ?? "";
   const visibility = elements.visibilityFilter?.value ?? "visible";
@@ -2568,6 +2573,7 @@ function getFilteredVenues() {
         (!status || venue.status === status) &&
         (!prefecture || venuePrefecture === prefecture) &&
         matchesAssigneeFilter(venue, assignee) &&
+        matchesLastCallerFilter(venue, lastCaller) &&
         (!priority || venue.priority === priority) &&
         (!recordType || getVenueRecordType(venue) === recordType) &&
         (visibility === "all" || (visibility === "hidden" ? hidden : !hidden))
@@ -2578,10 +2584,18 @@ function getFilteredVenues() {
 }
 
 function matchesAssigneeFilter(venue, assignee) {
-  if (!assignee) return true;
-  if (assignee === "__current") return venue.assignedUserId === currentUserId;
-  if (assignee === "__unassigned") return !venue.assignedUserId;
-  return venue.assignedUserId === assignee;
+  return matchesUserFilter(venue.assignedUserId, assignee);
+}
+
+function matchesLastCallerFilter(venue, lastCaller) {
+  return matchesUserFilter(venue.callUpdatedByUserId, lastCaller);
+}
+
+function matchesUserFilter(userId, selectedUserId) {
+  if (!selectedUserId) return true;
+  if (selectedUserId === "__current") return userId === currentUserId;
+  if (selectedUserId === "__unassigned") return !userId;
+  return userId === selectedUserId;
 }
 
 function compareVenues(a, b, sortMode) {
@@ -3076,7 +3090,7 @@ function inlineAssigneeSelect(venue) {
       class="inline-control"
       data-venue-id="${escapeAttribute(venue.id)}"
       data-inline-field="assignedUserId"
-      aria-label="${escapeAttribute(`${venue.facilityName || "施設"} 担当スタッフ`)}"
+      aria-label="${escapeAttribute(`${venue.facilityName || "施設"} 営業担当`)}"
     >
       ${options.join("")}
     </select>
@@ -3368,10 +3382,10 @@ function renderDetail() {
     </section>
 
     <section class="detail-section">
-      <h3>担当者・公演情報</h3>
+      <h3>先方担当者・公演情報</h3>
       <div class="info-grid">
         ${infoItem("担当部署", venue.department)}
-        ${infoItem("担当者", venue.contactName)}
+        ${infoItem("先方担当者", venue.contactName)}
         ${infoItem("主ホール", venue.mainHallName)}
         ${infoItem("ホール規模", hallScaleText(venue))}
         ${infoItem("得意ジャンル", venue.genres)}
@@ -3385,10 +3399,10 @@ function renderDetail() {
         ${infoItem("状態", venue.status)}
         ${infoItem("温度感", temperaturePillMarkup(venue.priority), "html")}
         ${infoItem("表示状態", isVenueHidden(venue) ? "非表示" : "表示")}
-        ${infoItem("担当スタッフ", getUserName(venue.assignedUserId))}
+        ${infoItem("営業担当", getUserName(venue.assignedUserId))}
         ${infoItem("最終接触日", formatDate(venue.lastContactDate))}
-        ${infoItem("架電更新", callStatusText(venue))}
-        ${infoItem("架電者", getUserName(venue.callUpdatedByUserId))}
+        ${infoItem("架電状況", callStatusText(venue))}
+        ${infoItem("最終架電入力者", getUserName(venue.callUpdatedByUserId))}
         ${infoItem("検討時期", formatDate(venue.considerationDate))}
         ${infoItem("次回架電日", formatDate(venue.nextActionDate))}
         ${infoItem("通知日数", notificationLeadDaysText(venue))}
@@ -4037,7 +4051,7 @@ function alertVenueItemMarkup(venue) {
           <span>次回 ${escapeHtml(formatDate(venue.nextActionDate))}</span>
           <span>${escapeHtml(notificationRemainingText(venue))}</span>
           <span>${escapeHtml(location)}</span>
-          <span>担当 ${escapeHtml(getUserName(venue.assignedUserId) || "未割当")}</span>
+          <span>営業担当 ${escapeHtml(getUserName(venue.assignedUserId) || "未割当")}</span>
           <span>${escapeHtml(venue.nextAction || "次回アクション未設定")}</span>
         </div>
       </div>
@@ -4062,7 +4076,7 @@ function jumpToVenue(id) {
 
 function resetFiltersForVenueJump() {
   if (elements.searchInput) elements.searchInput.value = "";
-  [elements.statusFilter, elements.prefectureFilter, elements.assigneeFilter, elements.priorityFilter, elements.recordTypeFilter, elements.visibilityFilter].forEach((select) => {
+  [elements.statusFilter, elements.prefectureFilter, elements.assigneeFilter, elements.lastCallerFilter, elements.priorityFilter, elements.recordTypeFilter, elements.visibilityFilter].forEach((select) => {
     if (select) select.value = "";
   });
 }
@@ -4100,11 +4114,11 @@ function renderCallWorkList() {
           <div class="call-work-fields">
             <label>状態${inlineSelect(venue, "status", statusOptions)}</label>
             <label>温度感${inlineTemperatureSelect(venue)}</label>
-            <label>担当者${inlineInput(venue, "contactName", "text", "担当者")}</label>
+            <label>先方担当者${inlineInput(venue, "contactName", "text", "先方担当者")}</label>
             <label>次回架電${inlineInput(venue, "nextActionDate", "date", "次回架電日", callDateClass(venue))}</label>
             <label>通知日数${notificationLeadDaysInput(venue)}</label>
             <div class="call-status-field"><span>架電状況</span>${callStatusMarkup(venue)}</div>
-            <div class="call-status-field"><span>架電者</span><strong>${escapeHtml(getUserName(venue.callUpdatedByUserId) || "-")}</strong></div>
+            <div class="call-status-field"><span>最終架電入力者</span><strong>${escapeHtml(getUserName(venue.callUpdatedByUserId) || "-")}</strong></div>
             <label class="wide-call-field">次回アクション${inlineInput(venue, "nextAction", "text", "次回アクション")}</label>
             ${notesButtonMarkup(venue)}
           </div>
