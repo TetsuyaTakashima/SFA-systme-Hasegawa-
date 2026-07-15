@@ -61,17 +61,18 @@
     return data ? profileToUser(data) : null;
   }
 
-  async function loadWorkspace(userId) {
+  async function loadWorkspace(userId, options = {}) {
     if (!client) throw new Error("Supabaseが設定されていません。");
-    const [profiles, statusOptions, temperatureOptions, venues, preferences, histories, currentProfile] = await Promise.all([
+    const loadVenues = options.loadVenues !== false;
+    const [profiles, statusOptions, temperatureOptions, venues, preferences, currentProfile] = await Promise.all([
       fetchProfiles(),
       fetchStatusOptions(),
       fetchTemperatureOptions(),
-      fetchVenues(),
+      loadVenues ? fetchVenues() : Promise.resolve([]),
       fetchUserPreferences(userId),
-      fetchCallHistories(),
       getCurrentProfile(),
     ]);
+    const histories = currentProfile?.role === "admin" ? await Promise.all([fetchCallHistories(), fetchAuditEvents()]) : [[], []];
 
     const venueMap = new Map(venues.map((venue) => [venue.id, venue]));
     return {
@@ -82,7 +83,7 @@
       temperatureMeta: Object.fromEntries(temperatureOptions.map((item) => [item.level, { label: item.label, color: item.color }])),
       venues,
       preferences,
-      callHistory: histories.map((entry) => ({
+      callHistory: histories.flat().map((entry) => ({
         ...entry,
         facilityName: venueMap.get(entry.venueId)?.facilityName || entry.facilityName || "名称未設定",
       })),
@@ -131,13 +132,116 @@
     return rows.map(venueRowToVenue);
   }
 
+  async function fetchVenuePage(filters = {}) {
+    const page = Math.max(1, Number(filters.page) || 1);
+    const pageSize = Math.min(200, Math.max(25, Number(filters.pageSize) || 50));
+    const sort = getVenueSort(filters.sort);
+    let query = client.from("venues").select("*", { count: "exact" });
+
+    if (filters.status) query = query.eq("status", filters.status);
+    if (filters.prefecture) query = query.eq("prefecture", filters.prefecture);
+    if (filters.assignee === "__current" && filters.currentUserId) query = query.eq("assigned_user_id", filters.currentUserId);
+    if (filters.assignee === "__unassigned") query = query.is("assigned_user_id", null);
+    if (filters.assignee && !filters.assignee.startsWith("__")) query = query.eq("assigned_user_id", filters.assignee);
+    if (filters.priority) query = query.eq("temperature", filters.priority);
+    if (filters.recordType) query = query.eq("record_type", filters.recordType);
+    if (filters.visibility === "hidden") query = query.eq("is_hidden", true);
+    if (filters.visibility !== "all" && filters.visibility !== "hidden") query = query.eq("is_hidden", false);
+
+    const search = normalizeVenueSearch(filters.search);
+    if (search) {
+      const pattern = `*${search}*`;
+      query = query.or(
+        ["facility_name", "category", "operator", "prefecture", "municipality", "address", "phone", "email", "department", "contact_name", "genres", "status", "next_action", "notes"]
+          .map((column) => `${column}.ilike.${pattern}`)
+          .join(",")
+      );
+    }
+
+    const from = (page - 1) * pageSize;
+    const { data, error, count } = await query
+      .order(sort.column, { ascending: sort.ascending, nullsFirst: false })
+      .order("id", { ascending: true })
+      .range(from, from + pageSize - 1);
+    if (error) throw error;
+    return {
+      venues: (data || []).map(venueRowToVenue),
+      total: Number.isFinite(Number(count)) ? Number(count) : (data || []).length,
+      page,
+      pageSize,
+    };
+  }
+
+  async function fetchVenueById(id) {
+    if (!id) return null;
+    const { data, error } = await client.from("venues").select("*").eq("id", id).maybeSingle();
+    if (error) throw error;
+    return data ? venueRowToVenue(data) : null;
+  }
+
+  async function fetchVenuePrefectures() {
+    const values = [];
+    for (let from = 0; ; from += venueFetchPageSize) {
+      const { data, error } = await client
+        .from("venues")
+        .select("prefecture")
+        .order("prefecture", { ascending: true })
+        .range(from, from + venueFetchPageSize - 1);
+      if (error) throw error;
+      values.push(...(data || []).map((row) => row.prefecture).filter(Boolean));
+      if (!data || data.length < venueFetchPageSize) break;
+    }
+    return [...new Set(values)];
+  }
+
+  async function fetchUpcomingVenues(currentUserId, scope = "assigned", limit = 250) {
+    let query = client
+      .from("venues")
+      .select("*")
+      .eq("is_hidden", false)
+      .order("next_action_date", { ascending: true, nullsFirst: false })
+      .limit(limit);
+    if (scope !== "all" && currentUserId) query = query.eq("assigned_user_id", currentUserId);
+    const { data, error } = await query;
+    if (error) throw error;
+    return (data || []).map(venueRowToVenue);
+  }
+
+  async function updateVenue(venue, currentUserId, expectedLockVersion) {
+    if (!client || !venue?.id) throw new Error("更新対象の営業先が見つかりません。");
+    const row = venueToRow(venue, currentUserId);
+    delete row.id;
+    delete row.created_at;
+    delete row.created_by;
+    row.lock_version = Math.max(1, Number(expectedLockVersion || venue.lockVersion || 1)) + 1;
+    row.updated_at = new Date().toISOString();
+
+    const { data, error } = await client
+      .from("venues")
+      .update(row)
+      .eq("id", venue.id)
+      .eq("lock_version", Math.max(1, Number(expectedLockVersion || venue.lockVersion || 1)))
+      .select()
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return { conflict: true, venue: null };
+    return { conflict: false, venue: venueRowToVenue(data) };
+  }
+
   async function fetchCallHistories() {
     const { data, error } = await client.from("call_histories").select("*").order("changed_at", { ascending: false }).limit(1000);
-    if (error) {
-      if (String(error.message || "").toLowerCase().includes("permission")) return [];
-      return [];
-    }
+    if (error) throw error;
     return (data || []).map(historyRowToEntry);
+  }
+
+  async function fetchAuditEvents() {
+    const { data, error } = await client
+      .from("audit_events")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(1000);
+    if (error) throw error;
+    return (data || []).map(auditRowToEntry);
   }
 
   async function fetchUserPreferences(userId) {
@@ -325,6 +429,7 @@
       id: row.id,
       facilityName: row.facility_name || "",
       category: row.category || "",
+      recordType: row.record_type === "school" ? "school" : "facility",
       operator: row.operator || "",
       prefecture: row.prefecture || "",
       municipality: row.municipality || "",
@@ -368,6 +473,7 @@
       id: ensureUuid(venue.id),
       facility_name: String(venue.facilityName || "").trim() || "名称未設定",
       category: textOrNull(venue.category),
+      record_type: venue.recordType === "school" ? "school" : "facility",
       operator: textOrNull(venue.operator),
       prefecture: textOrNull(venue.prefecture),
       municipality: textOrNull(venue.municipality),
@@ -417,6 +523,55 @@
       changedByUserId: row.changed_by_user_id || "",
       changedAt: row.changed_at || "",
     };
+  }
+
+  function auditRowToEntry(row) {
+    const before = row.before_data && typeof row.before_data === "object" ? row.before_data : {};
+    const after = row.after_data && typeof row.after_data === "object" ? row.after_data : {};
+    const fields = Array.isArray(row.changed_fields) ? row.changed_fields : [];
+    const label = row.action === "insert" ? "新規登録" : row.action === "delete" ? "削除" : `更新: ${fields.join(", ") || "項目"}`;
+    return {
+      id: row.id,
+      venueId: row.entity_type === "venues" ? row.entity_id : "",
+      facilityName: after.facility_name || before.facility_name || after.name || before.name || (row.entity_type === "profiles" ? "ユーザー設定" : "名称未設定"),
+      field: row.action === "update" ? fields[0] || "audit" : row.action,
+      fieldLabel: label,
+      previousValue: auditValueSummary(before, fields),
+      nextValue: auditValueSummary(after, fields),
+      changedByUserId: row.actor_id || "",
+      changedAt: row.created_at || "",
+      isAudit: true,
+    };
+  }
+
+  function auditValueSummary(values, fields) {
+    if (!values || !fields?.length) return "";
+    return fields
+      .slice(0, 4)
+      .map((field) => `${field}: ${values[field] ?? "-"}`)
+      .join(" / ");
+  }
+
+  function getVenueSort(value) {
+    const sort = {
+      notification: { column: "next_action_date", ascending: true },
+      temperature: { column: "temperature", ascending: true },
+      hidden: { column: "is_hidden", ascending: false },
+      updated: { column: "updated_at", ascending: false },
+      prefecture: { column: "prefecture", ascending: true },
+      name: { column: "facility_name", ascending: true },
+      nextActionDate: { column: "next_action_date", ascending: true },
+    };
+    return sort[value] || sort.nextActionDate;
+  }
+
+  function normalizeVenueSearch(value) {
+    return String(value || "")
+      .trim()
+      .replace(/[(),]/g, " ")
+      .replace(/[%*]/g, "")
+      .replace(/\s+/g, " ")
+      .slice(0, 100);
   }
 
   function historyEntryToRow(entry) {
@@ -580,22 +735,34 @@
       this.single = false;
     }
 
-    select(columns = "*") {
-      this.method = "GET";
+    select(columns = "*", options = {}) {
+      if (this.method === "GET") this.method = "GET";
       this.params.set("select", columns);
+      if (options.count === "exact") this.headers.Prefer = appendPrefer(this.headers.Prefer, "count=exact");
       return this;
     }
 
     order(column, options = {}) {
       const direction = options.ascending === false ? "desc" : "asc";
-      const nextOrder = `${column}.${direction}`;
+      const nulls = options.nullsFirst === false ? ".nullslast" : options.nullsFirst === true ? ".nullsfirst" : "";
+      const nextOrder = `${column}.${direction}${nulls}`;
       const currentOrder = this.params.get("order");
       this.params.set("order", currentOrder ? `${currentOrder},${nextOrder}` : nextOrder);
       return this;
     }
 
     eq(column, value) {
-      this.params.set(column, `eq.${value}`);
+      this.params.set(column, `eq.${encodeRestFilterValue(value)}`);
+      return this;
+    }
+
+    is(column, value) {
+      this.params.set(column, `is.${value === null ? "null" : encodeRestFilterValue(value)}`);
+      return this;
+    }
+
+    or(filters) {
+      this.params.set("or", `(${filters})`);
       return this;
     }
 
@@ -665,9 +832,9 @@
         const payload = text ? JSON.parse(text) : null;
         if (!response.ok) throw restError(payload, response.status);
         const data = this.single ? (Array.isArray(payload) ? payload[0] || null : payload) : payload;
-        return { data, error: null };
+        return { data, error: null, count: getContentRangeCount(response.headers.get("content-range")) };
       } catch (error) {
-        return { data: null, error };
+        return { data: null, error, count: null };
       }
     }
   }
@@ -731,6 +898,19 @@
     return error;
   }
 
+  function appendPrefer(current, value) {
+    return [current, value].filter(Boolean).join(",");
+  }
+
+  function encodeRestFilterValue(value) {
+    return String(value ?? "").replace(/,/g, "\\,");
+  }
+
+  function getContentRangeCount(value) {
+    const count = String(value || "").split("/")[1];
+    return /^\d+$/.test(count) ? Number(count) : null;
+  }
+
   function isMissingSchemaError(error) {
     const message = String(error?.message || error?.details || "").toLowerCase();
     const code = String(error?.code || "").toUpperCase();
@@ -745,11 +925,17 @@
     signOut,
     getCurrentProfile,
     loadWorkspace,
+    fetchVenuePage,
+    fetchVenueById,
+    fetchAuditEvents,
+    fetchVenuePrefectures,
+    fetchUpcomingVenues,
     saveUserPreferences,
     createUser,
     updateProfile,
     deleteProfile,
     upsertVenues,
+    updateVenue,
     deleteVenue,
     insertCallHistories,
     upsertStatusOptions,

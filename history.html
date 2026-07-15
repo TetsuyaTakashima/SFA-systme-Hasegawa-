@@ -3,15 +3,15 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>架電履歴・集計 | 文化施設 営業管理</title>
-    <link rel="stylesheet" href="./styles.css?v=20260619-import-checklist" />
+    <title>変更履歴・集計 | 文化施設 営業管理</title>
+    <link rel="stylesheet" href="./styles.css?v=20260715-performance" />
   </head>
   <body>
     <div class="app-shell history-shell">
       <header class="topbar">
         <div>
           <p class="eyebrow">Call Analytics</p>
-          <h1>架電履歴・集計</h1>
+          <h1>変更履歴・集計</h1>
         </div>
         <div class="topbar-actions">
           <label class="current-user-mini">
@@ -28,13 +28,13 @@
       <main class="workspace">
         <section class="access-panel" id="historyAccessDenied" hidden>
           <h2>管理者のみ閲覧できます</h2>
-          <p>架電履歴と集計は管理ユーザーだけが確認できます。</p>
+          <p>変更履歴と集計は管理ユーザーだけが確認できます。</p>
         </section>
 
         <section id="historyContent" class="history-content" hidden>
-          <section class="summary-grid" aria-label="架電集計">
+          <section class="summary-grid" aria-label="変更履歴の集計">
             <div class="metric-panel">
-              <span>履歴件数</span>
+              <span>変更件数</span>
               <strong id="historyMetricTotal">0</strong>
             </div>
             <div class="metric-panel">
@@ -46,7 +46,7 @@
               <strong id="historyMetricVenues">0</strong>
             </div>
             <div class="metric-panel">
-              <span>架電者</span>
+              <span>更新者</span>
               <strong id="historyMetricCallers">0</strong>
             </div>
           </section>
@@ -54,7 +54,7 @@
           <section class="analytics-grid">
             <section class="analytics-panel" aria-labelledby="callerSummaryTitle">
               <div class="panel-head compact">
-                <h2 id="callerSummaryTitle">架電者別</h2>
+                <h2 id="callerSummaryTitle">更新者別</h2>
               </div>
               <div class="panel-body" id="callerSummary"></div>
             </section>
@@ -69,7 +69,7 @@
 
           <section class="list-panel full-list" aria-labelledby="historyTableTitle">
             <div class="panel-head">
-              <h2 id="historyTableTitle">架電履歴一覧</h2>
+              <h2 id="historyTableTitle">変更履歴一覧</h2>
               <label class="checkbox-line compact-checkbox">
                 <input id="historyImportantOnly" type="checkbox" />
                 <span>重要項目のみ</span>
@@ -80,8 +80,8 @@
                 <thead>
                   <tr>
                     <th>日時</th>
-                    <th>施設名</th>
-                    <th>架電者</th>
+                    <th>対象</th>
+                    <th>更新者</th>
                     <th>項目</th>
                     <th>変更前</th>
                     <th>変更後</th>
@@ -96,7 +96,7 @@
     </div>
 
     <script src="./cloud-config.js?v=20260521"></script>
-    <script src="./cloud-client.js?v=20260619-record-type-filter"></script>
-    <script src="./app.js?v=20260619-import-checklist"></script>
+    <script src="./cloud-client.js?v=20260715-performance"></script>
+    <script src="./app.js?v=20260715-performance"></script>
   </body>
 </html>

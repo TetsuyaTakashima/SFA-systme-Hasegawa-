@@ -1059,6 +1059,58 @@ h2 {
   box-shadow: none;
 }
 
+.list-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 16px 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.page-summary {
+  min-width: 190px;
+  text-align: center;
+}
+
+.page-size-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.page-size-field select {
+  min-height: 36px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--text);
+}
+
+.record-type-pill {
+  display: inline-flex;
+  min-width: 42px;
+  min-height: 26px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: #edf5f3;
+  color: var(--green);
+  font-size: 0.78rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.record-type-pill.school {
+  border-color: #c3d4ea;
+  background: #edf4fb;
+  color: #265f9e;
+}
+
 .searchbox,
 .filters label,
 fieldset label {
@@ -2060,6 +2112,18 @@ legend {
   .filters {
     display: grid;
     grid-template-columns: 1fr;
+  }
+
+  .list-pagination {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    padding-inline: 12px;
+  }
+
+  .page-summary {
+    min-width: 0;
+    flex: 1 1 100%;
+    text-align: left;
   }
 
   .management-menu-field {

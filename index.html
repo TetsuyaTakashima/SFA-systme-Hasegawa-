@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>文化施設 営業管理</title>
-    <link rel="stylesheet" href="./styles.css?v=20260619-import-checklist" />
+    <link rel="stylesheet" href="./styles.css?v=20260715-performance" />
   </head>
   <body>
     <div class="app-shell">
@@ -52,7 +52,7 @@
                 <option value="notificationTab">通知設定</option>
                 <option value="statusTab" data-admin-only>状態項目管理</option>
                 <option value="temperatureTab" data-admin-only>温度感設定</option>
-                <option value="importTab">CSV取り込み</option>
+                <option value="importTab" data-admin-only>CSV取り込み</option>
               </select>
             </label>
           </div>
@@ -189,7 +189,7 @@
             </section>
           </section>
 
-          <section class="tab-panel" id="importTab" role="tabpanel" aria-label="CSV取り込み" hidden>
+          <section class="tab-panel" id="importTab" role="tabpanel" aria-label="CSV取り込み" data-admin-only-section hidden>
             <section class="import-panel" aria-labelledby="importTitle">
               <div>
                 <h2 id="importTitle">CSV取り込み</h2>
@@ -402,7 +402,7 @@
     </dialog>
 
     <script src="./cloud-config.js?v=20260521"></script>
-    <script src="./cloud-client.js?v=20260619-record-type-filter"></script>
-    <script src="./app.js?v=20260619-import-checklist"></script>
+    <script src="./cloud-client.js?v=20260715-performance"></script>
+    <script src="./app.js?v=20260715-performance"></script>
   </body>
 </html>

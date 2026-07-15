@@ -11,7 +11,8 @@ const VISIBLE_COLUMNS_KEY = "culturalVenueCrm.visibleColumns.v1";
 const COLUMN_SCHEMA_VERSION_KEY = "culturalVenueCrm.columnSchemaVersion.v1";
 const STATUS_META_KEY = "culturalVenueCrm.statusMeta.v1";
 const TEMPERATURE_META_KEY = "culturalVenueCrm.temperatureMeta.v1";
-const COLUMN_SCHEMA_VERSION = 3;
+const COLUMN_SCHEMA_VERSION = 4;
+const LIST_PAGE_SIZE = 50;
 
 const defaultStatuses = ["未着手", "情報収集中", "初回連絡済", "提案中", "見積・調整中", "成約", "保留", "架電NG"];
 const defaultStatusMeta = {
@@ -249,6 +250,7 @@ const prefectureInferenceRules = [
 
 const fieldLabels = {
   facilityName: "施設名",
+  recordType: "区分",
   category: "種別",
   operator: "管理運営機関",
   prefecture: "都道府県",
@@ -285,6 +287,7 @@ const fieldLabels = {
 
 const csvAliases = {
   facilityName: ["施設名", "会館名", "ホール名", "劇場名", "名称", "name", "facility", "venue"],
+  recordType: ["区分", "登録種別", "データ種別", "record type"],
   category: ["種別", "分類", "施設種別", "category", "type"],
   operator: ["管理運営機関", "運営主体", "運営者", "指定管理者", "管理者", "operator"],
   prefecture: ["都道府県", "都道府県名", "県", "県名", "prefecture", "pref"],
@@ -460,6 +463,11 @@ const notificationScopes = {
 
 const tableColumns = [
   {
+    id: "recordType",
+    label: "区分",
+    cell: (venue) => `<span class="record-type-pill ${escapeAttribute(getVenueRecordType(venue))}">${escapeHtml(getVenueRecordTypeLabel(venue))}</span>`,
+  },
+  {
     id: "programPolicy",
     label: "自主事業",
     cell: (venue) => inlineSelect(venue, "programPolicy", programPolicyOptions, "program-policy-control"),
@@ -563,6 +571,7 @@ const tableColumns = [
 
 const defaultColumnOrder = tableColumns.map((column) => column.id);
 const columnWidthHints = {
+  recordType: 82,
   programPolicy: 100,
   facilityName: 230,
   operator: 180,
@@ -673,6 +682,17 @@ let saveStatusTimer = null;
 let lastUndoSnapshot = null;
 let remoteDataReady = false;
 let remoteSaveNoticeShown = false;
+let listPrefectureOptions = [];
+let listAlertVenues = [];
+let listSearchTimer = null;
+let pendingVenueJumpId = "";
+let listState = {
+  page: 1,
+  pageSize: LIST_PAGE_SIZE,
+  total: 0,
+  loading: false,
+  requestId: 0,
+};
 
 const elements = {
   metricTotal: document.querySelector("#metricTotal"),
@@ -697,6 +717,11 @@ const elements = {
   sortSelect: document.querySelector("#sortSelect"),
   venueTableBody: document.querySelector("#venueTableBody"),
   visibleCount: document.querySelector("#visibleCount"),
+  listPagination: document.querySelector("#listPagination"),
+  previousPageButton: document.querySelector("#previousPageButton"),
+  nextPageButton: document.querySelector("#nextPageButton"),
+  pageSizeSelect: document.querySelector("#pageSizeSelect"),
+  pageSummary: document.querySelector("#pageSummary"),
   pinnedColumnControls: document.querySelector("#pinnedColumnControls"),
   visibleColumnControls: document.querySelector("#visibleColumnControls"),
   columnPresetControls: document.querySelector("#columnPresetControls"),
@@ -767,25 +792,38 @@ init();
 
 async function init() {
   if (!(await requireAuthenticatedUser())) return;
-  await initializeRemoteData();
+  const listPage = isVenueListPage();
+  await initializeRemoteData({ loadVenues: !listPage });
   ensureVenueMetadata();
   ensureColumnSchema();
   setupTabs();
   populateStaticFilters();
   bindEvents();
+  if (listPage && isRemoteDataMode()) {
+    await loadListSupportData();
+    await reloadVenueList();
+  } else if (listPage) {
+    listState.total = venues.length;
+  }
   render();
   startNotificationChecks();
 }
 
 function bindEvents() {
-  on(elements.searchInput, "input", render);
-  on(elements.statusFilter, "change", render);
-  on(elements.prefectureFilter, "change", render);
-  on(elements.assigneeFilter, "change", render);
-  on(elements.priorityFilter, "change", render);
-  on(elements.recordTypeFilter, "change", render);
-  on(elements.visibilityFilter, "change", render);
-  on(elements.sortSelect, "change", render);
+  on(elements.searchInput, "input", () => requestVenueListRefresh(true, true));
+  on(elements.statusFilter, "change", () => requestVenueListRefresh(true));
+  on(elements.prefectureFilter, "change", () => requestVenueListRefresh(true));
+  on(elements.assigneeFilter, "change", () => requestVenueListRefresh(true));
+  on(elements.priorityFilter, "change", () => requestVenueListRefresh(true));
+  on(elements.recordTypeFilter, "change", () => requestVenueListRefresh(true));
+  on(elements.visibilityFilter, "change", () => requestVenueListRefresh(true));
+  on(elements.sortSelect, "change", () => requestVenueListRefresh(false));
+  on(elements.previousPageButton, "click", () => changeVenueListPage(-1));
+  on(elements.nextPageButton, "click", () => changeVenueListPage(1));
+  on(elements.pageSizeSelect, "change", () => {
+    listState.pageSize = Number(elements.pageSizeSelect.value) || LIST_PAGE_SIZE;
+    requestVenueListRefresh(true);
+  });
   on(elements.csvFile, "change", handleCsvSelection);
   on(elements.importPrefecture, "change", handleImportPrefectureChange);
   on(elements.importRecordType, "change", handleImportRecordTypeChange);
@@ -897,7 +935,7 @@ async function logoutCurrentUser() {
       console.error("Supabase sign out failed", error);
     }
   }
-  window.localStorage.removeItem(AUTH_SESSION_KEY);
+  clearLocalCrmData();
   const pageName = getCurrentPageName();
   const next = encodeURIComponent(`${pageName}${window.location.search || ""}${window.location.hash || ""}`);
   window.location.href = `./login.html?next=${next}`;
@@ -915,12 +953,12 @@ function isRemoteDataMode() {
   return remoteDataReady && isSupabaseEnabled();
 }
 
-async function initializeRemoteData() {
+async function initializeRemoteData(options = {}) {
   if (!isSupabaseEnabled()) return;
 
   markSaved("Supabase同期中...");
   try {
-    const workspace = await window.crmSupabase.loadWorkspace(currentUserId);
+    const workspace = await window.crmSupabase.loadWorkspace(currentUserId, options);
     const currentUser = workspace.currentUser || users.find((user) => user.id === currentUserId);
 
     users = workspace.users.length ? workspace.users.map(normalizeUserAccount) : users;
@@ -967,8 +1005,13 @@ async function initializeRemoteData() {
 
 function cacheCurrentDataLocally() {
   writeJsonStorage(USERS_KEY, users);
-  writeJsonStorage(STORAGE_KEY, venues);
-  writeJsonStorage(CALL_HISTORY_KEY, callHistory);
+  if (!isRemoteDataMode()) {
+    writeJsonStorage(STORAGE_KEY, venues);
+    writeJsonStorage(CALL_HISTORY_KEY, callHistory);
+  } else {
+    window.localStorage.removeItem(STORAGE_KEY);
+    window.localStorage.removeItem(CALL_HISTORY_KEY);
+  }
   writeJsonStorage(STATUS_OPTIONS_KEY, statusOptions);
   writeJsonStorage(STATUS_META_KEY, statusMeta);
   writeJsonStorage(TEMPERATURE_META_KEY, temperatureMeta);
@@ -976,6 +1019,127 @@ function cacheCurrentDataLocally() {
   writeJsonStorage(PINNED_COLUMNS_KEY, pinnedColumns);
   writeJsonStorage(VISIBLE_COLUMNS_KEY, visibleColumns);
   writeJsonStorage(getNotificationSettingsStorageKey(), notificationSettings);
+}
+
+function clearLocalCrmData() {
+  const keys = [];
+  for (let index = 0; index < window.localStorage.length; index += 1) {
+    const key = window.localStorage.key(index);
+    if (key?.startsWith("culturalVenueCrm.")) keys.push(key);
+  }
+  keys.forEach((key) => window.localStorage.removeItem(key));
+}
+
+function isVenueListPage() {
+  return getCurrentPageName() === "list.html";
+}
+
+async function loadListSupportData() {
+  if (!isRemoteDataMode() || !isVenueListPage()) return;
+  try {
+    const [prefectures, alerts] = await Promise.all([
+      window.crmSupabase.fetchVenuePrefectures(),
+      window.crmSupabase.fetchUpcomingVenues(currentUserId, getNotificationScope()),
+    ]);
+    listPrefectureOptions = prefectures;
+    listAlertVenues = alerts;
+  } catch (error) {
+    console.error("Venue list support data load failed", error);
+    markSaved("一覧補助データの取得エラー");
+  }
+}
+
+function getVenueListFilters() {
+  return {
+    search: elements.searchInput?.value ?? "",
+    status: elements.statusFilter?.value ?? "",
+    prefecture: elements.prefectureFilter?.value ?? "",
+    assignee: elements.assigneeFilter?.value ?? "",
+    priority: elements.priorityFilter?.value ?? "",
+    recordType: elements.recordTypeFilter?.value ?? "",
+    visibility: elements.visibilityFilter?.value ?? "visible",
+    sort: elements.sortSelect?.value ?? "nextActionDate",
+    currentUserId,
+    page: listState.page,
+    pageSize: listState.pageSize,
+  };
+}
+
+function requestVenueListRefresh(resetPage = false, debounce = false) {
+  if (!isVenueListPage() || !isRemoteDataMode()) {
+    render();
+    return;
+  }
+  if (resetPage) listState.page = 1;
+  if (listSearchTimer) window.clearTimeout(listSearchTimer);
+  if (debounce) {
+    listSearchTimer = window.setTimeout(() => reloadVenueList(), 220);
+    return;
+  }
+  reloadVenueList();
+}
+
+async function reloadVenueList() {
+  if (!isVenueListPage() || !isRemoteDataMode()) return;
+  const requestId = ++listState.requestId;
+  listState.loading = true;
+  markSaved("一覧を読み込み中...");
+  renderVenuePagination();
+  try {
+    const result = await window.crmSupabase.fetchVenuePage(getVenueListFilters());
+    if (requestId !== listState.requestId) return;
+    const maxPage = Math.max(1, Math.ceil(result.total / result.pageSize));
+    if (result.total && result.page > maxPage) {
+      listState.page = maxPage;
+      await reloadVenueList();
+      return;
+    }
+    venues = result.venues;
+    listState.total = result.total;
+    listState.page = result.page;
+    listState.pageSize = result.pageSize;
+    if (!venues.some((venue) => venue.id === selectedId)) selectedId = venues[0]?.id || null;
+    remoteDataReady = true;
+    markSaved("Supabase同期済み");
+    render();
+    if (pendingVenueJumpId && venues.some((venue) => venue.id === pendingVenueJumpId)) {
+      const id = pendingVenueJumpId;
+      pendingVenueJumpId = "";
+      selectVenue(id, { scroll: true });
+    }
+  } catch (error) {
+    if (requestId !== listState.requestId) return;
+    console.error("Venue list load failed", error);
+    markSaved("一覧の取得エラー");
+    notifyMessage(`営業先一覧の取得に失敗しました: ${error.message || "設定を確認してください。"}`);
+  } finally {
+    if (requestId === listState.requestId) {
+      listState.loading = false;
+      renderVenuePagination();
+    }
+  }
+}
+
+function changeVenueListPage(delta) {
+  const pageCount = Math.max(1, Math.ceil(listState.total / listState.pageSize));
+  const nextPage = Math.min(pageCount, Math.max(1, listState.page + delta));
+  if (nextPage === listState.page || listState.loading) return;
+  listState.page = nextPage;
+  reloadVenueList();
+}
+
+function renderVenuePagination() {
+  if (!elements.listPagination) return;
+  const pageCount = Math.max(1, Math.ceil(listState.total / listState.pageSize));
+  const from = listState.total ? (listState.page - 1) * listState.pageSize + 1 : 0;
+  const to = Math.min(listState.page * listState.pageSize, listState.total);
+  elements.listPagination.hidden = false;
+  if (elements.pageSizeSelect) elements.pageSizeSelect.value = String(listState.pageSize);
+  if (elements.pageSummary) {
+    elements.pageSummary.textContent = listState.loading ? "読み込み中..." : `${from}-${to}件 / ${listState.total}件（${listState.page}/${pageCount}ページ）`;
+  }
+  if (elements.previousPageButton) elements.previousPageButton.disabled = listState.loading || listState.page <= 1;
+  if (elements.nextPageButton) elements.nextPageButton.disabled = listState.loading || listState.page >= pageCount;
 }
 
 function updateManagementMenuAccess() {
@@ -1091,7 +1255,7 @@ function loadVenues() {
 }
 
 function saveVenues(changedVenueIds = null) {
-  writeJsonStorage(STORAGE_KEY, venues);
+  if (!isRemoteDataMode()) writeJsonStorage(STORAGE_KEY, venues);
   queueRemoteVenueSave(changedVenueIds);
 }
 
@@ -1130,7 +1294,7 @@ function loadCallHistory() {
 }
 
 function saveCallHistory() {
-  writeJsonStorage(CALL_HISTORY_KEY, callHistory);
+  if (!isRemoteDataMode()) writeJsonStorage(CALL_HISTORY_KEY, callHistory);
 }
 
 function loadStatusOptions() {
@@ -1302,6 +1466,32 @@ function queueRemoteVenueSave(changedVenueIds = null) {
     .catch((error) => handleRemoteSaveError(error));
 }
 
+function queueRemoteVenueUpdate(nextVenue, previousVenue) {
+  if (!isRemoteDataMode() || !nextVenue?.id || !previousVenue) return;
+  markSaved("Supabase保存中...");
+  window.crmSupabase
+    .updateVenue(nextVenue, currentUserId, previousVenue.lockVersion)
+    .then(async (result) => {
+      if (result.conflict) {
+        const latest = await window.crmSupabase.fetchVenueById(nextVenue.id);
+        if (latest) venues = venues.map((venue) => (venue.id === latest.id ? latest : venue));
+        lastUndoSnapshot = null;
+        if (elements.undoChangeButton) elements.undoChangeButton.hidden = true;
+        render();
+        notifyMessage("他のユーザーが先に更新しました。最新の内容を表示しています。必要な変更をもう一度入力してください。");
+        markSaved("同時更新を検知しました");
+        return;
+      }
+      if (result.venue) venues = venues.map((venue) => (venue.id === result.venue.id ? result.venue : venue));
+      markSaved("Supabase保存済み");
+    })
+    .catch((error) => {
+      venues = venues.map((venue) => (venue.id === previousVenue.id ? previousVenue : venue));
+      render();
+      handleRemoteSaveError(error);
+    });
+}
+
 function queueRemoteVenueDelete(id) {
   if (!isRemoteDataMode() || !id) return;
   markSaved("Supabase削除中...");
@@ -1377,13 +1567,21 @@ function cloneForUndo(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
-function createUndoSnapshot(label = "変更") {
+function createUndoSnapshot(label = "変更", venueIds = []) {
+  const ids = [...new Set((Array.isArray(venueIds) ? venueIds : [venueIds]).filter(Boolean))];
+  const previousVenues = Object.fromEntries(
+    ids
+      .map((id) => [id, venues.find((venue) => venue.id === id)])
+      .filter(([, venue]) => venue)
+      .map(([id, venue]) => [id, cloneForUndo(venue)])
+  );
   return {
     label,
-    venues: cloneForUndo(venues),
+    previousVenues,
+    absentVenueIds: ids.filter((id) => !previousVenues[id]),
     selectedId,
     notificationSettings: cloneForUndo(notificationSettings),
-    callHistory: cloneForUndo(callHistory),
+    callHistory: isRemoteDataMode() ? null : cloneForUndo(callHistory),
   };
 }
 
@@ -1396,14 +1594,16 @@ function setUndoSnapshot(snapshot) {
 
 function undoLastChange() {
   if (!lastUndoSnapshot) return;
-  venues = cloneForUndo(lastUndoSnapshot.venues);
+  const previousVenues = Object.values(lastUndoSnapshot.previousVenues || {});
+  const replacedIds = new Set([...Object.keys(lastUndoSnapshot.previousVenues || {}), ...(lastUndoSnapshot.absentVenueIds || [])]);
+  venues = [...previousVenues, ...venues.filter((venue) => !replacedIds.has(venue.id))];
   selectedId = lastUndoSnapshot.selectedId;
   notificationSettings = cloneForUndo(lastUndoSnapshot.notificationSettings);
-  callHistory = cloneForUndo(lastUndoSnapshot.callHistory);
+  if (lastUndoSnapshot.callHistory) callHistory = cloneForUndo(lastUndoSnapshot.callHistory);
   lastUndoSnapshot = null;
-  saveVenues();
+  saveVenues(replacedIds.size ? [...replacedIds] : null);
   saveNotificationSettings();
-  saveCallHistory();
+  if (!isRemoteDataMode()) saveCallHistory();
   if (elements.undoChangeButton) elements.undoChangeButton.hidden = true;
   markSaved("元に戻しました");
   render();
@@ -1433,6 +1633,11 @@ function ensureVenueMetadata() {
     const nextVenue = {
       ...venue,
     };
+    const normalizedRecordType = getVenueRecordType(nextVenue);
+    if (nextVenue.recordType !== normalizedRecordType) {
+      nextVenue.recordType = normalizedRecordType;
+      changed = true;
+    }
     if (!nextVenue.assignedUserId || !users.some((user) => user.id === nextVenue.assignedUserId)) {
       nextVenue.assignedUserId = currentUserId;
       changed = true;
@@ -1524,6 +1729,7 @@ function render() {
   const filtered = getFilteredVenues();
   renderMetrics();
   renderTable(filtered);
+  renderVenuePagination();
   renderDetail();
   renderNotificationPanel();
   renderCallWorkList();
@@ -2225,6 +2431,8 @@ function isSchoolCategory(value = "") {
 }
 
 function isSchoolVenue(venue) {
+  if (venue?.recordType === "school") return true;
+  if (venue?.recordType === "facility") return false;
   const category = normalize(venue?.category);
   const name = normalize(venue?.facilityName);
   const notes = normalize(venue?.notes);
@@ -2233,7 +2441,7 @@ function isSchoolVenue(venue) {
 }
 
 function getVenueRecordType(venue) {
-  return isSchoolVenue(venue) ? "school" : "facility";
+  return venue?.recordType === "school" ? "school" : venue?.recordType === "facility" ? "facility" : isSchoolVenue(venue) ? "school" : "facility";
 }
 
 function getVenueRecordTypeLabel(venue) {
@@ -2243,7 +2451,8 @@ function getVenueRecordTypeLabel(venue) {
 function refreshPrefectureFilter() {
   if (!elements.prefectureFilter) return;
   const current = elements.prefectureFilter.value;
-  const prefectures = unique(venues.map(getVenuePrefecture).filter(Boolean)).sort(comparePrefectureNames);
+  const source = isVenueListPage() && listPrefectureOptions.length ? listPrefectureOptions : venues.map(getVenuePrefecture).filter(Boolean);
+  const prefectures = unique(source).sort(comparePrefectureNames);
   elements.prefectureFilter.replaceChildren(new Option("すべて", ""));
   prefectures.forEach((prefecture) => elements.prefectureFilter.append(new Option(prefecture, prefecture)));
   elements.prefectureFilter.value = prefectures.includes(current) ? current : "";
@@ -2316,7 +2525,7 @@ function getFilteredVenues() {
   const visibility = elements.visibilityFilter?.value ?? "visible";
   const sortMode = elements.sortSelect?.value ?? "nextActionDate";
 
-  return venues
+  const matched = venues
     .filter((venue) => {
       const hidden = isVenueHidden(venue);
       const venuePrefecture = getVenuePrefecture(venue);
@@ -2363,8 +2572,9 @@ function getFilteredVenues() {
         (!recordType || getVenueRecordType(venue) === recordType) &&
         (visibility === "all" || (visibility === "hidden" ? hidden : !hidden))
       );
-    })
-    .sort((a, b) => compareVenues(a, b, sortMode));
+    });
+
+  return isVenueListPage() && isRemoteDataMode() ? matched : matched.sort((a, b) => compareVenues(a, b, sortMode));
 }
 
 function matchesAssigneeFilter(venue, assignee) {
@@ -2700,7 +2910,8 @@ function renderTable(filtered) {
   renderTableHeader(columns);
   renderPinnedColumnControls(columns);
   renderVisibleColumnControls();
-  setText(elements.visibleCount, `${filtered.length}件`);
+  const countText = isVenueListPage() && isRemoteDataMode() ? `${listState.total}件中 ${filtered.length}件を表示` : `${filtered.length}件`;
+  setText(elements.visibleCount, countText);
   if (elements.emptyState) elements.emptyState.hidden = filtered.length > 0;
   elements.venueTableBody.replaceChildren();
 
@@ -2944,51 +3155,18 @@ function updateVenueField(id, field, value) {
     const updates = { considerationDate };
     const autoCallDate = getCallDateFromConsideration(considerationDate);
     if (autoCallDate) updates.nextActionDate = autoCallDate;
-    updateVenueFields(id, updates);
+    updateVenueFields(id, updates, "検討時期の変更");
     return;
   }
 
-  const now = new Date().toISOString();
   const normalizedValue = normalizeVenueField(field, value);
-  const undoSnapshot = createUndoSnapshot(`${fieldLabels[field] || field}の変更`);
-  let changed = false;
-  let historyEntry = null;
-
-  venues = venues.map((venue) => {
-    if (venue.id !== id) return venue;
-    const previousValue = venue[field] ?? "";
-    const shouldSyncTemperature = field === "priority" && String(venue.rating ?? "") !== String(normalizedValue);
-    if (String(previousValue) === String(normalizedValue) && !shouldSyncTemperature) return venue;
-    changed = true;
-    if (String(previousValue) !== String(normalizedValue)) {
-      historyEntry = createCallHistoryEntry(venue, field, previousValue, normalizedValue, now);
-    }
-    return normalizeHallScaleValues({
-      ...venue,
-      [field]: normalizedValue,
-      ...(field === "priority" ? { rating: normalizedValue } : {}),
-      callUpdatedAt: now,
-      callUpdatedByUserId: currentUserId,
-      updatedAt: now,
-    });
-  });
-
-  if (!changed) return;
-  setUndoSnapshot(undoSnapshot);
-  if (historyEntry) appendCallHistory(historyEntry);
-  handleNotificationStateAfterChange(id, [field]);
-  saveVenues([id]);
-  markSaved();
-  render();
-  flashChangedFields(id, [field]);
+  updateVenueFields(id, { [field]: normalizedValue }, `${fieldLabels[field] || field}の変更`);
 }
 
-function updateVenueFields(id, updates) {
+function updateVenueFields(id, updates, label = "一覧の変更") {
+  const before = venues.find((venue) => venue.id === id);
+  if (!before) return;
   const now = new Date().toISOString();
-  const undoSnapshot = createUndoSnapshot("一覧の変更");
-  let changed = false;
-  const historyEntries = [];
-  let changedFieldNames = [];
   const normalizedUpdates = Object.fromEntries(
     Object.entries(updates).map(([field, value]) => [field, normalizeVenueField(field, value)])
   );
@@ -2996,32 +3174,32 @@ function updateVenueFields(id, updates) {
     normalizedUpdates.rating = normalizedUpdates.priority;
   }
 
-  venues = venues.map((venue) => {
-    if (venue.id !== id) return venue;
-    const changedFields = Object.entries(normalizedUpdates).filter(
-      ([field, value]) => String(venue[field] ?? "") !== String(value ?? "")
-    );
-    if (!changedFields.length) return venue;
-    changed = true;
-    changedFieldNames = changedFields.map(([field]) => field);
-    changedFields.forEach(([field, value]) => {
-      historyEntries.push(createCallHistoryEntry(venue, field, venue[field] ?? "", value, now));
-    });
-    return normalizeHallScaleValues({
-      ...venue,
-      ...normalizedUpdates,
-      callUpdatedAt: now,
-      callUpdatedByUserId: currentUserId,
-      updatedAt: now,
-    });
-  });
+  const changedFieldNames = Object.entries(normalizedUpdates)
+    .filter(([field, value]) => String(before[field] ?? "") !== String(value ?? ""))
+    .map(([field]) => field);
+  if (!changedFieldNames.length) return;
 
-  if (!changed) return;
+  const nextVenue = normalizeHallScaleValues({
+    ...before,
+    ...normalizedUpdates,
+    callUpdatedAt: now,
+    callUpdatedByUserId: currentUserId,
+    updatedAt: now,
+  });
+  const undoSnapshot = createUndoSnapshot(label, [id]);
+  venues = venues.map((venue) => (venue.id === id ? nextVenue : venue));
   setUndoSnapshot(undoSnapshot);
-  appendCallHistory(historyEntries);
+  if (!isRemoteDataMode()) {
+    const historyEntries = changedFieldNames.map((field) => createCallHistoryEntry(before, field, before[field] ?? "", nextVenue[field] ?? "", now));
+    appendCallHistory(historyEntries);
+  }
   handleNotificationStateAfterChange(id, changedFieldNames);
-  saveVenues([id]);
-  markSaved();
+  if (isRemoteDataMode()) {
+    queueRemoteVenueUpdate(nextVenue, before);
+  } else {
+    saveVenues([id]);
+    markSaved();
+  }
   render();
   flashChangedFields(id, changedFieldNames);
 }
@@ -3058,6 +3236,8 @@ function createCallHistoryEntry(venue, field, previousValue, nextValue, changedA
 }
 
 function appendCallHistory(entries) {
+  // Supabase uses database-side audit events so every write path is captured consistently.
+  if (isRemoteDataMode()) return;
   const nextEntries = Array.isArray(entries) ? entries.filter(Boolean) : [entries].filter(Boolean);
   if (!nextEntries.length) return;
   callHistory = [...nextEntries, ...callHistory].slice(0, 1000);
@@ -3274,8 +3454,9 @@ function saveVenueFromForm(event) {
   const formData = new FormData(elements.venueForm);
   const now = new Date().toISOString();
   const id = elements.venueForm.dataset.editingId;
-  let savedVenueId = id;
-  const undoSnapshot = createUndoSnapshot(id ? "施設編集" : "施設追加");
+  const previousVenue = id ? venues.find((venue) => venue.id === id) : null;
+  const savedVenueId = id || makeId();
+  const undoSnapshot = createUndoSnapshot(id ? "施設編集" : "施設追加", [savedVenueId]);
   const nextVenue = {};
 
   Object.keys(fieldLabels).forEach((field) => {
@@ -3304,7 +3485,7 @@ function saveVenueFromForm(event) {
     selectedId = id;
   } else {
     const newVenue = {
-      id: makeId(),
+      id: savedVenueId,
       ...nextVenue,
       callUpdatedAt: "",
       callUpdatedByUserId: "",
@@ -3313,10 +3494,14 @@ function saveVenueFromForm(event) {
     };
     venues = [newVenue, ...venues];
     selectedId = newVenue.id;
-    savedVenueId = newVenue.id;
   }
 
-  saveVenues(savedVenueId ? [savedVenueId] : null);
+  const savedVenue = venues.find((venue) => venue.id === savedVenueId);
+  if (isRemoteDataMode() && previousVenue && savedVenue) {
+    queueRemoteVenueUpdate(savedVenue, previousVenue);
+  } else {
+    saveVenues(savedVenueId ? [savedVenueId] : null);
+  }
   setUndoSnapshot(undoSnapshot);
   markSaved();
   closeForm();
@@ -3335,7 +3520,7 @@ function deleteSelectedVenue() {
   const confirmed = confirm(`${venue.facilityName || "この施設"}を削除しますか？`);
   if (!confirmed) return;
 
-  const undoSnapshot = createUndoSnapshot("施設削除");
+  const undoSnapshot = createUndoSnapshot("施設削除", [id]);
   venues = venues.filter((item) => item.id !== id);
   selectedId = venues[0]?.id ?? null;
   saveVenues([]);
@@ -3348,10 +3533,11 @@ function deleteSelectedVenue() {
 
 function duplicateVenue(venue) {
   const now = new Date().toISOString();
-  const undoSnapshot = createUndoSnapshot("施設複製");
+  const cloneId = makeId();
+  const undoSnapshot = createUndoSnapshot("施設複製", [cloneId]);
   const clone = {
     ...venue,
-    id: makeId(),
+    id: cloneId,
     facilityName: `${venue.facilityName || "名称未設定"} コピー`,
     status: statusOptions[0] || "未着手",
     isHidden: false,
@@ -3375,6 +3561,11 @@ function duplicateVenue(venue) {
 }
 
 async function handleCsvSelection(event) {
+  if (!canManageUsers()) {
+    event.target.value = "";
+    notifyMessage("CSV取り込みは管理ユーザーのみ実行できます。");
+    return;
+  }
   const [file] = event.target.files;
   if (!file) return;
 
@@ -3418,6 +3609,7 @@ function applyImportPrefectureChoice(venue) {
   const nextVenue = { ...venue };
   return {
     ...nextVenue,
+    recordType: selectedRecordType,
     ...(selectedPrefecture && !valueExists(nextVenue.prefecture) ? { prefecture: selectedPrefecture } : {}),
     ...(selectedRecordType === "school" ? { category: ensureSchoolCategory(nextVenue.category) } : {}),
   };
@@ -3468,9 +3660,13 @@ function renderImportPreview(headers) {
 }
 
 function commitImport() {
+  if (!canManageUsers()) {
+    notifyMessage("CSV取り込みは管理ユーザーのみ実行できます。");
+    return;
+  }
   const merge = elements.mergeDuplicates?.checked ?? true;
   const now = new Date().toISOString();
-  const undoSnapshot = createUndoSnapshot("CSV取り込み");
+  const undoSnapshot = createUndoSnapshot("CSV取り込み", venues.map((venue) => venue.id));
   let added = 0;
   let updated = 0;
   const nextVenues = [...venues];
@@ -3571,6 +3767,7 @@ function normalizeImportedVenue(venue, now) {
   return normalizeHallScaleValues({
     id: makeId(),
     facilityName: venue.facilityName || "",
+    recordType: venue.recordType === "school" ? "school" : "facility",
     category: venue.category || "",
     operator: venue.operator || "",
     prefecture,
@@ -3850,9 +4047,16 @@ function alertVenueItemMarkup(venue) {
 }
 
 function jumpToVenue(id) {
-  if (!id || !venues.some((venue) => venue.id === id)) return;
+  const venue = venues.find((item) => item.id === id) || listAlertVenues.find((item) => item.id === id);
+  if (!id || !venue) return;
   closeAlertDialog();
   resetFiltersForVenueJump();
+  if (isVenueListPage() && isRemoteDataMode() && !venues.some((item) => item.id === id)) {
+    pendingVenueJumpId = id;
+    if (elements.searchInput) elements.searchInput.value = venue.facilityName || "";
+    requestVenueListRefresh(true);
+    return;
+  }
   selectVenue(id, { scroll: true });
 }
 
@@ -4069,6 +4273,9 @@ function updateNotificationSettings() {
   notificationSettings.scope = normalizeNotificationScope(elements.notificationScope?.value);
   notificationSettings.dismissCondition = elements.notificationDismissCondition?.value ?? "nextActionDate";
   saveNotificationSettings();
+  if (isVenueListPage() && isRemoteDataMode()) {
+    loadListSupportData().then(() => renderNotificationPanel());
+  }
   markSaved("通知設定を保存しました");
   renderNotificationPanel();
   checkCallNotifications(false);
@@ -4131,6 +4338,7 @@ function getUpcomingCalls(fallbackLeadDays = getDefaultNotificationLeadDays()) {
 }
 
 function getNotificationTargetVenues() {
+  if (isVenueListPage() && isRemoteDataMode()) return listAlertVenues;
   return getNotificationScope() === "all" ? venues : venues.filter((venue) => isVenueInNotificationScope(venue));
 }
 

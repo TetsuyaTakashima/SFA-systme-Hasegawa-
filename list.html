@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>営業先一覧 | 文化施設 営業管理</title>
-    <link rel="stylesheet" href="./styles.css?v=20260619-import-checklist" />
+    <link rel="stylesheet" href="./styles.css?v=20260715-performance" />
   </head>
   <body>
     <div class="app-shell list-only-shell">
@@ -137,6 +137,19 @@
               <tbody id="venueTableBody"></tbody>
             </table>
           </div>
+          <nav class="list-pagination" id="listPagination" aria-label="営業先一覧のページ送り" hidden>
+            <button class="icon-button" id="previousPageButton" type="button" title="前のページ" aria-label="前のページ">&larr;</button>
+            <span class="page-summary" id="pageSummary" aria-live="polite"></span>
+            <label class="page-size-field">
+              <span>表示件数</span>
+              <select id="pageSizeSelect" aria-label="1ページの表示件数">
+                <option value="50">50件</option>
+                <option value="100">100件</option>
+                <option value="200">200件</option>
+              </select>
+            </label>
+            <button class="icon-button" id="nextPageButton" type="button" title="次のページ" aria-label="次のページ">&rarr;</button>
+          </nav>
           <p class="empty-state" id="emptyState" hidden>条件に合う施設がありません。</p>
         </section>
       </main>
@@ -293,7 +306,7 @@
     </dialog>
 
     <script src="./cloud-config.js?v=20260521"></script>
-    <script src="./cloud-client.js?v=20260619-record-type-filter"></script>
-    <script src="./app.js?v=20260619-import-checklist"></script>
+    <script src="./cloud-client.js?v=20260715-performance"></script>
+    <script src="./app.js?v=20260715-performance"></script>
   </body>
 </html>
