@@ -11,7 +11,7 @@ const VISIBLE_COLUMNS_KEY = "culturalVenueCrm.visibleColumns.v1";
 const COLUMN_SCHEMA_VERSION_KEY = "culturalVenueCrm.columnSchemaVersion.v1";
 const STATUS_META_KEY = "culturalVenueCrm.statusMeta.v1";
 const TEMPERATURE_META_KEY = "culturalVenueCrm.temperatureMeta.v1";
-const COLUMN_SCHEMA_VERSION = 4;
+const COLUMN_SCHEMA_VERSION = 5;
 const LIST_PAGE_SIZE = 50;
 
 const defaultStatuses = ["未着手", "情報収集中", "初回連絡済", "提案中", "見積・調整中", "成約", "保留", "架電NG"];
@@ -528,6 +528,11 @@ const tableColumns = [
     cell: (venue) => inlineInput(venue, "contactName", "text", "先方担当者"),
   },
   {
+    id: "assignedUserId",
+    label: "営業担当",
+    cell: (venue) => inlineAssigneeSelect(venue),
+  },
+  {
     id: "callStatus",
     label: "架電状況",
     cell: (venue) => callStatusMarkup(venue),
@@ -583,6 +588,7 @@ const columnWidthHints = {
   email: 210,
   status: 120,
   contactName: 150,
+  assignedUserId: 150,
   callStatus: 180,
   callUpdatedByUserId: 130,
   considerationDate: 150,
@@ -605,6 +611,7 @@ const columnPresets = {
       "email",
       "status",
       "contactName",
+      "assignedUserId",
       "callStatus",
       "callUpdatedByUserId",
       "considerationDate",
@@ -634,6 +641,7 @@ const columnPresets = {
       "operator",
       "priority",
       "status",
+      "assignedUserId",
       "notificationLeadDays",
       "callUpdatedByUserId",
       "considerationDate",
@@ -652,6 +660,7 @@ const importantHistoryFields = new Set([
   "priority",
   "status",
   "contactName",
+  "assignedUserId",
   "callUpdatedByUserId",
   "considerationDate",
   "nextActionDate",
@@ -1386,6 +1395,14 @@ function ensureColumnSchema() {
         nextPinnedColumns[userId] = migrated;
         pinnedChanged = true;
       }
+    });
+  }
+
+  if (currentVersion < 5) {
+    Object.entries(nextVisibleColumns).forEach(([userId, columnIds]) => {
+      if (!Array.isArray(columnIds) || columnIds.includes("assignedUserId")) return;
+      nextVisibleColumns[userId] = insertAfterColumn(columnIds, "assignedUserId", "contactName");
+      visibleChanged = true;
     });
   }
 

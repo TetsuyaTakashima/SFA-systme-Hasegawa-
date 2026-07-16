@@ -1647,6 +1647,10 @@ td .inline-control[data-inline-field="nextAction"] {
   min-width: 220px;
 }
 
+td .inline-control[data-inline-field="assignedUserId"] {
+  min-width: 150px;
+}
+
 .temperature-control,
 .program-policy-control,
 .visibility-control {
