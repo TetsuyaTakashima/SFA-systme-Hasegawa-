@@ -1,6 +1,7 @@
-const SUPABASE_URL = process.env.SUPABASE_URL || "https://oyqbdscgihysjwzykdzq.supabase.co";
+const SUPABASE_URL = process.env.SUPABASE_URL || "";
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-const PUBLIC_KEY = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_PUBLISHABLE_KEY || SERVICE_ROLE_KEY;
+const PUBLIC_KEY = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_PUBLISHABLE_KEY || "";
+const MAX_REQUEST_BODY_BYTES = 32 * 1024;
 
 export default async function handler(request, response) {
   if (request.method === "OPTIONS") {
@@ -13,14 +14,9 @@ export default async function handler(request, response) {
     return;
   }
 
-  if (!SERVICE_ROLE_KEY) {
-    response.status(500).json({ error: "SUPABASE_SERVICE_ROLE_KEY または SUPABASE_SECRET_KEY が未設定です。" });
-    return;
-  }
-
-  const keyProblem = getElevatedKeyProblem(SERVICE_ROLE_KEY);
-  if (keyProblem) {
-    response.status(500).json({ error: keyProblem });
+  const configProblem = getConfigProblem();
+  if (configProblem) {
+    response.status(500).json({ error: configProblem });
     return;
   }
 
@@ -59,14 +55,8 @@ export default async function handler(request, response) {
       return;
     }
 
-    await clearProfileReference("venues", "assigned_user_id", targetId);
-    await clearProfileReference("venues", "call_updated_by_user_id", targetId);
-    await clearProfileReference("venues", "created_by", targetId, true);
-    await clearProfileReference("venues", "updated_by", targetId, true);
-    await clearProfileReference("call_histories", "changed_by_user_id", targetId, true);
-    await deleteRelatedRows("user_preferences", "user_id", targetId, true);
+    // The profile-delete trigger clears all CRM references in the same transaction as Auth deletion.
     await deleteAuthUser(targetId);
-    await deleteRelatedRows("profiles", "id", targetId, true);
 
     response.status(200).json({ ok: true });
   } catch (error) {
@@ -95,29 +85,6 @@ async function getProfileWithService(userId) {
     headers: serviceHeaders(),
   });
   return Array.isArray(rows) ? rows[0] : null;
-}
-
-async function clearProfileReference(table, column, userId, optional = false) {
-  try {
-    await supabaseFetch(`/rest/v1/${table}?${column}=eq.${encodeURIComponent(userId)}`, {
-      method: "PATCH",
-      headers: serviceHeaders(),
-      body: JSON.stringify({ [column]: null }),
-    });
-  } catch (error) {
-    if (!(optional && isMissingSchemaError(error))) throw error;
-  }
-}
-
-async function deleteRelatedRows(table, column, userId, optional = false) {
-  try {
-    await supabaseFetch(`/rest/v1/${table}?${column}=eq.${encodeURIComponent(userId)}`, {
-      method: "DELETE",
-      headers: serviceHeaders(),
-    });
-  } catch (error) {
-    if (!(optional && isMissingSchemaError(error))) throw error;
-  }
 }
 
 async function deleteAuthUser(userId) {
@@ -176,13 +143,33 @@ function getBearerToken(value) {
 }
 
 async function readBody(request) {
-  if (request.body && typeof request.body === "object" && !Buffer.isBuffer(request.body)) return request.body;
+  if (request.body && typeof request.body === "object" && !Buffer.isBuffer(request.body)) {
+    if (Buffer.byteLength(JSON.stringify(request.body), "utf8") > MAX_REQUEST_BODY_BYTES) {
+      const error = new Error("リクエストが大きすぎます。");
+      error.status = 413;
+      throw error;
+    }
+    return request.body;
+  }
   return new Promise((resolve, reject) => {
     let body = "";
+    let bytes = 0;
+    let aborted = false;
     request.on("data", (chunk) => {
+      if (aborted) return;
+      bytes += Buffer.byteLength(chunk);
+      if (bytes > MAX_REQUEST_BODY_BYTES) {
+        aborted = true;
+        const error = new Error("リクエストが大きすぎます。");
+        error.status = 413;
+        request.resume();
+        reject(error);
+        return;
+      }
       body += chunk;
     });
     request.on("end", () => {
+      if (aborted) return;
       try {
         resolve(body ? JSON.parse(body) : {});
       } catch (error) {
@@ -219,8 +206,8 @@ function readJwtRole(jwt = "") {
   }
 }
 
-function isMissingSchemaError(error) {
-  const message = String(error?.message || error?.details || "").toLowerCase();
-  const code = String(error?.code || "").toUpperCase();
-  return ["PGRST204", "42P01", "42703"].includes(code) || message.includes("could not find") || message.includes("does not exist");
+function getConfigProblem() {
+  if (!SUPABASE_URL) return "SUPABASE_URL が未設定です。";
+  if (!PUBLIC_KEY) return "SUPABASE_ANON_KEY または SUPABASE_PUBLISHABLE_KEY が未設定です。";
+  return getElevatedKeyProblem(SERVICE_ROLE_KEY);
 }

@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>ログイン | 文化施設 営業管理</title>
-    <link rel="stylesheet" href="./styles.css?v=20260715-performance" />
+    <link rel="stylesheet" href="./styles.css?v=20260722-hardening" />
   </head>
   <body>
     <div class="app-shell auth-shell">
@@ -26,11 +26,11 @@
           <form class="auth-form" id="loginForm">
             <label>
               ログインID
-              <input name="loginId" autocomplete="username" placeholder="admin" required />
+              <input name="loginId" autocomplete="username" aria-describedby="loginHelp" placeholder="admin" required />
             </label>
             <label>
               パスワード
-              <input name="password" type="password" autocomplete="current-password" required />
+              <input name="password" type="password" autocomplete="current-password" aria-describedby="loginHelp" required />
             </label>
             <button class="primary-button" type="submit">ログイン</button>
             <p class="auth-help" id="loginHelp" role="status"></p>
@@ -41,13 +41,13 @@
           <strong>Supabaseログイン</strong>
           <span>ログインIDは管理画面で作成したIDを入力します。</span>
           <span>ユーザー作成は管理者ログイン後の管理画面で行います。</span>
-          <span>接続できない環境ではローカル確認用ログインに切り替わります。</span>
+          <span>ローカル確認用ログインは、この端末のファイル表示または localhost でのみ利用できます。</span>
         </section>
       </main>
     </div>
 
     <script src="./cloud-config.js?v=20260521"></script>
-    <script src="./cloud-client.js?v=20260715-assignee-labels"></script>
-    <script src="./auth.js?v=20260521"></script>
+    <script src="./cloud-client.js?v=20260722-hardening"></script>
+    <script src="./auth.js?v=20260722-hardening"></script>
   </body>
 </html>

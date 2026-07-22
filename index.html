@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>文化施設 営業管理</title>
-    <link rel="stylesheet" href="./styles.css?v=20260715-performance" />
+    <link rel="stylesheet" href="./styles.css?v=20260722-hardening" />
   </head>
   <body>
     <div class="app-shell">
@@ -231,12 +231,13 @@
                 </div>
                 <div class="import-checklist-table-wrap">
                   <table class="import-checklist-table">
+                    <caption class="sr-only">都道府県別の取り込み済み営業先</caption>
                     <thead>
                       <tr>
-                        <th>都道府県</th>
-                        <th>施設</th>
-                        <th>学校</th>
-                        <th>合計</th>
+                        <th scope="col">都道府県</th>
+                        <th scope="col">施設</th>
+                        <th scope="col">学校</th>
+                        <th scope="col">合計</th>
                       </tr>
                     </thead>
                     <tbody id="importChecklistBody"></tbody>
@@ -402,7 +403,7 @@
     </dialog>
 
     <script src="./cloud-config.js?v=20260521"></script>
-    <script src="./cloud-client.js?v=20260715-assignee-labels"></script>
-    <script src="./app.js?v=20260722-list-visibility"></script>
+    <script src="./cloud-client.js?v=20260722-hardening"></script>
+    <script src="./app.js?v=20260722-hardening"></script>
   </body>
 </html>

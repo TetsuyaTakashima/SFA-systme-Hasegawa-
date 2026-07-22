@@ -64,13 +64,13 @@
   async function loadWorkspace(userId, options = {}) {
     if (!client) throw new Error("Supabaseが設定されていません。");
     const loadVenues = options.loadVenues !== false;
-    const [profiles, statusOptions, temperatureOptions, venues, preferences, currentProfile] = await Promise.all([
-      fetchProfiles(),
+    const currentProfile = await getCurrentProfile();
+    const [profiles, statusOptions, temperatureOptions, venues, preferences] = await Promise.all([
+      fetchProfiles(currentProfile?.role === "admin"),
       fetchStatusOptions(),
       fetchTemperatureOptions(),
       loadVenues ? fetchVenues() : Promise.resolve([]),
       fetchUserPreferences(userId),
-      getCurrentProfile(),
     ]);
     const histories = currentProfile?.role === "admin" ? await Promise.all([fetchCallHistories(), fetchAuditEvents()]) : [[], []];
 
@@ -90,8 +90,11 @@
     };
   }
 
-  async function fetchProfiles() {
-    const { data, error } = await client.from("profiles").select("*").order("name", { ascending: true });
+  async function fetchProfiles(includeManagementDetails = false) {
+    const query = includeManagementDetails
+      ? client.from("profiles").select("*").order("name", { ascending: true })
+      : client.rpc("list_profile_directory");
+    const { data, error } = await query;
     if (error) throw error;
     return (data || []).map(profileToUser);
   }
@@ -298,18 +301,12 @@
 
   async function deleteProfile(id) {
     if (!client || !id) return;
+    if (window.location.protocol === "file:") {
+      throw new Error("Supabaseでのユーザー削除は、Vercelまたはローカルサーバー経由で実行してください。");
+    }
+
     const deletedByApi = await deleteProfileViaApi(id);
-    if (deletedByApi) return;
-
-    await clearProfileReference("venues", "assigned_user_id", id);
-    await clearProfileReference("venues", "call_updated_by_user_id", id);
-    await clearProfileReference("venues", "created_by", id, true);
-    await clearProfileReference("venues", "updated_by", id, true);
-    await clearProfileReference("call_histories", "changed_by_user_id", id, true);
-    await deleteProfileRelatedRows("user_preferences", "user_id", id, true);
-
-    const { error } = await client.from("profiles").delete().eq("id", id);
-    if (error) throw error;
+    if (!deletedByApi) throw new Error("ユーザー削除APIに接続できません。Vercelの設定を確認してください。");
   }
 
   async function deleteProfileViaApi(id) {
@@ -331,16 +328,6 @@
     return true;
   }
 
-  async function clearProfileReference(table, column, id, optional = false) {
-    const { error } = await client.from(table).update({ [column]: null }).eq(column, id);
-    if (error && !(optional && isMissingSchemaError(error))) throw error;
-  }
-
-  async function deleteProfileRelatedRows(table, column, id, optional = false) {
-    const { error } = await client.from(table).delete().eq(column, id);
-    if (error && !(optional && isMissingSchemaError(error))) throw error;
-  }
-
   async function upsertVenues(venues, currentUserId) {
     const rows = (Array.isArray(venues) ? venues : [venues]).filter(Boolean).map((venue) => venueToRow(venue, currentUserId));
     if (!client || !rows.length) return;
@@ -349,6 +336,21 @@
       const { error } = await client.from("venues").upsert(batch, { onConflict: "id" });
       if (error) throw error;
     }
+  }
+
+  async function importVenues(entries, currentUserId) {
+    if (!client) throw new Error("Supabaseが設定されていません。");
+    const venueRows = (Array.isArray(entries) ? entries : [])
+      .filter((entry) => entry?.venue)
+      .map((entry) => ({
+        ...venueToRow(entry.venue, currentUserId),
+        expected_lock_version: Number.isFinite(Number(entry.expectedLockVersion)) ? Number(entry.expectedLockVersion) : null,
+      }));
+    if (!venueRows.length) return [];
+
+    const { data, error } = await client.rpc("import_venues", { venue_rows: venueRows });
+    if (error) throw error;
+    return Array.isArray(data) ? data : [];
   }
 
   async function deleteVenue(id) {
@@ -723,6 +725,26 @@
       from(table) {
         return new RestQueryBuilder(baseUrl, anonKey, table);
       },
+      async rpc(functionName, args = {}) {
+        try {
+          const session = await getStoredFetchSession(baseUrl, anonKey);
+          const response = await fetch(`${baseUrl}/rest/v1/rpc/${encodeURIComponent(functionName)}`, {
+            method: "POST",
+            headers: {
+              apikey: anonKey,
+              Authorization: `Bearer ${session?.access_token || anonKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(args),
+          });
+          const text = await response.text();
+          const data = text ? JSON.parse(text) : null;
+          if (!response.ok) throw restError(data, response.status);
+          return { data, error: null };
+        } catch (error) {
+          return { data: null, error };
+        }
+      },
     };
   }
 
@@ -938,6 +960,7 @@
     updateProfile,
     deleteProfile,
     upsertVenues,
+    importVenues,
     updateVenue,
     deleteVenue,
     insertCallHistories,

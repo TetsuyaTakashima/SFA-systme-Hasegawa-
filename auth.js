@@ -53,6 +53,11 @@ async function handleLogin(event) {
     return;
   }
 
+  if (!isLocalDemoMode()) {
+    setHelp(loginHelp, "Supabaseの接続設定を確認してください。", "error");
+    return;
+  }
+
   const users = loadUsers();
   const user = users.find((item) => normalizeLoginId(item.loginId || item.email) === loginId && item.active !== false);
 
@@ -77,6 +82,11 @@ async function showSignedInState() {
     } catch {
       setHelp(loginHelp, "Supabaseのログイン状態を確認できませんでした。", "error");
     }
+    return;
+  }
+
+  if (!isLocalDemoMode()) {
+    setHelp(loginHelp, "Supabaseの接続設定を確認してください。", "error");
     return;
   }
 
@@ -129,15 +139,16 @@ function defaultLoginIdForEmail(value = "") {
 
 function getSafeNextPath() {
   const params = new URLSearchParams(window.location.search);
-  const next = params.get("next") || "index.html";
-  if (/^(https?:|file:|\/\/)/i.test(next) || next.includes("..")) return "./index.html";
-  return next.startsWith("./") ? next : `./${next}`;
+  const next = String(params.get("next") || "index.html").replace(/^\.\//, "");
+  const allowedPaths = new Set(["index.html", "list.html", "history.html"]);
+  return allowedPaths.has(next) ? `./${next}` : "./index.html";
 }
 
 function setHelp(element, message, tone = "") {
   if (!element) return;
   element.textContent = message;
   element.className = `auth-help ${tone}`.trim();
+  element.setAttribute("role", tone === "error" ? "alert" : "status");
 }
 
 function normalizeLoginId(value = "") {
@@ -148,10 +159,14 @@ function isSupabaseEnabled() {
   return Boolean(window.crmSupabase?.isEnabled?.());
 }
 
+function isLocalDemoMode() {
+  return window.location.protocol === "file:" || ["localhost", "127.0.0.1"].includes(window.location.hostname);
+}
+
 function friendlyAuthError(error) {
   const message = String(error?.message || "");
   if (message.includes("Invalid login credentials")) {
-    return "ログインIDまたはパスワードが一致しません。初期管理者はSupabase Authの admin@crm.local / password を確認してください。";
+    return "ログインIDまたはパスワードが一致しません。管理者に確認してください。";
   }
   if (message.includes("Email not confirmed")) return "メール確認が完了していません。SupabaseのAuth設定を確認してください。";
   if (message) return message;

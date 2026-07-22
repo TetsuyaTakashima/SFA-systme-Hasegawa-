@@ -1,7 +1,8 @@
-const SUPABASE_URL = process.env.SUPABASE_URL || "https://oyqbdscgihysjwzykdzq.supabase.co";
+const SUPABASE_URL = process.env.SUPABASE_URL || "";
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-const PUBLIC_KEY = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_PUBLISHABLE_KEY || SERVICE_ROLE_KEY;
+const PUBLIC_KEY = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_PUBLISHABLE_KEY || "";
 const AUTH_EMAIL_DOMAIN = process.env.AUTH_EMAIL_DOMAIN || "crm.local";
+const MAX_REQUEST_BODY_BYTES = 32 * 1024;
 
 export default async function handler(request, response) {
   if (request.method === "OPTIONS") {
@@ -14,14 +15,9 @@ export default async function handler(request, response) {
     return;
   }
 
-  if (!SERVICE_ROLE_KEY) {
-    response.status(500).json({ error: "SUPABASE_SERVICE_ROLE_KEY または SUPABASE_SECRET_KEY が未設定です。" });
-    return;
-  }
-
-  const keyProblem = getElevatedKeyProblem(SERVICE_ROLE_KEY);
-  if (keyProblem) {
-    response.status(500).json({ error: keyProblem });
+  const configProblem = getConfigProblem();
+  if (configProblem) {
+    response.status(500).json({ error: configProblem });
     return;
   }
 
@@ -51,17 +47,8 @@ export default async function handler(request, response) {
 
     const email = loginIdToEmail(loginId);
     const authUser = await createAuthUser(email, password, name, loginId);
-    const profile = await upsertProfile(
-      {
-        id: authUser.id,
-        name,
-        login_id: loginId,
-        email,
-        role: "staff",
-        active: true,
-      },
-      accessToken
-    );
+    const profile = await getProfileWithService(authUser.id);
+    if (!profile) throw new Error("ユーザープロフィールの作成を確認できません。Supabase移行を適用してください。");
 
     response.status(200).json({ profile });
   } catch (error) {
@@ -93,6 +80,13 @@ async function getProfile(userId, accessToken) {
   return Array.isArray(rows) ? rows[0] : null;
 }
 
+async function getProfileWithService(userId) {
+  const rows = await supabaseFetch(`/rest/v1/profiles?id=eq.${encodeURIComponent(userId)}&select=id,name,login_id,email,role,active,created_at,updated_at`, {
+    headers: serviceHeaders(),
+  });
+  return Array.isArray(rows) ? rows[0] : null;
+}
+
 async function createAuthUser(email, password, name, loginId) {
   return supabaseFetch("/auth/v1/admin/users", {
     method: "POST",
@@ -104,18 +98,6 @@ async function createAuthUser(email, password, name, loginId) {
       user_metadata: { name, login_id: loginId },
     }),
   });
-}
-
-async function upsertProfile(profile, accessToken) {
-  const rows = await supabaseFetch("/rest/v1/profiles", {
-    method: "POST",
-    headers: {
-      ...userHeaders(accessToken),
-      Prefer: "resolution=merge-duplicates,return=representation",
-    },
-    body: JSON.stringify(profile),
-  });
-  return Array.isArray(rows) ? rows[0] : rows;
 }
 
 async function supabaseFetch(path, options = {}) {
@@ -162,13 +144,33 @@ function getBearerToken(value) {
 }
 
 async function readBody(request) {
-  if (request.body && typeof request.body === "object" && !Buffer.isBuffer(request.body)) return request.body;
+  if (request.body && typeof request.body === "object" && !Buffer.isBuffer(request.body)) {
+    if (Buffer.byteLength(JSON.stringify(request.body), "utf8") > MAX_REQUEST_BODY_BYTES) {
+      const error = new Error("リクエストが大きすぎます。");
+      error.status = 413;
+      throw error;
+    }
+    return request.body;
+  }
   return new Promise((resolve, reject) => {
     let body = "";
+    let bytes = 0;
+    let aborted = false;
     request.on("data", (chunk) => {
+      if (aborted) return;
+      bytes += Buffer.byteLength(chunk);
+      if (bytes > MAX_REQUEST_BODY_BYTES) {
+        aborted = true;
+        const error = new Error("リクエストが大きすぎます。");
+        error.status = 413;
+        request.resume();
+        reject(error);
+        return;
+      }
       body += chunk;
     });
     request.on("end", () => {
+      if (aborted) return;
       try {
         resolve(body ? JSON.parse(body) : {});
       } catch (error) {
@@ -199,6 +201,12 @@ function getElevatedKeyProblem(value = "") {
     return `SUPABASE_SERVICE_ROLE_KEY に role=${role} のキーが設定されています。role=service_role のキーを設定してください。`;
   }
   return "";
+}
+
+function getConfigProblem() {
+  if (!SUPABASE_URL) return "SUPABASE_URL が未設定です。";
+  if (!PUBLIC_KEY) return "SUPABASE_ANON_KEY または SUPABASE_PUBLISHABLE_KEY が未設定です。";
+  return getElevatedKeyProblem(SERVICE_ROLE_KEY);
 }
 
 function readJwtRole(jwt = "") {

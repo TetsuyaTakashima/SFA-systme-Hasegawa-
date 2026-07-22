@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>変更履歴・集計 | 文化施設 営業管理</title>
-    <link rel="stylesheet" href="./styles.css?v=20260715-performance" />
+    <link rel="stylesheet" href="./styles.css?v=20260722-hardening" />
   </head>
   <body>
     <div class="app-shell history-shell">
@@ -77,14 +77,15 @@
             </div>
             <div class="table-wrap history-table-wrap">
               <table>
+                <caption class="sr-only">変更履歴一覧</caption>
                 <thead>
                   <tr>
-                    <th>日時</th>
-                    <th>対象</th>
-                    <th>更新者</th>
-                    <th>項目</th>
-                    <th>変更前</th>
-                    <th>変更後</th>
+                    <th scope="col">日時</th>
+                    <th scope="col">対象</th>
+                    <th scope="col">更新者</th>
+                    <th scope="col">項目</th>
+                    <th scope="col">変更前</th>
+                    <th scope="col">変更後</th>
                   </tr>
                 </thead>
                 <tbody id="historyTableBody"></tbody>
@@ -96,7 +97,7 @@
     </div>
 
     <script src="./cloud-config.js?v=20260521"></script>
-    <script src="./cloud-client.js?v=20260715-assignee-labels"></script>
-    <script src="./app.js?v=20260722-list-visibility"></script>
+    <script src="./cloud-client.js?v=20260722-hardening"></script>
+    <script src="./app.js?v=20260722-hardening"></script>
   </body>
 </html>
