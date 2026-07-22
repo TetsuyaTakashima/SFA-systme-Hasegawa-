@@ -11,7 +11,7 @@ const VISIBLE_COLUMNS_KEY = "culturalVenueCrm.visibleColumns.v1";
 const COLUMN_SCHEMA_VERSION_KEY = "culturalVenueCrm.columnSchemaVersion.v1";
 const STATUS_META_KEY = "culturalVenueCrm.statusMeta.v1";
 const TEMPERATURE_META_KEY = "culturalVenueCrm.temperatureMeta.v1";
-const COLUMN_SCHEMA_VERSION = 5;
+const COLUMN_SCHEMA_VERSION = 6;
 const LIST_PAGE_SIZE = 50;
 
 const defaultStatuses = ["未着手", "情報収集中", "初回連絡済", "提案中", "見積・調整中", "成約", "保留", "架電NG"];
@@ -1400,8 +1400,16 @@ function ensureColumnSchema() {
 
   if (currentVersion < 5) {
     Object.entries(nextVisibleColumns).forEach(([userId, columnIds]) => {
-      if (!Array.isArray(columnIds) || columnIds.includes("assignedUserId")) return;
+      if (!Array.isArray(columnIds) || !columnIds.length || columnIds.includes("assignedUserId")) return;
       nextVisibleColumns[userId] = insertAfterColumn(columnIds, "assignedUserId", "contactName");
+      visibleChanged = true;
+    });
+  }
+
+  if (currentVersion < 6) {
+    Object.entries(nextVisibleColumns).forEach(([userId, columnIds]) => {
+      if (!Array.isArray(columnIds) || columnIds.length !== 1 || columnIds[0] !== "assignedUserId") return;
+      nextVisibleColumns[userId] = [...defaultColumnOrder];
       visibleChanged = true;
     });
   }
