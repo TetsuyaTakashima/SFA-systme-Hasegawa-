@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { requireProfile } from "@/lib/auth";
 import { getSalesTargetPage } from "@/lib/data/sales-targets";
 import { parseSalesTargetFilters } from "@/lib/sales-target-filters";
+import { SALES_TARGET_LABELS } from "@/lib/ui-labels";
 
 function escapeCsv(value: unknown) {
   const text = value === null || value === undefined ? "" : String(value);
@@ -27,9 +28,9 @@ export async function GET(request: NextRequest) {
   }
 
   const columns = [
-    ["営業先名", "facility_name"], ["種別", "record_type"], ["カテゴリ", "category"], ["運営主体", "operator"],
+    ["営業先名", "facility_name"], [SALES_TARGET_LABELS.recordType, "record_type"], [SALES_TARGET_LABELS.category, "category"], [SALES_TARGET_LABELS.operator, "operator"],
     ["都道府県", "prefecture"], ["市区町村", "municipality"], ["住所", "address"], ["電話番号", "phone"],
-    ["FAX", "fax"], ["メール", "email"], ["Webサイト", "website"], ["部署", "department"], ["担当者名", "contact_name"],
+    ["FAX", "fax"], ["メール", "email"], ["Webサイト", "website"], [SALES_TARGET_LABELS.department, "department"], [SALES_TARGET_LABELS.contactName, "contact_name"],
     ["状態", "status"], ["温度感", "temperature"], ["最終連絡日", "last_contact_date"], ["次回対応日", "next_action_date"],
     ["次回対応", "next_action"], ["メモ", "notes"], ["更新日時", "updated_at"],
   ] as const;

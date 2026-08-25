@@ -16,6 +16,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import type { MasterData, SalesTarget } from "@/lib/types";
+import { SALES_TARGET_LABELS } from "@/lib/ui-labels";
 
 export function TargetSheet({ target, masters, isAdmin }: { target: SalesTarget | null; masters: MasterData; isAdmin: boolean }) {
   const router = useRouter();
@@ -92,8 +93,8 @@ export function TargetSheet({ target, masters, isAdmin }: { target: SalesTarget 
                       <Label htmlFor="website">Webサイト</Label>
                       <div className="flex gap-2"><Input id="website" name="website" type="url" defaultValue={target.website ?? ""} /><Button asChild variant="outline" size="icon" disabled={!target.website}><a href={target.website ?? "#"} target="_blank" rel="noreferrer" aria-label="Webサイトを開く"><ExternalLink className="size-4" /></a></Button></div>
                     </div>
-                    <Field label="部署" name="department" value={target.department} />
-                    <Field label="担当者名" name="contact_name" value={target.contact_name} />
+                    <Field label={SALES_TARGET_LABELS.department} name="department" value={target.department} />
+                    <Field label={SALES_TARGET_LABELS.contactName} name="contact_name" value={target.contact_name} />
                   </div>
                 </TabsContent>
 
@@ -101,10 +102,10 @@ export function TargetSheet({ target, masters, isAdmin }: { target: SalesTarget 
                   <Field label="営業先名" name="facility_name" value={target.facility_name} required />
                   <div className="grid gap-4 sm:grid-cols-2">
                     {isAdmin ? (
-                      <SelectField label="種別" name="record_type" value={target.record_type} items={masters.targetTypes.map((item) => ({ value: item.key, label: item.label }))} />
+                      <SelectField label={SALES_TARGET_LABELS.recordType} name="record_type" value={target.record_type} items={masters.targetTypes.map((item) => ({ value: item.key, label: item.label }))} />
                     ) : <input type="hidden" name="record_type" value={target.record_type} />}
-                    <Field label="区分・カテゴリ" name="category" value={target.category} />
-                    <Field label="運営主体" name="operator" value={target.operator} />
+                    <Field label={SALES_TARGET_LABELS.category} name="category" value={target.category} />
+                    <Field label={SALES_TARGET_LABELS.operator} name="operator" value={target.operator} />
                     <Field label="都道府県" name="prefecture" value={target.prefecture} list="prefecture-options" />
                     <Field label="市区町村" name="municipality" value={target.municipality} />
                     <div className="sm:col-span-2"><Field label="住所" name="address" value={target.address} /></div>

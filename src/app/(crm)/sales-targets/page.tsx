@@ -13,8 +13,9 @@ import { getMasterData } from "@/lib/data/masters";
 import { getSalesTarget, getSalesTargetPage } from "@/lib/data/sales-targets";
 import { canCreateSalesTargets } from "@/lib/permissions";
 import { parseSalesTargetFilters } from "@/lib/sales-target-filters";
+import { SALES_TARGET_LABELS } from "@/lib/ui-labels";
 
-export const metadata: Metadata = { title: "営業先一覧" };
+export const metadata: Metadata = { title: SALES_TARGET_LABELS.list };
 
 type Params = Record<string, string | string[] | undefined>;
 
@@ -42,7 +43,7 @@ export default async function SalesTargetsPage({ searchParams }: { searchParams:
   return (
     <>
       <PageHeader
-        title="営業先一覧"
+        title={SALES_TARGET_LABELS.list}
         description={`${pageData.total.toLocaleString()}件の営業先を検索・編集できます。`}
         actions={<><Button asChild variant="outline"><a href={`/api/export?${baseParams.toString()}`}><Download className="size-4" />CSV出力</a></Button>{canCreateSalesTargets(profile) ? <CreateTargetDialog masters={masters} /> : null}</>}
       />

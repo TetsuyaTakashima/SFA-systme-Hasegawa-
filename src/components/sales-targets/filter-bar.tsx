@@ -9,6 +9,7 @@ import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMe
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { MasterData } from "@/lib/types";
+import { SALES_TARGET_LABELS } from "@/lib/ui-labels";
 
 export function FilterBar({ masters, isAdmin }: { masters: MasterData; isAdmin: boolean }) {
   const router = useRouter();
@@ -67,7 +68,7 @@ export function FilterBar({ masters, isAdmin }: { masters: MasterData; isAdmin: 
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <FilterSelect label="種別" value={searchParams.get("type") ?? "all"} onChange={(value) => replaceParam("type", value === "all" ? "" : value)} items={masters.targetTypes.map((type) => ({ value: type.key, label: type.label }))} />
+        <FilterSelect label={SALES_TARGET_LABELS.recordType} value={searchParams.get("type") ?? "all"} onChange={(value) => replaceParam("type", value === "all" ? "" : value)} items={masters.targetTypes.map((type) => ({ value: type.key, label: type.label }))} />
         <FilterSelect label="都道府県" value={searchParams.get("prefecture") ?? "all"} onChange={(value) => replaceParam("prefecture", value === "all" ? "" : value)} items={masters.prefectures.map((value) => ({ value, label: value }))} />
         <FilterSelect label="営業担当" value={searchParams.get("assignee") ?? "all"} onChange={(value) => replaceParam("assignee", value === "all" ? "" : value)} items={[{ value: "current", label: "自分の担当" }, { value: "unassigned", label: "未割当" }, ...masters.profiles.filter((profile) => profile.active).map((profile) => ({ value: profile.id, label: profile.name }))]} />
         <FilterSelect label="温度感" value={searchParams.get("temperature") ?? "all"} onChange={(value) => replaceParam("temperature", value === "all" ? "" : value)} items={masters.temperatures.map((item) => ({ value: item.level, label: `${item.level} · ${item.label}` }))} />

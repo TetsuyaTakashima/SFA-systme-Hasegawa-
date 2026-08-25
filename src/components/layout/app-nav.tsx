@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Bell, Building2, History, LayoutDashboard, Settings } from "lucide-react";
+import { SALES_TARGET_LABELS } from "@/lib/ui-labels";
 import { cn } from "@/lib/utils";
 
 const items: Array<{ href: "/dashboard" | "/sales-targets" | "/notifications" | "/history" | "/settings"; label: string; icon: typeof LayoutDashboard; adminOnly?: boolean }> = [
   { href: "/dashboard", label: "今日の営業", icon: LayoutDashboard },
-  { href: "/sales-targets", label: "営業先一覧", icon: Building2 },
+  { href: "/sales-targets", label: SALES_TARGET_LABELS.list, icon: Building2 },
   { href: "/notifications", label: "通知・予定", icon: Bell },
   { href: "/history", label: "対応履歴", icon: History, adminOnly: true },
   { href: "/settings", label: "管理・設定", icon: Settings, adminOnly: true },
@@ -33,8 +34,8 @@ export function AppNav({ isAdmin, onNavigate }: { isAdmin: boolean; onNavigate?:
             )}
             aria-current={active ? "page" : undefined}
           >
-            <item.icon className="size-4 shrink-0" />
-            {item.label}
+            <span className="grid size-5 shrink-0 place-items-center"><item.icon className="size-4" /></span>
+            <span className="min-w-0 truncate leading-none">{item.label}</span>
           </Link>
         );
       })}

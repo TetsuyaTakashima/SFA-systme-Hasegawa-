@@ -76,7 +76,7 @@ export async function saveTemperatureAction(formData: FormData) {
 export async function saveTargetTypeAction(formData: FormData) {
   await requireAdmin();
   const parsed = z.object({ original_key: z.string().optional(), key: z.string().trim().regex(/^[a-z0-9_-]+$/u).max(50), label: z.string().trim().min(1).max(100), sort_order: z.coerce.number().int().min(0), active: z.string().optional() }).parse(Object.fromEntries(formData));
-  if (parsed.original_key && parsed.original_key !== parsed.key) throw new Error("登録後の種別キーは変更できません。");
+  if (parsed.original_key && parsed.original_key !== parsed.key) throw new Error("登録後の区分キーは変更できません。");
   const supabase = await createClient();
   const { error } = await supabase.from("sales_target_types").upsert({ key: parsed.key, label: parsed.label, sort_order: parsed.sort_order, active: parsed.active === "true", updated_at: new Date().toISOString() }, { onConflict: "key" });
   if (error) throw new Error(error.message);

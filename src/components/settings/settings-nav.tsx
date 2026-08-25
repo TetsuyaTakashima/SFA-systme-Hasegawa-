@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { SALES_TARGET_LABELS } from "@/lib/ui-labels";
 
 const tabs = [
   { key: "import", label: "CSV取り込み" },
   { key: "users", label: "ユーザー" },
   { key: "masters", label: "状態・温度感" },
-  { key: "types", label: "営業先種別" },
+  { key: "types", label: `営業先${SALES_TARGET_LABELS.recordType}` },
 ] as const;
 
 export function SettingsNav({ active }: { active: string }) {

@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatJapaneseDate } from "@/lib/constants";
 import { getDashboardData } from "@/lib/data/dashboard";
+import { SALES_TARGET_LABELS } from "@/lib/ui-labels";
 import { requireProfile } from "@/lib/auth";
 
 export const metadata: Metadata = { title: "今日の営業" };
@@ -25,7 +26,7 @@ export default async function DashboardPage() {
       <PageHeader
         title={`おはようございます、${profile.name}さん`}
         description="今日対応する営業先を確認しましょう。"
-        actions={<Button asChild><Link href="/sales-targets"><ArrowRight className="size-4" />営業先一覧</Link></Button>}
+        actions={<Button asChild><Link href="/sales-targets"><ArrowRight className="size-4" />{SALES_TARGET_LABELS.list}</Link></Button>}
       />
 
       <section className="grid gap-3 sm:grid-cols-3" aria-label="営業状況の集計">

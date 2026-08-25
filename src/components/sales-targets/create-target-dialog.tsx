@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { MasterData } from "@/lib/types";
+import { SALES_TARGET_LABELS } from "@/lib/ui-labels";
 
 export function CreateTargetDialog({ masters }: { masters: MasterData }) {
   const [open, setOpen] = useState(false);
@@ -34,7 +35,7 @@ export function CreateTargetDialog({ masters }: { masters: MasterData }) {
           <div className="space-y-4 py-5">
             <div className="space-y-2"><Label htmlFor="new-facility-name">営業先名</Label><Input id="new-facility-name" name="facility_name" required autoFocus /></div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2"><Label>種別</Label><Select name="record_type" defaultValue={masters.targetTypes[0]?.key ?? "facility"}><SelectTrigger className="w-full"><SelectValue /></SelectTrigger><SelectContent>{masters.targetTypes.map((item) => <SelectItem key={item.key} value={item.key}>{item.label}</SelectItem>)}</SelectContent></Select></div>
+              <div className="space-y-2"><Label>{SALES_TARGET_LABELS.recordType}</Label><Select name="record_type" defaultValue={masters.targetTypes[0]?.key ?? "facility"}><SelectTrigger className="w-full"><SelectValue /></SelectTrigger><SelectContent>{masters.targetTypes.map((item) => <SelectItem key={item.key} value={item.key}>{item.label}</SelectItem>)}</SelectContent></Select></div>
               <div className="space-y-2"><Label htmlFor="new-prefecture">都道府県</Label><Input id="new-prefecture" name="prefecture" list="new-prefectures" /><datalist id="new-prefectures">{masters.prefectures.map((value) => <option key={value} value={value} />)}</datalist></div>
             </div>
             <div className="space-y-2"><Label>初期状態</Label><Select name="status" defaultValue={masters.statuses[0]?.name ?? "未着手"}><SelectTrigger className="w-full"><SelectValue /></SelectTrigger><SelectContent>{masters.statuses.map((item) => <SelectItem key={item.id} value={item.name}>{item.name}</SelectItem>)}</SelectContent></Select></div>
