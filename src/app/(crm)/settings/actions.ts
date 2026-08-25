@@ -44,6 +44,10 @@ export async function deleteUserAction(formData: FormData) {
   const current = await requireAdmin();
   const id = z.uuid().parse(formData.get("id"));
   if (id === current.id) throw new Error("自分自身を削除することはできません。");
+  const supabase = await createClient();
+  const { data: target, error: targetError } = await supabase.from("profiles").select("active").eq("id", id).maybeSingle();
+  if (targetError || !target) throw new Error("削除対象ユーザーが見つかりません。");
+  if (target.active) throw new Error("ユーザーを削除するには、先に停止してください。");
   const admin = createAdminClient();
   const { error } = await admin.auth.admin.deleteUser(id);
   if (error) throw new Error(error.message);
