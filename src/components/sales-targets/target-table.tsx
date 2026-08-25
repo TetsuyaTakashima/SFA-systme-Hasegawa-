@@ -16,7 +16,19 @@ export function TargetTable({ targets, masters, detailHref }: { targets: SalesTa
 
   return (
     <div className="overflow-x-auto">
-      <table className="data-grid w-full min-w-[1180px] text-sm">
+      <table className="data-grid w-full min-w-[1296px] table-fixed text-sm">
+        <colgroup>
+          <col className="w-[248px]" />
+          <col className="w-[80px]" />
+          <col className="w-[128px]" />
+          <col className="w-[136px]" />
+          <col className="w-[96px]" />
+          <col className="w-[72px]" />
+          <col className="w-[112px]" />
+          <col className="w-[112px]" />
+          <col className="w-[264px]" />
+          <col className="w-[48px]" />
+        </colgroup>
         <thead className="sticky top-16 z-10 bg-muted/95 text-left text-xs text-muted-foreground backdrop-blur">
           <tr><th className="h-10 px-3 font-medium">営業先</th><th className="px-3 font-medium">{SALES_TARGET_LABELS.recordType}</th><th className="px-3 font-medium">地域</th><th className="px-3 font-medium">電話番号</th><th className="px-3 font-medium">状態</th><th className="px-3 font-medium">温度感</th><th className="px-3 font-medium">営業担当</th><th className="px-3 font-medium">次回対応日</th><th className="px-3 font-medium">次回対応</th><th className="w-12 px-3"><span className="sr-only">詳細</span></th></tr>
         </thead>

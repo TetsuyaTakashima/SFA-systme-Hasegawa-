@@ -6,9 +6,12 @@ import { MobileNav } from "@/components/layout/mobile-nav";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { canImportSalesTargets } from "@/lib/permissions";
 import type { Profile } from "@/lib/types";
 
 export function AppShell({ profile, children }: { profile: Profile; children: React.ReactNode }) {
+  const canImport = canImportSalesTargets(profile);
+
   return (
     <div className="min-h-screen bg-background">
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:flex lg:flex-col">
@@ -16,7 +19,7 @@ export function AppShell({ profile, children }: { profile: Profile; children: Re
           <span className="grid size-9 place-items-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground"><Building2 className="size-4" /></span>
           <div className="min-w-0"><p className="truncate text-sm font-semibold">営業管理</p><p className="truncate text-[11px] text-sidebar-foreground/55">長谷川音楽事務所</p></div>
         </div>
-        <div className="flex-1 p-3"><AppNav isAdmin={profile.role === "admin"} /></div>
+        <div className="flex-1 p-3"><AppNav isAdmin={profile.role === "admin"} canImport={canImport} /></div>
         <div className="border-t border-sidebar-border p-3">
           <div className="mb-2 px-3 py-2">
             <div className="flex items-center gap-2"><p className="truncate text-sm font-medium">{profile.name}</p>{profile.role === "admin" ? <Badge variant="secondary" className="text-[10px]">管理者</Badge> : null}</div>
@@ -31,7 +34,7 @@ export function AppShell({ profile, children }: { profile: Profile; children: Re
       </aside>
       <div className="lg:pl-60">
         <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur md:px-6">
-          <div className="flex items-center gap-2"><MobileNav isAdmin={profile.role === "admin"} /><span className="text-sm font-medium lg:hidden">営業管理</span></div>
+          <div className="flex items-center gap-2"><MobileNav isAdmin={profile.role === "admin"} canImport={canImport} /><span className="text-sm font-medium lg:hidden">営業管理</span></div>
           <div className="flex items-center gap-1">
             <Button asChild variant="ghost" size="icon"><Link href="/notifications" aria-label="通知"><Bell className="size-4" /></Link></Button>
             <ThemeToggle />

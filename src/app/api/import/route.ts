@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { requireAdmin } from "@/lib/auth";
+import { requireProfile } from "@/lib/auth";
+import { canImportSalesTargets } from "@/lib/permissions";
 import { createClient } from "@/lib/supabase/server";
 
 const requestSchema = z.object({
@@ -36,7 +37,8 @@ function numberOrNull(input: string) { const parsed = Number.parseInt(input.repl
 function dateOrNull(input: string) { const normalized = input.replace(/[/.]/gu, "-"); return /^\d{4}-\d{1,2}-\d{1,2}$/u.test(normalized) ? normalized.split("-").map((part, index) => index ? part.padStart(2, "0") : part).join("-") : null; }
 
 export async function POST(request: NextRequest) {
-  const profile = await requireAdmin();
+  const profile = await requireProfile();
+  if (!canImportSalesTargets(profile)) return Response.json({ error: "CSVを取り込む権限がありません。" }, { status: 403 });
   const parsed = requestSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return Response.json({ error: "CSVデータの形式を確認してください。" }, { status: 400 });
   const supabase = await createClient();
@@ -66,7 +68,7 @@ export async function POST(request: NextRequest) {
       contact_name: textOrNull(value(row, "contact_name")), main_hall_name: textOrNull(value(row, "main_hall_name")), seat_count: numberOrNull(value(row, "seat_count")),
       large_hall_seats: numberOrNull(value(row, "large_hall_seats")), medium_hall_seats: numberOrNull(value(row, "medium_hall_seats")), small_hall_seats: numberOrNull(value(row, "small_hall_seats")),
       genres: textOrNull(value(row, "genres")), program_policy: ["○", "△", "×"].includes(policy) ? policy : "△", status: value(row, "status") || "未着手",
-      temperature: ["A", "B", "C", "D", "E"].includes(temperature) ? temperature : "B", is_hidden: false, assigned_user_id: profile.id,
+      temperature: ["A", "B", "C", "D", "E"].includes(temperature) ? temperature : "B", is_hidden: false, assigned_user_id: profile.role === "admin" ? profile.id : null,
       last_contact_date: dateOrNull(value(row, "last_contact_date")), consideration_date: dateOrNull(value(row, "consideration_date")), next_action_date: dateOrNull(value(row, "next_action_date")),
       notification_lead_days: numberOrNull(value(row, "notification_lead_days")), next_action: textOrNull(value(row, "next_action")), notes: textOrNull(value(row, "notes")), notes_important: false,
       updated_by: profile.id, updated_at: now,

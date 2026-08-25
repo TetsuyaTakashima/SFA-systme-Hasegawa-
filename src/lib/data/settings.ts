@@ -20,6 +20,17 @@ export async function getSettingsData() {
   };
 }
 
+export async function getImportTargetTypes() {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("sales_target_types")
+    .select("key,label,sort_order,active")
+    .eq("active", true)
+    .order("sort_order");
+  if (error) return [];
+  return (data ?? []) as SalesTargetType[];
+}
+
 export async function getImportCoverage() {
   const supabase = await createClient();
   const rpcResult = await supabase.rpc("sales_target_import_coverage");

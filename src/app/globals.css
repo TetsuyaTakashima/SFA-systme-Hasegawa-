@@ -148,13 +148,9 @@
 }
 
 @layer utilities {
-  .data-grid tbody tr {
-    content-visibility: auto;
-    contain-intrinsic-size: 44px;
-  }
-
   .data-grid th,
   .data-grid td {
+    vertical-align: middle;
     white-space: nowrap;
   }
 }

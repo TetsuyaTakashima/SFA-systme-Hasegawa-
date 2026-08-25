@@ -6,7 +6,7 @@ import { AppNav } from "@/components/layout/app-nav";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
-export function MobileNav({ isAdmin }: { isAdmin: boolean }) {
+export function MobileNav({ isAdmin, canImport }: { isAdmin: boolean; canImport: boolean }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -21,7 +21,7 @@ export function MobileNav({ isAdmin }: { isAdmin: boolean }) {
             営業管理
           </SheetTitle>
         </SheetHeader>
-        <div className="p-3"><AppNav isAdmin={isAdmin} onNavigate={() => setOpen(false)} /></div>
+        <div className="p-3"><AppNav isAdmin={isAdmin} canImport={canImport} onNavigate={() => setOpen(false)} /></div>
       </SheetContent>
     </Sheet>
   );
