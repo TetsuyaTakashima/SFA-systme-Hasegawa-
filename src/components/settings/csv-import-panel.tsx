@@ -62,7 +62,7 @@ export function CsvImportPanel({ targetTypes, prefectures }: { targetTypes: Sale
       <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px_220px]">
         <div className="space-y-2"><Label htmlFor="csv-file">CSVファイル</Label><Input id="csv-file" type="file" accept=".csv,text/csv" onChange={(event) => selectFile(event.target.files?.[0])} /><p className="text-xs text-muted-foreground">{fileName || "ファイル未選択"}</p></div>
         <div className="space-y-2"><Label>{`取り込み${SALES_TARGET_LABELS.recordType}`}</Label><Select value={recordType} onValueChange={setRecordType}><SelectTrigger className="w-full"><SelectValue /></SelectTrigger><SelectContent>{targetTypes.map((item) => <SelectItem key={item.key} value={item.key}>{item.label}</SelectItem>)}</SelectContent></Select></div>
-        <div className="space-y-2"><Label>都道府県の補完</Label><Select value={prefecture} onValueChange={setPrefecture}><SelectTrigger className="w-full"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="csv">CSVの値を使用</SelectItem>{prefectures.map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}</SelectContent></Select></div>
+        <div className="space-y-2"><Label htmlFor="csv-prefecture">取り込み先の都道府県</Label><Select value={prefecture} onValueChange={setPrefecture}><SelectTrigger id="csv-prefecture" className="w-full"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="csv">CSV内の都道府県を使用</SelectItem>{prefectures.map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}</SelectContent></Select></div>
       </div>
       <label className="mt-4 flex items-center gap-3 text-sm"><Switch checked={mergeDuplicates} onCheckedChange={setMergeDuplicates} />同名・同地域の営業先は更新する</label>
 

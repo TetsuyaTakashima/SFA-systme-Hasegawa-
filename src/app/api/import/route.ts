@@ -1,13 +1,15 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { requireProfile } from "@/lib/auth";
+import { PREFECTURES } from "@/lib/constants";
+import { resolveImportPrefecture } from "@/lib/import-fields";
 import { canImportSalesTargets } from "@/lib/permissions";
 import { createClient } from "@/lib/supabase/server";
 
 const requestSchema = z.object({
   rows: z.array(z.record(z.string(), z.unknown())).min(1).max(250),
   recordType: z.string().trim().min(1).max(50),
-  prefecture: z.string().trim().max(20).optional(),
+  prefecture: z.union([z.enum(PREFECTURES), z.literal("")]).optional(),
   mergeDuplicates: z.boolean().default(true),
 });
 
@@ -55,7 +57,7 @@ export async function POST(request: NextRequest) {
   }
 
   const venueRows = incoming.map(({ row, name }) => {
-    const prefecture = value(row, "prefecture") || parsed.data.prefecture || "";
+    const prefecture = resolveImportPrefecture(value(row, "prefecture"), parsed.data.prefecture);
     const municipality = value(row, "municipality");
     const existing = existingByKey.get(`${name}\u0000${prefecture}\u0000${municipality}`);
     const temperature = value(row, "temperature").toUpperCase();

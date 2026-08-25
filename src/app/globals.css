@@ -146,11 +146,3 @@
     background: color-mix(in oklab, var(--primary) 24%, transparent);
   }
 }
-
-@layer utilities {
-  .data-grid th,
-  .data-grid td {
-    vertical-align: middle;
-    white-space: nowrap;
-  }
-}
