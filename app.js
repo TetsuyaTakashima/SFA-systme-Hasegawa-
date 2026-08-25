@@ -1071,7 +1071,7 @@ async function loadListSupportData() {
 function getVenueListFilters() {
   return {
     search: elements.searchInput?.value ?? "",
-    status: elements.statusFilter?.value ?? "",
+    status: getSelectedStatusFilters(),
     prefecture: elements.prefectureFilter?.value ?? "",
     assignee: elements.assigneeFilter?.value ?? "",
     lastCaller: elements.lastCallerFilter?.value ?? "",
@@ -1181,12 +1181,11 @@ function updateManagementMenuAccess() {
 
 function populateStaticFilters() {
   if (elements.statusFilter) {
-    const current = elements.statusFilter.value;
-    elements.statusFilter.replaceChildren(new Option("すべて", ""));
+    const selectedStatuses = new Set(getSelectedStatusFilters());
+    elements.statusFilter.replaceChildren();
     statusOptions.forEach((status) => {
-      elements.statusFilter.append(new Option(status, status));
+      elements.statusFilter.append(new Option(status, status, false, selectedStatuses.has(status)));
     });
-    elements.statusFilter.value = statusOptions.includes(current) ? current : "";
   }
 
   if (elements.priorityFilter) {
@@ -2258,7 +2257,9 @@ function renameStatusOption(previousStatus, nextValue, metaUpdates = {}) {
   if (renamed) {
     statusOptions = statusOptions.map((status) => (status === previousStatus ? nextStatus : status));
     venues = venues.map((venue) => (venue.status === previousStatus ? { ...venue, status: nextStatus } : venue));
-    if (elements.statusFilter?.value === previousStatus) elements.statusFilter.value = nextStatus;
+    if (getSelectedStatusFilters().includes(previousStatus)) {
+      setSelectedStatusFilters(getSelectedStatusFilters().map((status) => (status === previousStatus ? nextStatus : status)));
+    }
     delete statusMeta[previousStatus];
   }
 
@@ -2625,7 +2626,7 @@ function importChecklistCell(count, label) {
 
 function getFilteredVenues() {
   const query = normalize(elements.searchInput?.value ?? "");
-  const status = elements.statusFilter?.value ?? "";
+  const statuses = getSelectedStatusFilters();
   const prefecture = elements.prefectureFilter?.value ?? "";
   const assignee = elements.assigneeFilter?.value ?? "";
   const lastCaller = elements.lastCallerFilter?.value ?? "";
@@ -2674,7 +2675,7 @@ function getFilteredVenues() {
       );
       return (
         (!query || haystack.includes(query)) &&
-        (!status || venue.status === status) &&
+        (!statuses.length || statuses.includes(venue.status)) &&
         (!prefecture || venuePrefecture === prefecture) &&
         matchesAssigneeFilter(venue, assignee) &&
         matchesLastCallerFilter(venue, lastCaller) &&
@@ -4235,14 +4236,15 @@ function jumpToVenue(id) {
 
 function resetFiltersForVenueJump() {
   if (elements.searchInput) elements.searchInput.value = "";
-  [elements.statusFilter, elements.prefectureFilter, elements.assigneeFilter, elements.lastCallerFilter, elements.priorityFilter, elements.recordTypeFilter, elements.visibilityFilter].forEach((select) => {
+  clearSelectedStatusFilters();
+  [elements.prefectureFilter, elements.assigneeFilter, elements.lastCallerFilter, elements.priorityFilter, elements.recordTypeFilter, elements.visibilityFilter].forEach((select) => {
     if (select) select.value = "";
   });
 }
 
 function resetListFilters() {
   if (elements.searchInput) elements.searchInput.value = "";
-  if (elements.statusFilter) elements.statusFilter.value = "";
+  clearSelectedStatusFilters();
   if (elements.prefectureFilter) elements.prefectureFilter.value = "";
   if (elements.assigneeFilter) elements.assigneeFilter.value = "";
   if (elements.lastCallerFilter) elements.lastCallerFilter.value = "";
@@ -4251,6 +4253,24 @@ function resetListFilters() {
   if (elements.visibilityFilter) elements.visibilityFilter.value = "visible";
   if (elements.sortSelect) elements.sortSelect.value = "nextActionDate";
   requestVenueListRefresh(true);
+}
+
+function getSelectedStatusFilters() {
+  return [...(elements.statusFilter?.selectedOptions ?? [])]
+    .map((option) => option.value)
+    .filter((status) => statusOptions.includes(status));
+}
+
+function setSelectedStatusFilters(statuses = []) {
+  if (!elements.statusFilter) return;
+  const selectedStatuses = new Set(statuses);
+  [...elements.statusFilter.options].forEach((option) => {
+    option.selected = selectedStatuses.has(option.value);
+  });
+}
+
+function clearSelectedStatusFilters() {
+  setSelectedStatusFilters([]);
 }
 
 function scrollToVenue(id) {

@@ -1091,6 +1091,15 @@ h2 {
   color: var(--text);
 }
 
+select[multiple] {
+  min-height: 112px;
+  padding: 4px;
+}
+
+select[multiple] option {
+  padding: 6px 8px;
+}
+
 .record-type-pill {
   display: inline-flex;
   min-width: 42px;

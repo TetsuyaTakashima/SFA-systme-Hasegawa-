@@ -141,7 +141,9 @@
     const sort = getVenueSort(filters.sort);
     let query = client.from("venues").select("*", { count: "exact" });
 
-    if (filters.status) query = query.eq("status", filters.status);
+    const statuses = (Array.isArray(filters.status) ? filters.status : [filters.status]).filter(Boolean);
+    if (statuses.length === 1) query = query.eq("status", statuses[0]);
+    if (statuses.length > 1) query = query.in("status", statuses);
     if (filters.prefecture) query = query.eq("prefecture", filters.prefecture);
     if (filters.assignee === "__current" && filters.currentUserId) query = query.eq("assigned_user_id", filters.currentUserId);
     if (filters.assignee === "__unassigned") query = query.is("assigned_user_id", null);
@@ -778,6 +780,14 @@
 
     eq(column, value) {
       this.params.set(column, `eq.${encodeRestFilterValue(value)}`);
+      return this;
+    }
+
+    in(column, values) {
+      const list = (Array.isArray(values) ? values : [values])
+        .filter((value) => value !== null && value !== undefined)
+        .map((value) => encodeRestFilterValue(value));
+      this.params.set(column, `in.(${list.join(",")})`);
       return this;
     }
 
