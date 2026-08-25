@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { requireProfile } from "@/lib/auth";
 import { getMasterData } from "@/lib/data/masters";
 import { getSalesTarget, getSalesTargetPage } from "@/lib/data/sales-targets";
+import { canCreateSalesTargets } from "@/lib/permissions";
 import { parseSalesTargetFilters } from "@/lib/sales-target-filters";
 
 export const metadata: Metadata = { title: "営業先一覧" };
@@ -43,7 +44,7 @@ export default async function SalesTargetsPage({ searchParams }: { searchParams:
       <PageHeader
         title="営業先一覧"
         description={`${pageData.total.toLocaleString()}件の営業先を検索・編集できます。`}
-        actions={<><Button asChild variant="outline"><a href={`/api/export?${baseParams.toString()}`}><Download className="size-4" />CSV出力</a></Button>{profile.role === "admin" ? <CreateTargetDialog masters={masters} /> : null}</>}
+        actions={<><Button asChild variant="outline"><a href={`/api/export?${baseParams.toString()}`}><Download className="size-4" />CSV出力</a></Button>{canCreateSalesTargets(profile) ? <CreateTargetDialog masters={masters} /> : null}</>}
       />
       <section className="overflow-hidden rounded-md border bg-card shadow-xs">
         <FilterBar masters={masters} isAdmin={profile.role === "admin"} />

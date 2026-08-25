@@ -13,6 +13,7 @@ export const metadata: Metadata = { title: "対応履歴" };
 const fieldLabels: Record<string, string> = {
   facility_name: "営業先名", record_type: "種別", assigned_user_id: "営業担当", status: "状態", temperature: "温度感",
   next_action_date: "次回対応日", next_action: "次回対応", notes: "メモ", phone: "電話番号", is_hidden: "表示設定",
+  can_create_sales_targets: "営業先追加権限",
 };
 
 export default async function HistoryPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {

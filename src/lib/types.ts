@@ -8,6 +8,7 @@ export interface Profile {
   email: string | null;
   role: UserRole;
   active: boolean;
+  can_create_sales_targets: boolean;
   created_at: string;
   updated_at: string;
 }

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireProfile } from "@/lib/auth";
+import { canCreateSalesTargets } from "@/lib/permissions";
 import { createClient } from "@/lib/supabase/server";
 
 export interface TargetActionState { success?: string; error?: string; conflict?: boolean }
@@ -119,7 +120,7 @@ const createSchema = z.object({
 
 export async function createSalesTargetAction(_previous: TargetActionState, formData: FormData): Promise<TargetActionState & { id?: string }> {
   const profile = await requireProfile();
-  if (profile.role !== "admin") return { error: "営業先を追加できるのは管理者のみです。" };
+  if (!canCreateSalesTargets(profile)) return { error: "営業先を追加する権限がありません。" };
   const parsed = createSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "入力内容を確認してください。" };
 

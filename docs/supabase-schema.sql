@@ -8,6 +8,7 @@ create table public.profiles (
   email text,
   role public.user_role not null default 'staff',
   active boolean not null default true,
+  can_create_sales_targets boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

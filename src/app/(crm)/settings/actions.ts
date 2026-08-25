@@ -32,10 +32,10 @@ export async function createUserAction(_state: SettingsActionState, formData: Fo
 
 export async function updateUserAction(formData: FormData) {
   const current = await requireAdmin();
-  const parsed = z.object({ id: z.uuid(), name: z.string().trim().min(1), role: z.enum(["admin", "staff"]), active: z.enum(["true", "false"]) }).parse(Object.fromEntries(formData));
+  const parsed = z.object({ id: z.uuid(), name: z.string().trim().min(1), role: z.enum(["admin", "staff"]), active: z.enum(["true", "false"]), can_create_sales_targets: z.enum(["true", "false"]) }).parse(Object.fromEntries(formData));
   if (parsed.id === current.id && parsed.active === "false") throw new Error("自分自身を停止することはできません。");
   const supabase = await createClient();
-  const { error } = await supabase.from("profiles").update({ name: parsed.name, role: parsed.role, active: parsed.active === "true", updated_at: new Date().toISOString() }).eq("id", parsed.id);
+  const { error } = await supabase.from("profiles").update({ name: parsed.name, role: parsed.role, active: parsed.active === "true", can_create_sales_targets: parsed.can_create_sales_targets === "true", updated_at: new Date().toISOString() }).eq("id", parsed.id);
   if (error) throw new Error(error.message);
   revalidatePath("/settings");
 }
