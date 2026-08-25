@@ -59,6 +59,7 @@ describe("TargetTable", () => {
     render(<TargetTable targets={[target]} masters={masters} detailHref={() => "/sales-targets" as Route} />);
 
     const table = screen.getByRole("table", { name: "営業先一覧" });
+    expect(within(table).getAllByRole("rowgroup")[0]).not.toHaveClass("sticky");
     expect(within(table).getAllByRole("columnheader").map((header) => header.textContent)).toEqual([
       "営業先", "区分", "地域", "電話番号", "状態", "温度感", "営業担当", "次回対応日", "次回対応", "詳細",
     ]);

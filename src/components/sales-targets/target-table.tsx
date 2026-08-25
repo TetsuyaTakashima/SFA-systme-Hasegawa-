@@ -22,7 +22,7 @@ export function TargetTable({ targets, masters, detailHref }: { targets: SalesTa
   return (
     <div className="overflow-x-auto">
       <div role="table" aria-label={SALES_TARGET_LABELS.list} aria-rowcount={targets.length + 1} className="w-full min-w-[1328px] text-sm">
-        <div role="rowgroup" className="sticky top-16 z-10 bg-muted/95 text-left text-xs text-muted-foreground backdrop-blur">
+        <div role="rowgroup" className="bg-muted/95 text-left text-xs text-muted-foreground">
           <div role="row" className="grid h-10 items-center" style={targetGridStyle}>
             <div role="columnheader" className="px-3 font-medium">営業先</div>
             <div role="columnheader" className="px-3 font-medium">{SALES_TARGET_LABELS.recordType}</div>
