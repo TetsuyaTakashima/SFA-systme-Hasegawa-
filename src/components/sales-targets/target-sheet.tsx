@@ -67,7 +67,7 @@ export function TargetSheet({ target, masters, isAdmin }: { target: SalesTarget 
                 </TabsList>
               </div>
               <div className="h-[calc(100vh-210px)] overflow-y-auto px-5 py-5">
-                <TabsContent value="sales" className="mt-0 space-y-5">
+                <TabsContent forceMount value="sales" className="mt-0 space-y-5 data-[state=inactive]:hidden">
                   <div className="grid gap-4 sm:grid-cols-2">
                     <SelectField label="状態" name="status" value={target.status} items={masters.statuses.map((item) => ({ value: item.name, label: item.name }))} />
                     <SelectField label="温度感" name="temperature" value={target.temperature} items={masters.temperatures.map((item) => ({ value: item.level, label: `${item.level} · ${item.label}` }))} />
@@ -84,7 +84,7 @@ export function TargetSheet({ target, masters, isAdmin }: { target: SalesTarget 
                   <label className="flex items-center gap-2 text-sm font-medium"><input type="checkbox" name="notes_important" value="true" defaultChecked={target.notes_important} className="size-4 accent-primary" />重要メモとして表示</label>
                 </TabsContent>
 
-                <TabsContent value="contact" className="mt-0 space-y-4">
+                <TabsContent forceMount value="contact" className="mt-0 space-y-4 data-[state=inactive]:hidden">
                   <div className="grid gap-4 sm:grid-cols-2">
                     <Field label="電話番号" name="phone" value={target.phone} inputMode="tel" />
                     <Field label="FAX" name="fax" value={target.fax} inputMode="tel" />
@@ -98,7 +98,7 @@ export function TargetSheet({ target, masters, isAdmin }: { target: SalesTarget 
                   </div>
                 </TabsContent>
 
-                <TabsContent value="details" className="mt-0 space-y-4">
+                <TabsContent forceMount value="details" className="mt-0 space-y-4 data-[state=inactive]:hidden">
                   <Field label="営業先名" name="facility_name" value={target.facility_name} required />
                   <div className="grid gap-4 sm:grid-cols-2">
                     {isAdmin ? (

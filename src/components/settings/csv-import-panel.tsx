@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { decodeCsvBuffer, type CsvEncoding } from "@/lib/csv-encoding";
 import type { SalesTargetType } from "@/lib/types";
 import { SALES_TARGET_LABELS } from "@/lib/ui-labels";
 
@@ -20,6 +21,7 @@ type CsvRow = Record<string, string>;
 export function CsvImportPanel({ targetTypes, prefectures }: { targetTypes: SalesTargetType[]; prefectures: string[] }) {
   const [rows, setRows] = useState<CsvRow[]>([]);
   const [fileName, setFileName] = useState("");
+  const [fileEncoding, setFileEncoding] = useState<CsvEncoding | null>(null);
   const [recordType, setRecordType] = useState(targetTypes[0]?.key ?? "facility");
   const [prefecture, setPrefecture] = useState("csv");
   const [mergeDuplicates, setMergeDuplicates] = useState(true);
@@ -29,13 +31,17 @@ export function CsvImportPanel({ targetTypes, prefectures }: { targetTypes: Sale
 
   async function selectFile(file: File | undefined) {
     if (!file) return;
-    const buffer = await file.arrayBuffer();
-    let text = new TextDecoder("utf-8").decode(buffer);
-    if (text.includes("\uFFFD")) text = new TextDecoder("shift-jis").decode(buffer);
-    const result = Papa.parse<CsvRow>(text.replace(/^\uFEFF/u, ""), { header: true, skipEmptyLines: "greedy", transformHeader: (header) => header.trim() });
-    if (result.errors.length && !result.data.length) { toast.error("CSVを読み取れませんでした。"); return; }
-    const clean = result.data.filter((row) => Object.values(row).some((value) => String(value ?? "").trim()));
-    setRows(clean); setFileName(file.name); setProgress(0);
+    try {
+      const decoded = decodeCsvBuffer(await file.arrayBuffer());
+      const result = Papa.parse<CsvRow>(decoded.text, { header: true, skipEmptyLines: "greedy", transformHeader: (header) => header.trim() });
+      if (result.errors.length && !result.data.length) throw new Error("CSVを読み取れませんでした。");
+      const clean = result.data.filter((row) => Object.values(row).some((value) => String(value ?? "").trim()));
+      if (!clean.length) throw new Error("取り込み可能なデータ行が見つかりませんでした。");
+      setRows(clean); setFileName(file.name); setFileEncoding(decoded.encoding); setProgress(0);
+    } catch (error) {
+      setRows([]); setFileName(""); setFileEncoding(null); setProgress(0);
+      toast.error(error instanceof Error ? error.message : "CSVを読み取れませんでした。");
+    }
   }
 
   async function importRows() {
@@ -51,16 +57,16 @@ export function CsvImportPanel({ targetTypes, prefectures }: { targetTypes: Sale
         setProgress(Math.min(100, Math.round(((index + 200) / rows.length) * 100)));
       }
       toast.success(`${inserted}件追加、${updated}件更新しました。${conflicts ? ` ${conflicts}件は競合しました。` : ""}`);
-      setRows([]); setFileName(""); setProgress(100);
+      setRows([]); setFileName(""); setFileEncoding(null); setProgress(100);
     } catch (error) { toast.error(error instanceof Error ? error.message : "取り込みに失敗しました。"); }
     finally { setBusy(false); }
   }
 
   return (
     <section className="p-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><h2 className="text-sm font-semibold">CSVファイルを取り込む</h2><p className="mt-1 text-xs text-muted-foreground">UTF-8とShift-JISに対応。200件ずつ安全に取り込みます。</p></div><Button asChild variant="outline" size="sm"><a href="/api/sample-csv"><Download className="size-4" />サンプルCSV</a></Button></div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><h2 className="text-sm font-semibold">CSVファイルを取り込む</h2><p className="mt-1 text-xs text-muted-foreground">UTF-8、Shift-JIS、UTF-16に対応。200件ずつ安全に取り込みます。</p></div><Button asChild variant="outline" size="sm"><a href="/api/sample-csv"><Download className="size-4" />サンプルCSV</a></Button></div>
       <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px_220px]">
-        <div className="space-y-2"><Label htmlFor="csv-file">CSVファイル</Label><Input id="csv-file" type="file" accept=".csv,text/csv" onChange={(event) => selectFile(event.target.files?.[0])} /><p className="text-xs text-muted-foreground">{fileName || "ファイル未選択"}</p></div>
+        <div className="space-y-2"><Label htmlFor="csv-file">CSVファイル</Label><Input id="csv-file" type="file" accept=".csv,text/csv" onChange={(event) => selectFile(event.target.files?.[0])} /><p className="text-xs text-muted-foreground">{fileName ? `${fileName}（${fileEncoding}）` : "ファイル未選択"}</p></div>
         <div className="space-y-2"><Label>{`取り込み${SALES_TARGET_LABELS.recordType}`}</Label><Select value={recordType} onValueChange={setRecordType}><SelectTrigger className="w-full"><SelectValue /></SelectTrigger><SelectContent>{targetTypes.map((item) => <SelectItem key={item.key} value={item.key}>{item.label}</SelectItem>)}</SelectContent></Select></div>
         <div className="space-y-2"><Label htmlFor="csv-prefecture">取り込み先の都道府県</Label><Select value={prefecture} onValueChange={setPrefecture}><SelectTrigger id="csv-prefecture" className="w-full"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="csv">CSV内の都道府県を使用</SelectItem>{prefectures.map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}</SelectContent></Select></div>
       </div>
