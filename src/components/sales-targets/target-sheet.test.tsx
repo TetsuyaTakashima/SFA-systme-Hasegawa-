@@ -75,4 +75,17 @@ describe("TargetSheet", () => {
     expect(formData.get("phone")).toBe("03-1234-5678");
     expect(formData.get("facility_name")).toBe("文化会館");
   });
+
+  it("keeps a legacy non-email value without browser validation blocking the form", () => {
+    const legacyTarget = { ...target, email: "↑高校と一緒" };
+    const { container } = render(<TargetSheet target={legacyTarget} masters={masters} isAdmin />);
+    const forms = container.ownerDocument.querySelectorAll("form");
+    const form = forms.item(forms.length - 1);
+    const email = form.querySelector<HTMLInputElement>('input[name="email"]');
+
+    expect(form).not.toHaveAttribute("novalidate");
+    expect(email?.type).toBe("text");
+    expect(email).toBeValid();
+    expect(new FormData(form!).get("email")).toBe("↑高校と一緒");
+  });
 });

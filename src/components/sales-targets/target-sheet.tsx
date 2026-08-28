@@ -88,10 +88,10 @@ export function TargetSheet({ target, masters, isAdmin }: { target: SalesTarget 
                   <div className="grid gap-4 sm:grid-cols-2">
                     <Field label="電話番号" name="phone" value={target.phone} inputMode="tel" />
                     <Field label="FAX" name="fax" value={target.fax} inputMode="tel" />
-                    <Field label="メール" name="email" type="email" value={target.email} />
+                    <Field label="メール" name="email" value={target.email} inputMode="email" />
                     <div className="space-y-2 sm:col-span-2">
                       <Label htmlFor="website">Webサイト</Label>
-                      <div className="flex gap-2"><Input id="website" name="website" type="url" defaultValue={target.website ?? ""} /><Button asChild variant="outline" size="icon" disabled={!target.website}><a href={target.website ?? "#"} target="_blank" rel="noreferrer" aria-label="Webサイトを開く"><ExternalLink className="size-4" /></a></Button></div>
+                      <div className="flex gap-2"><Input id="website" name="website" inputMode="url" defaultValue={target.website ?? ""} /><Button asChild variant="outline" size="icon" disabled={!target.website}><a href={target.website ?? "#"} target="_blank" rel="noreferrer" aria-label="Webサイトを開く"><ExternalLink className="size-4" /></a></Button></div>
                     </div>
                     <Field label={SALES_TARGET_LABELS.department} name="department" value={target.department} />
                     <Field label={SALES_TARGET_LABELS.contactName} name="contact_name" value={target.contact_name} />

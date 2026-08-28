@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireProfile } from "@/lib/auth";
 import { canCreateSalesTargets } from "@/lib/permissions";
+import { validateChangedContactFields } from "@/lib/sales-target-contact-validation";
 import { createClient } from "@/lib/supabase/server";
 
 export interface TargetActionState { success?: string; error?: string; conflict?: boolean }
@@ -30,8 +31,8 @@ const targetSchema = z.object({
   address: nullableText,
   phone: nullableText,
   fax: nullableText,
-  email: z.union([z.literal(""), z.email("メールアドレスを確認してください。")]).transform((value) => value || null),
-  website: z.union([z.literal(""), z.url("URLを確認してください。")]).transform((value) => value || null),
+  email: nullableText,
+  website: nullableText,
   department: nullableText,
   contact_name: nullableText,
   main_hall_name: nullableText,
@@ -73,6 +74,8 @@ export async function updateSalesTargetAction(
   const supabase = await createClient();
   const { data: previous, error: previousError } = await supabase.from("venues").select("*").eq("id", id).maybeSingle();
   if (previousError || !previous) return { error: "更新対象が見つかりません。" };
+  const contactError = validateChangedContactFields(parsed.data, previous);
+  if (contactError) return { error: contactError };
 
   const update = { ...parsed.data, updated_by: profile.id } as Record<string, unknown>;
   if (profile.role !== "admin") {
