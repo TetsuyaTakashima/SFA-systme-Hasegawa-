@@ -41,14 +41,16 @@ export function TargetTable({ targets, masters, detailHref }: { targets: SalesTa
             const status = statusMeta.get(target.status);
             const region = [target.prefecture, target.municipality].filter(Boolean).join(" ") || "-";
             const assignee = target.assigned_user_id ? profileNames.get(target.assigned_user_id) ?? "不明" : "未割当";
+            const notes = target.notes?.replace(/\s+/gu, " ").trim() || "-";
             return (
-              <div key={target.id} role="row" className="grid min-h-14 items-start bg-card hover:bg-muted/45" style={targetGridStyle}>
+              <div key={target.id} role="row" className="grid min-h-18 items-start bg-card hover:bg-muted/45" style={targetGridStyle}>
                 <div role="cell" className="min-w-0 overflow-hidden px-3 py-2">
                   <div className="flex min-w-0 items-center gap-2">
-                    <Link href={detailHref(target.id)} title={target.facility_name} className="min-w-0 truncate font-medium hover:underline">{target.facility_name}</Link>
+                    <Link href={detailHref(target.id)} scroll={false} title={target.facility_name} className="min-w-0 truncate font-medium hover:underline">{target.facility_name}</Link>
                     {target.notes_important ? <Flag className="size-3.5 shrink-0 fill-warning text-warning" aria-label="重要メモあり" /> : null}
                   </div>
                   <p className="truncate text-xs text-muted-foreground">{target.category || target.operator || "-"}</p>
+                  <p title={notes} className="truncate text-[11px] text-muted-foreground/75">備考: {notes}</p>
                 </div>
                 <div role="cell" className="min-w-0 overflow-hidden px-3 py-2"><Badge variant="secondary">{typeLabels.get(target.record_type) ?? target.record_type}</Badge></div>
                 <div role="cell" className="min-w-0 overflow-hidden px-3 py-2 text-muted-foreground"><span title={region} className="block truncate">{region}</span></div>
@@ -60,7 +62,7 @@ export function TargetTable({ targets, masters, detailHref }: { targets: SalesTa
                 <div role="cell" className="min-w-0 overflow-hidden px-3 py-2 text-muted-foreground"><span title={assignee} className="block truncate">{assignee}</span></div>
                 <div role="cell" className="min-w-0 overflow-hidden px-3 py-2"><span className={target.next_action_date && target.next_action_date < new Date().toISOString().slice(0, 10) ? "font-medium text-destructive" : ""}>{formatJapaneseDate(target.next_action_date)}</span></div>
                 <div role="cell" className="min-w-0 overflow-hidden px-3 py-2 text-muted-foreground"><span title={target.next_action || "-"} className="block truncate">{target.next_action || "-"}</span></div>
-                <div role="cell" className="px-2 py-1.5"><Button asChild variant="ghost" size="icon-sm"><Link href={detailHref(target.id)} aria-label={`${target.facility_name}を編集`}><ArrowUpRight className="size-4" /></Link></Button></div>
+                <div role="cell" className="px-2 py-1.5"><Button asChild variant="ghost" size="icon-sm"><Link href={detailHref(target.id)} scroll={false} aria-label={`${target.facility_name}を編集`}><ArrowUpRight className="size-4" /></Link></Button></div>
               </div>
             );
           })}

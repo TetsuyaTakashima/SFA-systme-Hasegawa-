@@ -37,7 +37,8 @@ export function TargetSheet({ target, masters, isAdmin }: { target: SalesTarget 
   function close() {
     const next = new URLSearchParams(searchParams.toString());
     next.delete("target");
-    router.push(`${pathname}?${next.toString()}` as Route, { scroll: false });
+    const query = next.toString();
+    router.replace((query ? `${pathname}?${query}` : pathname) as Route, { scroll: false });
   }
 
   function deleteTarget() {

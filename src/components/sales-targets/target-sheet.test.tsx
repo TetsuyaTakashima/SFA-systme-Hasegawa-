@@ -1,11 +1,13 @@
-import { render } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TargetSheet } from "@/components/sales-targets/target-sheet";
 import type { MasterData, SalesTarget } from "@/lib/types";
 
+const replace = vi.fn();
+
 vi.mock("next/navigation", () => ({
   usePathname: () => "/sales-targets",
-  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+  useRouter: () => ({ replace, refresh: vi.fn() }),
   useSearchParams: () => new URLSearchParams("target=target-1"),
 }));
 
@@ -65,6 +67,8 @@ const masters: MasterData = {
 };
 
 describe("TargetSheet", () => {
+  beforeEach(() => replace.mockClear());
+
   it("submits fields from every tab when saving a status", () => {
     const { container } = render(<TargetSheet target={target} masters={masters} isAdmin />);
     const form = container.ownerDocument.querySelector("form");
@@ -87,5 +91,13 @@ describe("TargetSheet", () => {
     expect(email?.type).toBe("text");
     expect(email).toBeValid();
     expect(new FormData(form!).get("email")).toBe("↑高校と一緒");
+  });
+
+  it("closes the detail without scrolling the list to the top", () => {
+    render(<TargetSheet target={target} masters={masters} isAdmin />);
+
+    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
+
+    expect(replace).toHaveBeenCalledWith("/sales-targets", { scroll: false });
   });
 });

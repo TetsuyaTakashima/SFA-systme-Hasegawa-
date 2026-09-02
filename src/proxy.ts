@@ -45,8 +45,10 @@ export async function proxy(request: NextRequest) {
 
   if (!signedIn && !isLogin) {
     const loginUrl = request.nextUrl.clone();
+    const destination = `${request.nextUrl.pathname}${request.nextUrl.search}`;
     loginUrl.pathname = "/login";
-    loginUrl.searchParams.set("next", `${request.nextUrl.pathname}${request.nextUrl.search}`);
+    loginUrl.search = "";
+    loginUrl.searchParams.set("next", destination);
     response = NextResponse.redirect(loginUrl);
   } else if (signedIn && isLogin) {
     const dashboardUrl = request.nextUrl.clone();

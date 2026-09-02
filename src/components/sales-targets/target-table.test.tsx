@@ -1,8 +1,14 @@
 import type { Route } from "next";
 import { render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { TargetTable } from "@/components/sales-targets/target-table";
 import type { MasterData, SalesTarget } from "@/lib/types";
+
+vi.mock("next/link", () => ({
+  default: ({ scroll, ...props }: React.ComponentProps<"a"> & { scroll?: boolean }) => (
+    <a {...props} data-scroll={String(scroll)} />
+  ),
+}));
 
 const target: SalesTarget = {
   id: "11111111-1111-1111-1111-111111111111",
@@ -37,7 +43,7 @@ const target: SalesTarget = {
   next_action_date: null,
   notification_lead_days: null,
   next_action: null,
-  notes: null,
+  notes: "次回は秋公演の資料を持参する",
   notes_important: false,
   created_by: null,
   updated_by: null,
@@ -71,8 +77,11 @@ describe("TargetTable", () => {
     expect(cells[0]).toHaveTextContent(target.facility_name);
     expect(cells[2]).toHaveTextContent("東京都 新宿区");
     expect(cells[3]).toHaveTextContent("03-1234-5678");
+    expect(cells[0]).toHaveTextContent("備考: 次回は秋公演の資料を持参する");
     expect(cells[0]).toHaveClass("overflow-hidden");
     expect(cells[2]).toHaveClass("overflow-hidden");
     expect(cells[3]).toHaveClass("overflow-hidden");
+    expect(within(rows[1]!).getByRole("link", { name: target.facility_name })).toHaveAttribute("data-scroll", "false");
+    expect(within(rows[1]!).getByRole("link", { name: `${target.facility_name}を編集` })).toHaveAttribute("data-scroll", "false");
   });
 });
